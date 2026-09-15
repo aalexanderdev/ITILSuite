@@ -96,7 +96,7 @@ export const RoadmapCard: React.FC = () => {
                   >
                     {step.version}
                   </span>
-                  <strong style={{ fontSize: '0.85rem', color: isDone ? '#e2e8f0' : '#cbd5e1' }}>
+                  <strong style={{ fontSize: '0.85rem', color: 'var(--text-primary)' }}>
                     {step.title}
                   </strong>
                 </div>

@@ -1,6 +1,40 @@
-import type { HealthResponse, VersionResponse } from '../types';
+import type {
+  HealthResponse,
+  VersionResponse,
+  AuthUser,
+  LoginResponse,
+  EntityTreeNode,
+  CreateEntityPayload,
+  UserSummary,
+} from '../types';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8081';
+export const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8081';
+
+const TOKEN_KEY = 'itilsuite_jwt_token';
+
+export function getStoredToken(): string | null {
+  return localStorage.getItem(TOKEN_KEY);
+}
+
+export function setStoredToken(token: string): void {
+  localStorage.setItem(TOKEN_KEY, token);
+}
+
+export function removeStoredToken(): void {
+  localStorage.removeItem(TOKEN_KEY);
+}
+
+function getAuthHeaders(): HeadersInit {
+  const headers: Record<string, string> = {
+    'Accept': 'application/json',
+    'Content-Type': 'application/json',
+  };
+  const token = getStoredToken();
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+  return headers;
+}
 
 export interface PingResult {
   success: boolean;
@@ -62,4 +96,89 @@ export async function pingBackendDiagnostics(): Promise<PingResult> {
       error: errorMessage,
     };
   }
+}
+
+// Authentication Endpoints
+export async function login(username: string, password: string): Promise<LoginResponse> {
+  const response = await fetch(`${API_BASE_URL}/api/v1/auth/login`, {
+    method: 'POST',
+    headers: {
+      'Accept': 'application/json',
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ username, password }),
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => null);
+    let msg = `Authentication failed (${response.status})`;
+    if (errorData?.error && typeof errorData.error === 'object' && errorData.error.message) {
+      msg = errorData.error.message;
+    } else if (typeof errorData?.error === 'string') {
+      msg = errorData.error;
+    } else if (errorData?.message) {
+      msg = errorData.message;
+    }
+    throw new Error(msg);
+  }
+
+  const data: LoginResponse = await response.json();
+  setStoredToken(data.token);
+  return data;
+}
+
+export async function fetchCurrentUser(): Promise<AuthUser> {
+  const response = await fetch(`${API_BASE_URL}/api/v1/auth/me`, {
+    method: 'GET',
+    headers: getAuthHeaders(),
+  });
+
+  if (!response.ok) {
+    throw new Error(`Failed to authenticate user (${response.status})`);
+  }
+
+  return response.json();
+}
+
+// Entity Tree Endpoints
+export async function fetchEntities(): Promise<EntityTreeNode[]> {
+  const response = await fetch(`${API_BASE_URL}/api/v1/entities`, {
+    method: 'GET',
+    headers: getAuthHeaders(),
+  });
+
+  if (!response.ok) {
+    throw new Error(`Failed to load entities (${response.status})`);
+  }
+
+  return response.json();
+}
+
+export async function createEntity(payload: CreateEntityPayload): Promise<EntityTreeNode> {
+  const response = await fetch(`${API_BASE_URL}/api/v1/entities`, {
+    method: 'POST',
+    headers: getAuthHeaders(),
+    body: JSON.stringify(payload),
+  });
+
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({ message: 'Failed to create entity' }));
+    throw new Error(err.message || err.error || `Entity creation failed (${response.status})`);
+  }
+
+  return response.json();
+}
+
+// Users Endpoints
+export async function fetchUsers(): Promise<UserSummary[]> {
+  const response = await fetch(`${API_BASE_URL}/api/v1/users`, {
+    method: 'GET',
+    headers: getAuthHeaders(),
+  });
+
+  if (!response.ok) {
+    throw new Error(`Failed to fetch users (${response.status})`);
+  }
+
+  return response.json();
 }

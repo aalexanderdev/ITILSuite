@@ -1,6 +1,6 @@
 [package]
 name = "itilsuite-backend"
-version = "0.0.1"
+version = "0.0.2"
 edition = "2021"
 authors = ["ITILSuite Contributors"]
 description = "High-performance Rust backend for ITILSuite, inspired by GLPI 11"
@@ -12,6 +12,14 @@ tokio = { version = "1.40", features = ["full"] }
 axum = { version = "0.7", features = ["macros"] }
 tower = { version = "0.5" }
 tower-http = { version = "0.6", features = ["cors", "trace"] }
+
+# Database & Migrations
+sqlx = { version = "0.8", features = ["runtime-tokio", "tls-rustls", "postgres", "uuid", "chrono", "migrate"] }
+
+# Authentication & Password Hashing
+argon2 = "0.5"
+password-hash = "0.5"
+jsonwebtoken = "9.3"
 
 # Serialization & Data
 serde = { version = "1.0", features = ["derive"] }

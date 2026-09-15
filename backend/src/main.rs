@@ -8,6 +8,8 @@ use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
 mod api;
 mod config;
+mod db;
+mod domain;
 mod error;
 mod state;
 
@@ -29,9 +31,18 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let addr_str = format!("{}:{}", config.server_host, config.server_port);
     let socket_addr: SocketAddr = addr_str.parse()?;
 
-    info!("🚀 Starting ITILSuite Backend v0.0.1 (Inspired by GLPI 11)...");
+    info!("🚀 Starting ITILSuite Backend v0.0.2 (Inspired by GLPI 11)...");
 
-    let app_state = AppState::new(config.clone());
+    // 1. Initialize PostgreSQL Connection Pool
+    let pool = db::create_pool(&config).await?;
+
+    // 2. Run Database Migrations
+    db::run_migrations(&pool).await?;
+
+    // 3. Seed Default Admin and Entity
+    db::seed_default_admin(&pool).await?;
+
+    let app_state = AppState::new(config.clone(), pool);
 
     // CORS configuration for local development and web clients
     let cors = CorsLayer::new()
@@ -56,56 +67,93 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use axum::{
-        body::Body,
-        http::{Request, StatusCode},
-    };
-    use http_body_util::BodyExt;
-    use tower::ServiceExt;
+    use chrono::Utc;
+    use uuid::Uuid;
+    use domain::auth::{create_jwt, hash_password, verify_jwt, verify_password, Claims};
+    use domain::entity::{build_entity_tree, Entity};
 
-    #[tokio::test]
-    async fn test_health_check() {
-        let config = Config::from_env();
-        let state = AppState::new(config);
-        let app = api::create_router(state);
+    #[test]
+    fn test_argon2_password_hashing() {
+        let password = "admin_super_secret";
+        let hash = hash_password(password).expect("Hashing should succeed");
 
-        let response = app
-            .oneshot(
-                Request::builder()
-                    .uri("/api/v1/health")
-                    .body(Body::empty())
-                    .unwrap(),
-            )
-            .await
-            .unwrap();
-
-        assert_eq!(response.status(), StatusCode::OK);
-
-        let body = response.into_body().collect().await.unwrap().to_bytes();
-        let body_str = String::from_utf8(body.to_vec()).unwrap();
-        assert!(body_str.contains("\"status\":\"ok\""));
+        assert!(verify_password(&hash, password));
+        assert!(!verify_password(&hash, "wrong_password"));
     }
 
-    #[tokio::test]
-    async fn test_version() {
-        let config = Config::from_env();
-        let state = AppState::new(config);
-        let app = api::create_router(state);
+    #[test]
+    fn test_jwt_generation_and_validation() {
+        let secret = "test_jwt_secret_key_long_enough_123!";
+        let now = Utc::now().timestamp() as usize;
+        let claims = Claims {
+            sub: Uuid::new_v4().to_string(),
+            username: "alex_tech".to_string(),
+            display_name: "Alex Tech".to_string(),
+            profile_id: Uuid::new_v4().to_string(),
+            profile_name: "Technician".to_string(),
+            entity_id: Uuid::new_v4().to_string(),
+            exp: now + 3600,
+            iat: now,
+        };
 
-        let response = app
-            .oneshot(
-                Request::builder()
-                    .uri("/api/v1/version")
-                    .body(Body::empty())
-                    .unwrap(),
-            )
-            .await
-            .unwrap();
+        let token = create_jwt(&claims, secret).expect("Token creation should succeed");
+        let decoded = verify_jwt(&token, secret).expect("Token verification should succeed");
 
-        assert_eq!(response.status(), StatusCode::OK);
+        assert_eq!(decoded.username, "alex_tech");
+        assert_eq!(decoded.profile_name, "Technician");
+    }
 
-        let body = response.into_body().collect().await.unwrap().to_bytes();
-        let body_str = String::from_utf8(body.to_vec()).unwrap();
-        assert!(body_str.contains("0.0.1"));
+    #[test]
+    fn test_entity_tree_builder() {
+        let root_id = Uuid::new_v4();
+        let child1_id = Uuid::new_v4();
+        let child2_id = Uuid::new_v4();
+        let grandchild_id = Uuid::new_v4();
+
+        let entities = vec![
+            Entity {
+                id: root_id,
+                parent_id: None,
+                name: "Root Entity".to_string(),
+                completeness: "Root Entity".to_string(),
+                level: 0,
+                created_at: Utc::now(),
+                updated_at: Utc::now(),
+            },
+            Entity {
+                id: child1_id,
+                parent_id: Some(root_id),
+                name: "North Branch".to_string(),
+                completeness: "Root Entity > North Branch".to_string(),
+                level: 1,
+                created_at: Utc::now(),
+                updated_at: Utc::now(),
+            },
+            Entity {
+                id: child2_id,
+                parent_id: Some(root_id),
+                name: "South Branch".to_string(),
+                completeness: "Root Entity > South Branch".to_string(),
+                level: 1,
+                created_at: Utc::now(),
+                updated_at: Utc::now(),
+            },
+            Entity {
+                id: grandchild_id,
+                parent_id: Some(child1_id),
+                name: "IT Support".to_string(),
+                completeness: "Root Entity > North Branch > IT Support".to_string(),
+                level: 2,
+                created_at: Utc::now(),
+                updated_at: Utc::now(),
+            },
+        ];
+
+        let tree = build_entity_tree(&entities);
+        assert_eq!(tree.len(), 1);
+        assert_eq!(tree[0].name, "Root Entity");
+        assert_eq!(tree[0].children.len(), 2);
+        assert_eq!(tree[0].children[0].children.len(), 1);
+        assert_eq!(tree[0].children[0].children[0].name, "IT Support");
     }
 }

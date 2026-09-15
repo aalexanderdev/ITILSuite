@@ -1,233 +1,287 @@
 import { useState, useEffect } from 'react';
-import { Sidebar } from './components/layout/Sidebar';
+import { AuthProvider, useAuth } from './context/AuthContext';
+import { ThemeProvider } from './context/ThemeContext';
 import { Navbar } from './components/layout/Navbar';
+import { BottomNavDock } from './components/layout/BottomNavDock';
+import { LoginModal } from './components/auth/LoginModal';
+import { HelpdeskChatWidget } from './components/chat/HelpdeskChatWidget';
+import { EntityTreeView } from './components/entities/EntityTreeView';
+import { UsersListView } from './components/users/UsersListView';
 import { MetricsGrid } from './components/dashboard/MetricsGrid';
 import { ApiDiagnostics } from './components/dashboard/ApiDiagnostics';
 import { RoadmapCard } from './components/dashboard/RoadmapCard';
 import { pingBackendDiagnostics, type PingResult } from './services/api';
 import {
   PlusCircle,
-  HardDrive,
-  FileCode2,
   Check,
-  Zap,
-  Shield,
   Cpu,
-  Workflow
+  Workflow,
+  Building2,
+  FolderTree,
+  Server,
+  Globe,
+  Monitor,
+  MessageSquare,
 } from 'lucide-react';
 
-export function App() {
-  const [activeNav, setActiveNav] = useState('tickets');
-  const [selectedEntity, setSelectedEntity] = useState('Root Entity (Global)');
+function DashboardMain() {
+  const [activeNav, setActiveNav] = useState('dashboard');
   const [lastResult, setLastResult] = useState<PingResult | null>(null);
+  const [isChatOpen, setIsChatOpen] = useState(true); // Open by default like OpenITIL
+  const [isChatPinned, setIsChatPinned] = useState(true);
+  const { activeEntity } = useAuth();
 
-  // Automatic ping on initial mount
   useEffect(() => {
     pingBackendDiagnostics().then((res) => {
       setLastResult(res);
     });
   }, []);
 
-  const isOnline = lastResult?.success ?? false;
-
   return (
-    <div className="app-container">
-      {/* GLPI-inspired modular sidebar */}
-      <Sidebar activeNav={activeNav} onSelectNav={setActiveNav} />
+    <div className="openitil-app-shell">
+      {/* Top Navbar */}
+      <Navbar
+        onToggleChat={() => setIsChatOpen(!isChatOpen)}
+        isChatOpen={isChatOpen}
+        onNavigateEntities={() => setActiveNav('entities')}
+        onOpenCreateTicket={() => alert('ITIL Ticket creation workflow scheduled for v0.0.3')}
+      />
 
-      <div className="main-wrapper">
-        {/* Top Header Navbar */}
-        <Navbar
-          isOnline={isOnline}
-          selectedEntity={selectedEntity}
-          onSelectEntity={setSelectedEntity}
-        />
-
-        {/* Main Content Area */}
-        <main className="dashboard-content">
-          {/* Hero Banner */}
-          <section className="hero-card">
-            <div style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem', marginBottom: '0.75rem' }}>
-              <span className="badge badge-blue">
-                <Zap size={11} style={{ marginRight: 3 }} /> Initial v0.0.1 Release
-              </span>
-              <span className="badge badge-emerald">
-                <Shield size={11} style={{ marginRight: 3 }} /> Inspired by GLPI 11
-              </span>
-            </div>
-
-            <h1 className="hero-title">
-              ITILSuite: Next-Gen ITSM, ITAM & CMDB
-            </h1>
-            <p className="hero-subtitle">
-              High-performance IT Service Management platform with a <strong>Rust (Axum + Tokio)</strong> backend and a modular <strong>TypeScript + React</strong> frontend. Engineered for high-throughput inventory ingestion, rigorous SLAs, and native hierarchical multi-tenancy.
-            </p>
-
-            <div className="hero-actions">
-              <button
-                className="btn btn-primary"
-                onClick={() => alert('ITIL Ticket creation workflow scheduled for v0.0.3')}
-              >
-                <PlusCircle size={16} /> Create Ticket (ITIL)
-              </button>
-              <button
-                className="btn btn-secondary"
-                onClick={() => alert('Asset & CMDB inventory registration scheduled for v0.0.4')}
-              >
-                <HardDrive size={16} /> Register Asset
-              </button>
-              <a
-                href="http://localhost:8081/swagger-ui"
-                target="_blank"
-                rel="noreferrer"
-                className="btn btn-secondary"
-              >
-                <FileCode2 size={16} /> View OpenAPI Swagger
-              </a>
-            </div>
-          </section>
-
-          {/* Real-time KPI Metrics Grid */}
-          <MetricsGrid />
-
-          {/* Dashboard Two-Column Layout */}
-          <div className="dashboard-columns">
-            {/* Left Column: API Diagnostics & Architecture Matrix */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-              <ApiDiagnostics
-                lastResult={lastResult}
-                onRefresh={(res) => setLastResult(res)}
-              />
-
-              {/* Technical Comparison: GLPI 11 vs ITILSuite */}
-              <div className="card">
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', marginBottom: '1rem' }}>
-                  <div
-                    style={{
-                      padding: '0.4rem',
-                      borderRadius: 'var(--radius-sm)',
-                      background: 'rgba(6, 182, 212, 0.15)',
-                      color: '#22d3ee',
-                    }}
+      {/* Main Body Layout: Content Area + Right Chat Rail */}
+      <div className={`openitil-body-layout ${isChatOpen && isChatPinned ? 'chat-pinned' : ''}`}>
+        {/* Main Content Workspace */}
+        <main className="openitil-content-workspace">
+          {activeNav === 'entities' ? (
+            <EntityTreeView />
+          ) : activeNav === 'users' ? (
+            <UsersListView />
+          ) : (
+            <div className="openitil-dashboard-view">
+              {/* Welcome Header */}
+              <div className="openitil-welcome-banner">
+                <div>
+                  <h1 className="welcome-title">Bienvenido, Administrador</h1>
+                  <p className="welcome-subtitle">
+                    Panel de control ITSM y gestión de inventario GLPI | Ámbito Activo:{' '}
+                    <strong>{activeEntity.name}</strong>
+                  </p>
+                </div>
+                <div className="welcome-actions">
+                  <button
+                    onClick={() => setActiveNav('entities')}
+                    className="btn-welcome-primary"
                   >
-                    <Cpu size={18} />
-                  </div>
-                  <div>
-                    <h3 style={{ fontSize: '1rem', fontWeight: 700 }}>Architecture Comparison</h3>
-                    <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                      Key differentials compared to historical GLPI architecture
-                    </span>
+                    <FolderTree size={16} />
+                    <span>Jerarquía de Entidades</span>
+                  </button>
+                  <button
+                    onClick={() => setActiveNav('users')}
+                    className="btn-welcome-secondary"
+                  >
+                    <PlusCircle size={16} />
+                    <span>Directorio de Usuarios</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* KPI Metrics Cards */}
+              <MetricsGrid />
+
+              {/* Two-Column Grid: Diagnostics + Architecture & Multi-Tenancy */}
+              <div className="dashboard-columns">
+                {/* Left Column */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+                  <ApiDiagnostics
+                    lastResult={lastResult}
+                    onRefresh={(res) => setLastResult(res)}
+                  />
+
+                  {/* Architecture Comparison */}
+                  <div className="card">
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', marginBottom: '1rem' }}>
+                      <div
+                        style={{
+                          padding: '0.4rem',
+                          borderRadius: 'var(--radius-sm)',
+                          background: 'rgba(6, 182, 212, 0.12)',
+                          color: '#22d3ee',
+                        }}
+                      >
+                        <Cpu size={18} />
+                      </div>
+                      <div>
+                        <h3 style={{ fontSize: '1rem', fontWeight: 700 }}>Comparativa de Arquitectura</h3>
+                        <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                          Diferenciales frente al GLPI histórico tradicional
+                        </span>
+                      </div>
+                    </div>
+
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                      {[
+                        {
+                          aspect: 'Concurrencia e Ingestión',
+                          glpi: 'PHP Síncrono / pesado proceso por petición',
+                          itil: 'Tokio Asíncrono en Rust (miles de req/seg en RAM mínima)',
+                        },
+                        {
+                          aspect: 'Seguridad y Hashing',
+                          glpi: 'bcrypt clásico / hashes estándar',
+                          itil: 'Argon2id memory-hard con JWT firmado a 24 horas',
+                        },
+                        {
+                          aspect: 'Multi-Inquilino (Tenancy)',
+                          glpi: 'Cookies de sesión y queries recursivas pesadas',
+                          itil: 'Árbol jerárquico recursivo nativo en Rust con sub-millisecond resolution',
+                        },
+                        {
+                          aspect: 'Documentación de API',
+                          glpi: 'REST legacy (apirest.php)',
+                          itil: 'OpenAPI 3.1 tipado y auto-generado vía Utoipa / Swagger',
+                        },
+                      ].map((row, i) => (
+                        <div
+                          key={i}
+                          style={{
+                            display: 'grid',
+                            gridTemplateColumns: '1fr 1.2fr',
+                            gap: '1rem',
+                            padding: '0.75rem',
+                            backgroundColor: 'rgba(255, 255, 255, 0.02)',
+                            borderRadius: 'var(--radius-md)',
+                            border: '1px solid var(--border-subtle)',
+                            fontSize: '0.8rem',
+                          }}
+                        >
+                          <div>
+                            <strong style={{ color: '#93c5fd', display: 'block', marginBottom: '0.15rem' }}>
+                              {row.aspect}
+                            </strong>
+                            <span style={{ color: 'var(--text-muted)' }}>GLPI: {row.glpi}</span>
+                          </div>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                            <Check size={14} color="#34d399" style={{ flexShrink: 0 }} />
+                            <span style={{ color: 'var(--text-primary)', fontWeight: 500 }}>{row.itil}</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 </div>
 
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-                  {[
-                    {
-                      aspect: 'Concurrency & Agent Ingestion',
-                      glpi: 'Synchronous PHP / heavy process per agent',
-                      itil: 'Asynchronous Tokio in Rust (thousands of req/sec in minimal RAM)',
-                    },
-                    {
-                      aspect: 'Type Safety & SLA Calculations',
-                      glpi: 'Dynamic typing / runtime validations',
-                      itil: 'Compile-time type guarantees with exhaustive Enums',
-                    },
-                    {
-                      aspect: 'User Interface & Reactivity',
-                      glpi: 'Twig / Server-rendered with page reloads',
-                      itil: 'Reactive SPA (React 19 + TypeScript + TanStack)',
-                    },
-                    {
-                      aspect: 'API Documentation',
-                      glpi: 'REST / legacy apirest.php',
-                      itil: 'OpenAPI 3.1 strictly typed and auto-generated via Utoipa',
-                    },
-                  ].map((row, i) => (
+                {/* Right Column */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+                  <RoadmapCard />
+
+                  {/* Multi-tenant Entity Hierarchy Overview */}
+                  <div className="card">
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
+                        <div
+                          style={{
+                            padding: '0.4rem',
+                            borderRadius: 'var(--radius-sm)',
+                            background: 'rgba(245, 158, 11, 0.12)',
+                            color: '#fbbf24',
+                          }}
+                        >
+                          <Workflow size={18} />
+                        </div>
+                        <div>
+                          <h3 style={{ fontSize: '1rem', fontWeight: 700 }}>Jerarquía Multi-Inquilino</h3>
+                          <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                            Ámbito activo: {activeEntity.name}
+                          </span>
+                        </div>
+                      </div>
+
+                      <button
+                        onClick={() => setActiveNav('entities')}
+                        className="btn btn-secondary"
+                        style={{ fontSize: '0.75rem', padding: '0.25rem 0.55rem' }}
+                      >
+                        Explorar Árbol
+                      </button>
+                    </div>
+
                     <div
-                      key={i}
                       style={{
-                        display: 'grid',
-                        gridTemplateColumns: '1fr 1.2fr',
-                        gap: '1rem',
-                        padding: '0.75rem',
-                        backgroundColor: 'rgba(255, 255, 255, 0.02)',
+                        backgroundColor: 'var(--code-bg)',
+                        padding: '1rem',
                         borderRadius: 'var(--radius-md)',
                         border: '1px solid var(--border-subtle)',
                         fontSize: '0.8rem',
+                        lineHeight: 1.8,
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: '0.4rem',
                       }}
                     >
-                      <div>
-                        <strong style={{ color: '#93c5fd', display: 'block', marginBottom: '0.15rem' }}>
-                          {row.aspect}
-                        </strong>
-                        <span style={{ color: 'var(--text-muted)' }}>GLPI: {row.glpi}</span>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: '#60a5fa' }}>
+                        <Building2 size={15} />
+                        <strong>Root Entity (Organización Global)</strong>
                       </div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                        <Check size={14} color="#34d399" style={{ flexShrink: 0 }} />
-                        <span style={{ color: '#e2e8f0', fontWeight: 500 }}>{row.itil}</span>
+                      <div style={{ paddingLeft: '1.25rem', display: 'flex', alignItems: 'center', gap: '0.5rem', color: '#94a3b8' }}>
+                        <Globe size={14} />
+                        <span>North America Region</span>
+                      </div>
+                      <div style={{ paddingLeft: '2.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--text-secondary)' }}>
+                        <Monitor size={14} />
+                        <span>Departamento de Infraestructura TI</span>
+                      </div>
+                      <div style={{ paddingLeft: '2.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--text-secondary)' }}>
+                        <Server size={14} />
+                        <span>Centro de Datos Principal</span>
                       </div>
                     </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-
-            {/* Right Column: Roadmap & Entity Tree Preview */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-              <RoadmapCard />
-
-              {/* Multi-tenant Entity Hierarchy Preview */}
-              <div className="card">
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', marginBottom: '1rem' }}>
-                  <div
-                    style={{
-                      padding: '0.4rem',
-                      borderRadius: 'var(--radius-sm)',
-                      background: 'rgba(245, 158, 11, 0.15)',
-                      color: '#fbbf24',
-                    }}
-                  >
-                    <Workflow size={18} />
-                  </div>
-                  <div>
-                    <h3 style={{ fontSize: '1rem', fontWeight: 700 }}>Hierarchical Entity Tree</h3>
-                    <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                      Native multi-tenancy model (prepared for v0.0.2)
-                    </span>
-                  </div>
-                </div>
-
-                <div
-                  style={{
-                    backgroundColor: '#0d1117',
-                    padding: '1rem',
-                    borderRadius: 'var(--radius-md)',
-                    border: '1px solid var(--border-subtle)',
-                    fontFamily: 'var(--font-mono)',
-                    fontSize: '0.8rem',
-                    lineHeight: 1.8,
-                  }}
-                >
-                  <div style={{ color: '#60a5fa' }}>📁 Root Entity (Global Organization)</div>
-                  <div style={{ paddingLeft: '1.5rem', color: '#94a3b8' }}>
-                    ├── 🏢 Headquarters (Corporate)
-                  </div>
-                  <div style={{ paddingLeft: '3rem', color: '#cbd5e1' }}>
-                    ├── 💻 IT & Infrastructure Department
-                  </div>
-                  <div style={{ paddingLeft: '3rem', color: '#cbd5e1' }}>
-                    └── 🗄️ Primary Datacenter
-                  </div>
-                  <div style={{ paddingLeft: '1.5rem', color: '#94a3b8' }}>
-                    └── 🌍 North Regional Branch
                   </div>
                 </div>
               </div>
             </div>
-          </div>
+          )}
         </main>
+
+        {/* Right Docked Support Chat Rail */}
+        <HelpdeskChatWidget
+          isOpen={isChatOpen}
+          onClose={() => setIsChatOpen(false)}
+          isPinned={isChatPinned}
+          onTogglePin={() => setIsChatPinned(!isChatPinned)}
+        />
       </div>
+
+      {/* Floating Bottom Navigation Dock (OpenITIL Inspired) */}
+      <BottomNavDock
+        activeNav={activeNav}
+        onSelectNav={setActiveNav}
+        onOpenCreateTicket={() => alert('Creación de tickets programada para v0.0.3')}
+      />
+
+      {/* Bottom-left floating launcher when chat is closed */}
+      {!isChatOpen && (
+        <button
+          onClick={() => setIsChatOpen(true)}
+          className="bottom-left-chat-launcher"
+          title="Abrir Chat de Soporte"
+        >
+          <MessageSquare size={20} color="#ffffff" />
+          <span className="chat-launcher-badge">2</span>
+        </button>
+      )}
+
+      {/* Global Minimalist Login Modal */}
+      <LoginModal />
     </div>
+  );
+}
+
+export function App() {
+  return (
+    <ThemeProvider>
+      <AuthProvider>
+        <DashboardMain />
+      </AuthProvider>
+    </ThemeProvider>
   );
 }
 
