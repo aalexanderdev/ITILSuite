@@ -1,43 +1,81 @@
-# ITILSuite 🚀
+# ITILSuite
 
-> **Modern, high-performance open-source ITSM (IT Service Management), ITAM (IT Asset Management), and CMDB platform inspired by GLPI 11**, powered by **Rust (Axum + Tokio)** on the backend and **React + TypeScript** on the frontend.
+> **Modern, high-performance open-source ITSM (IT Service Management), ITAM (IT Asset Management), and CMDB platform inspired by GLPI 11**, powered by **Rust (Axum + Tokio + SQLx)** on the backend and **React + TypeScript** on the frontend.
 
 [![License: GPL v3+](https://img.shields.io/badge/License-GPLv3%2B-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
 [![Rust](https://img.shields.io/badge/rust-1.75%2B-orange.svg)](https://www.rust-lang.org/)
 [![Node](https://img.shields.io/badge/node-v20%2B-green.svg)](https://nodejs.org/)
-[![Version](https://img.shields.io/badge/version-0.0.1-brightgreen.svg)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-0.0.3-brightgreen.svg)](CHANGELOG.md)
 
 ---
 
-## 📖 Vision & Architectural Philosophy
+## Vision & Architectural Philosophy
 
-GLPI is an industry pillar for IT service and asset management across enterprises worldwide. **ITILSuite** takes the foundational strengths of GLPI (hierarchical multi-tenancy, complete ITIL ticket lifecycles, fine-grained inventory, and agent reconciliation) and rebuilds them using modern systems engineering:
+GLPI is an industry standard for IT service and asset management across enterprises worldwide. **ITILSuite** takes the foundational concepts of GLPI (hierarchical multi-tenancy, complete ITIL ticket lifecycles, fine-grained inventory, agent reconciliation, and mail collectors) and re-engineers them with modern systems design:
 
-* **High-Throughput, Memory-Safe Backend in Rust**: Massive concurrency natively powered by **Tokio** and **Axum**, sub-millisecond API response latencies, minimal memory consumption, and compile-time type guarantees across all ITIL state machines.
-* **Modern High-Density Frontend**: Built with **TypeScript, React, and Vite** to deliver a responsive Single Page Application (SPA) with zero page reloads, advanced column filtering, and interactive CMDB relationship topologies.
-* **Automated Agent Ingestion**: Ready for high-concurrency ingestion of hardware and software inventory snapshots via HTTP POST (compatible with the GLPI-Agent ecosystem).
+* **High-Throughput, Memory-Safe Backend in Rust**: Asynchronous runtime powered by **Tokio** and **Axum**, sub-millisecond API response latencies, minimal RAM footprint, and compile-time type safety across all ITIL state machines.
+* **Asynchronous Mail & Background Workers**: Asynchronous ingestion and dispatch workers driven by Tokio, separating long-running email polling and SMTP delivery from HTTP client requests.
+* **High-Density, Dual-Theme Frontend**: Built with **React 19, TypeScript, and Vite** delivering an enterprise-grade high-density desktop experience (Dark Cyber-Navy and Clean Light themes) using local Geist fonts and accessible native components with zero third-party UI framework bloat.
+* **Strict Hierarchical Multi-Tenancy**: Recursive entity tree scoping all assets, tickets, templates, collectors, and users across parent and child organizational units.
+* **Automated Agent Ingestion (Planned)**: Architecture prepared for high-concurrency ingestion of hardware and software inventory snapshots compatible with the GLPI-Agent ecosystem.
 
 ---
 
-## 🏛️ Project Architecture
+## Key Features (v0.0.3)
+
+### 1. Multi-Tenant Entity Hierarchy & RBAC
+* Recursive entity tree (GLPI-compatible hierarchical structure).
+* Scope switching with parent-child inheritance.
+* Role-based access control (Super-Admin, Admin, Technician, Self-Service) with Argon2id password hashing and JWT authentication.
+
+### 2. ITIL Service Desk (Tickets & Lifecycles)
+* Incident and Service Request lifecycles (`New`, `Assigned`, `Planned`, `Pending`, `Solved`, `Closed`).
+* Urgency (1-5) x Impact (1-5) 5x5 matrix computing ITIL Priority (`P1-Very High` to `P5-Very Low`) with SLA tracking.
+* Followup timeline with support for private technician notes and formal solution proposals.
+* GLPI-style Ticket Templates:
+  * Predefined fields (standardized titles, technical questionnaire descriptions, default technician assignment).
+  * Mandatory field validation rules.
+  * Hidden fields to streamline simplified user request forms.
+  * Automatic template binding based on ITIL category selection.
+
+### 3. Mail Ingestion & Notification Engine
+* **Mail Receivers (Collectors)**: Ingestion via IMAP and POP3 with SSL/TLS encryption.
+* **Thread Matching & Reply Stripping**: Regex parsing (`[#INC-2026-XXXX]` and `[#REQ-2026-XXXX]`) to append followups directly to existing tickets while cleaning previous email quote headers.
+* **Anti-Spam Blacklists**: Exclusion rules by sender email, domain, or subject regex pattern.
+* **Dynamic Notification Templates (Gabarits)**: Tag substitution engine (`##ticket.number##`, `##ticket.title##`, `##author.name##`, `##technician.name##`, `##signature##`, etc.) with real-time HTML/text preview.
+* **Asynchronous Outbox Queue**: Persistent `notification_queue` processed by a dedicated Tokio background worker with automatic retry policies and audit status (`pending`, `sent`, `failed`).
+* **Air-Gap / Offline Mail Simulator**: In-app simulator for testing incoming mail ticket generation and replies in isolated or air-gapped deployments.
+
+### 4. User Experience & Design
+* Dual-theme support: Dark Cyber-Navy and Clean Light modes.
+* Air-gap ready typography: 100% locally served Geist and Geist Mono font bundles.
+* Native, zero-dependency UX primitives: Shimmer skeleton loaders, accessible directional tooltips, and non-blocking toast notifications.
+
+---
+
+## Project Architecture
 
 ```text
 ITILSuite/
 ├── backend/                # REST API backend in Rust (Axum + Tokio + SQLx)
 │   ├── src/
-│   │   ├── api/            # HTTP routes and controllers (/api/v1)
-│   │   ├── domain/         # ITIL domain models (Tickets, Assets, Entities)
+│   │   ├── api/            # HTTP routes (/health, /tickets, /entities, /users, /mail, /receivers)
+│   │   ├── domain/         # ITIL domain models (Tickets, Templates, Entities, Notifications)
+│   │   ├── services/       # Business logic (TicketService, MailService, ReceiverService, AuthService)
 │   │   ├── config.rs       # Environment variable parsing and defaults
-│   │   ├── error.rs        # Application error handling and JSON responses
-│   │   └── main.rs         # HTTP server initialization and Swagger routes
+│   │   ├── error.rs        # Typed application errors and JSON responses
+│   │   └── main.rs         # HTTP server, background workers, and OpenAPI / Swagger routes
 │   ├── migrations/         # Deterministic SQLx PostgreSQL migrations
 │   └── Cargo.toml
 │
-├── frontend/               # Single-page web client in React + TypeScript + Vite
+├── frontend/               # Web client in React 19 + TypeScript + Vite
 │   ├── src/
-│   │   ├── components/     # Application shell, navigation, and dashboard widgets
-│   │   ├── services/       # HTTP API clients and connectivity diagnostics
-│   │   └── App.tsx         # Root dashboard application
+│   │   ├── components/     # High-density UI modules (tickets, notifications, entities, users, layout)
+│   │   ├── context/        # React context providers (AuthContext, ThemeContext, ToastContext)
+│   │   ├── services/       # Typed HTTP API clients and connectivity diagnostics
+│   │   ├── types.ts        # TypeScript interfaces and DTOs
+│   │   ├── index.css       # Unified CSS design system and tokens
+│   │   └── App.tsx         # Main application shell and workspace routing
 │   ├── package.json
 │   └── vite.config.ts
 │
@@ -56,7 +94,7 @@ For deeper architectural context, see:
 
 ---
 
-## 🚀 Quick Start (Local Development)
+## Quick Start (Local Development)
 
 ### Prerequisites
 * **Rust** (1.75+) and **Cargo**
@@ -97,17 +135,24 @@ The web dashboard will be available at [http://localhost:5173](http://localhost:
 
 ---
 
-## 🗺️ Release Roadmap
+## Release Roadmap
 
 - [x] **v0.0.1 - Architectural Foundation**: Axum backend skeleton, React/TS frontend shell, architecture docs, and Docker Compose.
-- [ ] **v0.0.2 - Multi-Tenancy & Authentication**: Hierarchical Entity tree, Users, RBAC profiles (Super-Admin, Technician, Self-Service), and JWT authentication.
-- [ ] **v0.0.3 - ITIL Service Desk**: Incidents & Service Requests, urgency/impact priority matrix, ITIL ticket states, and technician assignment.
+- [x] **v0.0.2 - Multi-Tenancy & Authentication**: Hierarchical Entity tree, Users directory, RBAC profiles, and Argon2id/JWT authentication.
+- [x] **v0.0.3 - ITIL Service Desk & Notification Engine**:
+  - Incidents & Service Requests lifecycle pipeline.
+  - Urgency x Impact priority matrix (5x5).
+  - GLPI Ticket Templates (predefined, mandatory, hidden fields).
+  - Mail Receivers (IMAP/POP3 collectors) with thread matching and anti-spam blacklists.
+  - Dynamic notification templates with tag replacement.
+  - Tokio asynchronous background outbox queue worker.
+  - High-density dual theme (Dark Cyber-Navy & Clean Light) with local Geist fonts.
 - [ ] **v0.0.4 - Asset Management (ITAM / CMDB)**: Inventory of computers, network gear, monitors, and GLPI-Agent ingestion endpoint.
-- [ ] **v0.0.5 - Business Rules Engine & Email Notifications**: Automated ticket routing and SLA triggers.
+- [ ] **v0.0.5 - Business Rules Engine & Advanced SLAs**: Automated routing rules, escalation matrices, and SLA breach monitors.
 
 ---
 
-## 📄 License
+## License
 
 This program is free software: you can redistribute it and/or modify it under the terms of the **GNU General Public License as published by the Free Software Foundation, either version 3 of the License, or (at your option) any later version (GPLv3+)**.
 
