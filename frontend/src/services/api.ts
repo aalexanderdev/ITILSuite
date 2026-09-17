@@ -16,6 +16,19 @@ import type {
   TicketFilterOptions,
   TicketTemplate,
   CreateTicketTemplatePayload,
+  MailSettings,
+  UpdateMailSettingsDto,
+  NotificationTemplate,
+  UpdateNotificationTemplateDto,
+  NotificationEvent,
+  NotificationQueueItem,
+  MailReceiver,
+  CreateMailReceiverDto,
+  UpdateMailReceiverDto,
+  MailBlacklist,
+  CreateBlacklistDto,
+  SimulateIncomingMailDto,
+  CollectResultDto,
 } from '../types';
 
 export const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8081';
@@ -347,5 +360,256 @@ export async function createTicketTemplate(
 
   return response.json();
 }
+
+// ==========================================
+// Mail & Notification API Service (GLPI 11 Inspired)
+// ==========================================
+
+export async function fetchMailSettings(): Promise<MailSettings> {
+  const response = await fetch(`${API_BASE_URL}/api/v1/mail/settings`, {
+    method: 'GET',
+    headers: getAuthHeaders(),
+  });
+  if (!response.ok) {
+    throw new Error(`Failed to fetch mail settings (${response.status})`);
+  }
+  return response.json();
+}
+
+export async function updateMailSettings(dto: UpdateMailSettingsDto): Promise<MailSettings> {
+  const response = await fetch(`${API_BASE_URL}/api/v1/mail/settings`, {
+    method: 'PUT',
+    headers: getAuthHeaders(),
+    body: JSON.stringify(dto),
+  });
+  if (!response.ok) {
+    const err = await response.json().catch(() => null);
+    throw new Error(err?.error?.message || err?.message || `Failed to update mail settings (${response.status})`);
+  }
+  return response.json();
+}
+
+export async function testSmtpConnection(dto: {
+  to_email: string;
+  custom_smtp_host?: string;
+  custom_smtp_port?: number;
+}): Promise<{ status: string; message: string }> {
+  const response = await fetch(`${API_BASE_URL}/api/v1/mail/test-smtp`, {
+    method: 'POST',
+    headers: getAuthHeaders(),
+    body: JSON.stringify(dto),
+  });
+  if (!response.ok) {
+    const err = await response.json().catch(() => null);
+    throw new Error(err?.error?.message || err?.message || `SMTP Test failed (${response.status})`);
+  }
+  return response.json();
+}
+
+export async function fetchNotificationQueue(status?: string): Promise<NotificationQueueItem[]> {
+  const url = `${API_BASE_URL}/api/v1/mail/queue${status ? `?status=${encodeURIComponent(status)}` : ''}`;
+  const response = await fetch(url, {
+    method: 'GET',
+    headers: getAuthHeaders(),
+  });
+  if (!response.ok) {
+    throw new Error(`Failed to fetch notification queue (${response.status})`);
+  }
+  return response.json();
+}
+
+export async function retryNotificationQueueItem(id: string): Promise<{ status: string; message: string }> {
+  const response = await fetch(`${API_BASE_URL}/api/v1/mail/queue/${id}/retry`, {
+    method: 'POST',
+    headers: getAuthHeaders(),
+  });
+  if (!response.ok) {
+    const err = await response.json().catch(() => null);
+    throw new Error(err?.error?.message || err?.message || `Failed to retry queue item (${response.status})`);
+  }
+  return response.json();
+}
+
+export async function processNotificationQueueNow(): Promise<{
+  status: string;
+  processed_count: number;
+  message: string;
+}> {
+  const response = await fetch(`${API_BASE_URL}/api/v1/mail/queue/process`, {
+    method: 'POST',
+    headers: getAuthHeaders(),
+  });
+  if (!response.ok) {
+    throw new Error(`Failed to process queue (${response.status})`);
+  }
+  return response.json();
+}
+
+export async function fetchNotificationTemplates(): Promise<NotificationTemplate[]> {
+  const response = await fetch(`${API_BASE_URL}/api/v1/notifications/templates`, {
+    method: 'GET',
+    headers: getAuthHeaders(),
+  });
+  if (!response.ok) {
+    throw new Error(`Failed to fetch notification templates (${response.status})`);
+  }
+  return response.json();
+}
+
+export async function fetchNotificationTemplateById(id: string): Promise<NotificationTemplate> {
+  const response = await fetch(`${API_BASE_URL}/api/v1/notifications/templates/${id}`, {
+    method: 'GET',
+    headers: getAuthHeaders(),
+  });
+  if (!response.ok) {
+    throw new Error(`Failed to fetch template (${response.status})`);
+  }
+  return response.json();
+}
+
+export async function updateNotificationTemplate(
+  id: string,
+  dto: UpdateNotificationTemplateDto
+): Promise<NotificationTemplate> {
+  const response = await fetch(`${API_BASE_URL}/api/v1/notifications/templates/${id}`, {
+    method: 'PUT',
+    headers: getAuthHeaders(),
+    body: JSON.stringify(dto),
+  });
+  if (!response.ok) {
+    const err = await response.json().catch(() => null);
+    throw new Error(err?.error?.message || err?.message || `Failed to update template (${response.status})`);
+  }
+  return response.json();
+}
+
+export async function fetchNotificationEvents(): Promise<NotificationEvent[]> {
+  const response = await fetch(`${API_BASE_URL}/api/v1/notifications/events`, {
+    method: 'GET',
+    headers: getAuthHeaders(),
+  });
+  if (!response.ok) {
+    throw new Error(`Failed to fetch notification events (${response.status})`);
+  }
+  return response.json();
+}
+
+export async function fetchMailReceivers(): Promise<MailReceiver[]> {
+  const response = await fetch(`${API_BASE_URL}/api/v1/receivers`, {
+    method: 'GET',
+    headers: getAuthHeaders(),
+  });
+  if (!response.ok) {
+    throw new Error(`Failed to fetch mail receivers (${response.status})`);
+  }
+  return response.json();
+}
+
+export async function fetchMailReceiverById(id: string): Promise<MailReceiver> {
+  const response = await fetch(`${API_BASE_URL}/api/v1/receivers/${id}`, {
+    method: 'GET',
+    headers: getAuthHeaders(),
+  });
+  if (!response.ok) {
+    throw new Error(`Failed to fetch mail receiver (${response.status})`);
+  }
+  return response.json();
+}
+
+export async function createMailReceiver(dto: CreateMailReceiverDto): Promise<MailReceiver> {
+  const response = await fetch(`${API_BASE_URL}/api/v1/receivers`, {
+    method: 'POST',
+    headers: getAuthHeaders(),
+    body: JSON.stringify(dto),
+  });
+  if (!response.ok) {
+    const err = await response.json().catch(() => null);
+    throw new Error(err?.error?.message || err?.message || `Failed to create receiver (${response.status})`);
+  }
+  return response.json();
+}
+
+export async function updateMailReceiver(id: string, dto: UpdateMailReceiverDto): Promise<MailReceiver> {
+  const response = await fetch(`${API_BASE_URL}/api/v1/receivers/${id}`, {
+    method: 'PUT',
+    headers: getAuthHeaders(),
+    body: JSON.stringify(dto),
+  });
+  if (!response.ok) {
+    const err = await response.json().catch(() => null);
+    throw new Error(err?.error?.message || err?.message || `Failed to update receiver (${response.status})`);
+  }
+  return response.json();
+}
+
+export async function deleteMailReceiver(id: string): Promise<void> {
+  const response = await fetch(`${API_BASE_URL}/api/v1/receivers/${id}`, {
+    method: 'DELETE',
+    headers: getAuthHeaders(),
+  });
+  if (!response.ok) {
+    throw new Error(`Failed to delete receiver (${response.status})`);
+  }
+}
+
+export async function collectFromReceiver(id: string): Promise<CollectResultDto> {
+  const response = await fetch(`${API_BASE_URL}/api/v1/receivers/${id}/collect`, {
+    method: 'POST',
+    headers: getAuthHeaders(),
+  });
+  if (!response.ok) {
+    const err = await response.json().catch(() => null);
+    throw new Error(err?.error?.message || err?.message || `Failed to collect emails (${response.status})`);
+  }
+  return response.json();
+}
+
+export async function fetchMailBlacklists(): Promise<MailBlacklist[]> {
+  const response = await fetch(`${API_BASE_URL}/api/v1/receivers/blacklists`, {
+    method: 'GET',
+    headers: getAuthHeaders(),
+  });
+  if (!response.ok) {
+    throw new Error(`Failed to fetch blacklist rules (${response.status})`);
+  }
+  return response.json();
+}
+
+export async function createMailBlacklist(dto: CreateBlacklistDto): Promise<MailBlacklist> {
+  const response = await fetch(`${API_BASE_URL}/api/v1/receivers/blacklists`, {
+    method: 'POST',
+    headers: getAuthHeaders(),
+    body: JSON.stringify(dto),
+  });
+  if (!response.ok) {
+    const err = await response.json().catch(() => null);
+    throw new Error(err?.error?.message || err?.message || `Failed to create blacklist rule (${response.status})`);
+  }
+  return response.json();
+}
+
+export async function deleteMailBlacklist(id: string): Promise<void> {
+  const response = await fetch(`${API_BASE_URL}/api/v1/receivers/blacklists/${id}`, {
+    method: 'DELETE',
+    headers: getAuthHeaders(),
+  });
+  if (!response.ok) {
+    throw new Error(`Failed to delete blacklist rule (${response.status})`);
+  }
+}
+
+export async function simulateIncomingMail(dto: SimulateIncomingMailDto): Promise<{ status: string; result: any }> {
+  const response = await fetch(`${API_BASE_URL}/api/v1/receivers/simulate-incoming`, {
+    method: 'POST',
+    headers: getAuthHeaders(),
+    body: JSON.stringify(dto),
+  });
+  if (!response.ok) {
+    const err = await response.json().catch(() => null);
+    throw new Error(err?.error?.message || err?.message || `Failed to simulate incoming mail (${response.status})`);
+  }
+  return response.json();
+}
+
 
 

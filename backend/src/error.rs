@@ -54,3 +54,24 @@ impl IntoResponse for AppError {
         (status, body).into_response()
     }
 }
+
+impl std::fmt::Display for AppError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            AppError::InternalServerError(msg) => write!(f, "Internal Server Error: {}", msg),
+            AppError::NotFound(msg) => write!(f, "Not Found: {}", msg),
+            AppError::BadRequest(msg) => write!(f, "Bad Request: {}", msg),
+            AppError::Unauthorized(msg) => write!(f, "Unauthorized: {}", msg),
+            AppError::Forbidden(msg) => write!(f, "Forbidden: {}", msg),
+        }
+    }
+}
+
+impl std::error::Error for AppError {}
+
+impl From<sqlx::Error> for AppError {
+    fn from(err: sqlx::Error) -> Self {
+        AppError::InternalServerError(format!("Database error: {}", err))
+    }
+}
+

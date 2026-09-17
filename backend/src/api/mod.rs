@@ -1,6 +1,8 @@
 pub mod auth;
 pub mod entities;
 pub mod health;
+pub mod notifications;
+pub mod receivers;
 pub mod templates;
 pub mod tickets;
 pub mod users;
@@ -123,7 +125,9 @@ pub fn create_router(state: AppState) -> Router {
             get(templates::get_template)
                 .patch(templates::update_template)
                 .delete(templates::delete_template),
-        );
+        )
+        .merge(notifications::router())
+        .merge(receivers::router());
 
     Router::new()
         .nest("/api/v1", api_v1)

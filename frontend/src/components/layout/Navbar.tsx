@@ -16,12 +16,14 @@ import {
   Layers,
   Sun,
   Moon,
+  Mail,
 } from 'lucide-react';
 
 interface NavbarProps {
   onToggleChat?: () => void;
   isChatOpen?: boolean;
   onNavigateEntities?: () => void;
+  onNavigateMail?: () => void;
   onOpenCreateTicket?: () => void;
 }
 
@@ -29,6 +31,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   onToggleChat,
   isChatOpen,
   onNavigateEntities,
+  onNavigateMail,
   onOpenCreateTicket,
 }) => {
   const { user, activeEntity, setActiveEntity, logout, setLoginModalOpen } = useAuth();
@@ -176,6 +179,17 @@ export const Navbar: React.FC<NavbarProps> = ({
         >
           {theme === 'dark' ? <Sun size={16} /> : <Moon size={16} />}
         </button>
+
+        {/* Mail & Notifications Settings */}
+        {onNavigateMail && (
+          <button
+            onClick={onNavigateMail}
+            className="btn-icon-pill"
+            title="Configuración de Notificaciones y Correo (SMTP / Colectores)"
+          >
+            <Mail size={16} />
+          </button>
+        )}
 
         {/* Quick New Ticket Button */}
         <button

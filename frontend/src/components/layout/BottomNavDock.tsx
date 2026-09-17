@@ -11,6 +11,7 @@ import {
   User,
   ChevronDown,
   ChevronUp,
+  Mail,
 } from 'lucide-react';
 
 interface BottomNavDockProps {
@@ -111,6 +112,17 @@ export const BottomNavDock: React.FC<BottomNavDockProps> = ({
             >
               <Users size={16} />
               <span>Usuarios</span>
+            </button>
+          </Tooltip>
+
+          {/* Mail & Notifications Settings */}
+          <Tooltip content="Configuración de Notificaciones, SMTP y Colectores IMAP/POP3" position="top">
+            <button
+              onClick={() => onSelectNav('mail_config')}
+              className={`dock-item ${activeNav === 'mail_config' ? 'active' : ''}`}
+            >
+              <Mail size={16} />
+              <span>Correo</span>
             </button>
           </Tooltip>
 

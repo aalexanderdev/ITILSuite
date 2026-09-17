@@ -11,6 +11,7 @@ mod config;
 mod db;
 mod domain;
 mod error;
+pub mod services;
 mod state;
 
 use config::Config;
@@ -50,9 +51,21 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .allow_methods(Any)
         .allow_headers(Any);
 
-    let app = api::create_router(app_state)
+    let app = api::create_router(app_state.clone())
         .layer(cors)
         .layer(TraceLayer::new_for_http());
+
+    // 4. Start Background Notification Queue Worker (queuednotification equivalent)
+    let worker_pool = app_state.pool.clone();
+    tokio::spawn(async move {
+        let mut interval = tokio::time::interval(tokio::time::Duration::from_secs(10));
+        loop {
+            interval.tick().await;
+            if let Err(e) = services::mail_service::MailService::process_queue_batch(&worker_pool).await {
+                tracing::warn!("Error processing notification queue: {}", e);
+            }
+        }
+    });
 
     let listener = tokio::net::TcpListener::bind(&socket_addr).await?;
     info!("✅ Server listening on: http://{}", socket_addr);

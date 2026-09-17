@@ -190,3 +190,188 @@ export interface CreateTicketTemplatePayload {
   mandatory_fields?: string[];
   hidden_fields?: string[];
 }
+
+// Mail & Notification System (Inspired by GLPI 11)
+export interface MailSettings {
+  id: string;
+  entity_id: string | null;
+  notifications_enabled: boolean;
+  email_followups_enabled: boolean;
+  admin_email: string;
+  admin_name: string;
+  from_email: string;
+  from_name: string;
+  reply_to_email: string;
+  smtp_host: string;
+  smtp_port: number;
+  smtp_encryption: 'none' | 'ssl' | 'tls' | string;
+  smtp_username: string;
+  subject_prefix: string;
+  email_signature: string;
+  max_retries: number;
+  retry_interval_minutes: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface UpdateMailSettingsDto {
+  notifications_enabled?: boolean;
+  email_followups_enabled?: boolean;
+  admin_email?: string;
+  admin_name?: string;
+  from_email?: string;
+  from_name?: string;
+  reply_to_email?: string;
+  smtp_host?: string;
+  smtp_port?: number;
+  smtp_encryption?: string;
+  smtp_username?: string;
+  smtp_password?: string;
+  subject_prefix?: string;
+  email_signature?: string;
+  max_retries?: number;
+  retry_interval_minutes?: number;
+}
+
+export interface NotificationTemplate {
+  id: string;
+  name: string;
+  item_type: string;
+  subject_template: string;
+  html_template: string;
+  text_template: string;
+  css_styles?: string | null;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface UpdateNotificationTemplateDto {
+  subject_template?: string;
+  html_template?: string;
+  text_template?: string;
+  css_styles?: string;
+  is_active?: boolean;
+}
+
+export interface NotificationEvent {
+  id: string;
+  event_key: string;
+  name: string;
+  template_id: string;
+  is_active: boolean;
+  recipients: {
+    requester?: boolean;
+    technician?: boolean;
+    admin?: boolean;
+    [key: string]: any;
+  };
+  created_at: string;
+  updated_at: string;
+}
+
+export interface NotificationQueueItem {
+  id: string;
+  event_key: string;
+  ticket_id?: string | null;
+  recipient_email: string;
+  recipient_name?: string | null;
+  subject: string;
+  body_html: string;
+  body_text: string;
+  status: 'pending' | 'sending' | 'sent' | 'failed' | string;
+  attempts: number;
+  last_attempt_at?: string | null;
+  last_error?: string | null;
+  created_at: string;
+}
+
+export interface MailReceiver {
+  id: string;
+  entity_id: string;
+  entity_name?: string | null;
+  name: string;
+  protocol: 'imap' | 'pop3' | string;
+  host: string;
+  port: number;
+  ssl_mode: 'none' | 'ssl' | 'tls' | string;
+  username: string;
+  mail_folder: string;
+  archive_folder?: string | null;
+  refused_folder?: string | null;
+  max_attachment_mb: number;
+  is_active: boolean;
+  sync_interval_seconds: number;
+  last_sync_at?: string | null;
+  last_error?: string | null;
+  consecutive_errors: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CreateMailReceiverDto {
+  entity_id: string;
+  name: string;
+  protocol: string;
+  host: string;
+  port: number;
+  ssl_mode: string;
+  username: string;
+  password?: string;
+  mail_folder?: string;
+  archive_folder?: string;
+  refused_folder?: string;
+  max_attachment_mb?: number;
+  is_active?: boolean;
+  sync_interval_seconds?: number;
+}
+
+export interface UpdateMailReceiverDto {
+  name?: string;
+  protocol?: string;
+  host?: string;
+  port?: number;
+  ssl_mode?: string;
+  username?: string;
+  password?: string;
+  mail_folder?: string;
+  archive_folder?: string;
+  refused_folder?: string;
+  max_attachment_mb?: number;
+  is_active?: boolean;
+  sync_interval_seconds?: number;
+}
+
+export interface MailBlacklist {
+  id: string;
+  rule_type: 'sender_email' | 'domain' | 'subject_regex' | string;
+  pattern: string;
+  reason?: string | null;
+  is_active: boolean;
+  created_at: string;
+}
+
+export interface CreateBlacklistDto {
+  rule_type: string;
+  pattern: string;
+  reason?: string;
+}
+
+export interface SimulateIncomingMailDto {
+  from_email: string;
+  from_name?: string;
+  subject: string;
+  body: string;
+  receiver_id?: string;
+}
+
+export interface CollectResultDto {
+  receiver_id: string;
+  receiver_name: string;
+  emails_checked: number;
+  tickets_created: number;
+  followups_added: number;
+  rejected_blacklisted: number;
+  message: string;
+}
+

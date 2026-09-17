@@ -273,6 +273,9 @@ pub async fn create_ticket(
     .await
     .map_err(|e| AppError::InternalServerError(format!("Failed to fetch created ticket: {}", e)))?;
 
+    // Dispatch ticket_created notification event
+    let _ = crate::services::mail_service::MailService::dispatch_event(&state.pool, "ticket_created", new_id, None).await;
+
     Ok((StatusCode::CREATED, Json(summary)))
 }
 
@@ -387,6 +390,16 @@ pub async fn update_ticket(
     .await
     .map_err(|e| AppError::InternalServerError(format!("Failed to fetch updated ticket: {}", e)))?;
 
+    // Dispatch lifecycle notification events
+    if payload.assigned_technician_id.is_some() {
+        let _ = crate::services::mail_service::MailService::dispatch_event(&state.pool, "ticket_assigned", id, None).await;
+    }
+    if new_status == "solved" {
+        let _ = crate::services::mail_service::MailService::dispatch_event(&state.pool, "ticket_solved", id, None).await;
+    } else if new_status == "closed" {
+        let _ = crate::services::mail_service::MailService::dispatch_event(&state.pool, "ticket_closed", id, None).await;
+    }
+
     Ok(Json(summary))
 }
 
@@ -474,6 +487,13 @@ pub async fn add_followup(
     .fetch_one(&state.pool)
     .await
     .map_err(|e| AppError::InternalServerError(format!("Failed to retrieve created followup: {}", e)))?;
+
+    // Dispatch followup notification event
+    if item_type == "solution" {
+        let _ = crate::services::mail_service::MailService::dispatch_event(&state.pool, "ticket_solved", id, Some(new_id)).await;
+    } else {
+        let _ = crate::services::mail_service::MailService::dispatch_event(&state.pool, "ticket_followup_added", id, Some(new_id)).await;
+    }
 
     Ok((StatusCode::CREATED, Json(followup)))
 }

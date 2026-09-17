@@ -15,6 +15,7 @@ import { TicketDetailModal } from './components/tickets/TicketDetailModal';
 import { MetricsGrid } from './components/dashboard/MetricsGrid';
 import { ApiDiagnostics } from './components/dashboard/ApiDiagnostics';
 import { RoadmapCard } from './components/dashboard/RoadmapCard';
+import { MailConfigView } from './components/notifications/MailConfigView';
 import { pingBackendDiagnostics, type PingResult } from './services/api';
 import {
   PlusCircle,
@@ -28,6 +29,7 @@ import {
   Monitor,
   MessageSquare,
   LifeBuoy,
+  Mail,
 } from 'lucide-react';
 
 function DashboardMain() {
@@ -55,6 +57,7 @@ function DashboardMain() {
         onToggleChat={() => setIsChatOpen(!isChatOpen)}
         isChatOpen={isChatOpen}
         onNavigateEntities={() => setActiveNav('entities')}
+        onNavigateMail={() => setActiveNav('mail_config')}
         onOpenCreateTicket={() => setIsCreateTicketOpen(true)}
       />
 
@@ -72,6 +75,8 @@ function DashboardMain() {
               onOpenCreateTicket={() => setIsCreateTicketOpen(true)}
               onSelectTicket={(ticketId) => setSelectedTicketId(ticketId)}
             />
+          ) : activeNav === 'mail_config' ? (
+            <MailConfigView />
           ) : (
             <div className="openitil-dashboard-view">
               {/* Welcome Header */}
@@ -90,6 +95,13 @@ function DashboardMain() {
                   >
                     <LifeBuoy size={16} />
                     <span>Mesa de Tickets</span>
+                  </button>
+                  <button
+                    onClick={() => setActiveNav('mail_config')}
+                    className="btn-welcome-secondary"
+                  >
+                    <Mail size={16} />
+                    <span>Correo & Colectores</span>
                   </button>
                   <button
                     onClick={() => setActiveNav('entities')}
