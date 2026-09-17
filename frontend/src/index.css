@@ -1,11 +1,9 @@
-@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap');
-
 :root,
 [data-theme='dark'] {
   --font-sans:
-    'Plus Jakarta Sans', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto,
+    'Geist Variable', 'Geist', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto,
     sans-serif;
-  --font-mono: 'JetBrains Mono', monospace;
+  --font-mono: 'Geist Mono Variable', 'Geist Mono', monospace;
 
   /* Color Palette - Dark Cyber Navy */
   --bg-primary: #0b0f19;
@@ -59,9 +57,9 @@
 
 [data-theme='light'] {
   --font-sans:
-    'Plus Jakarta Sans', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto,
+    'Geist Variable', 'Geist', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto,
     sans-serif;
-  --font-mono: 'JetBrains Mono', monospace;
+  --font-mono: 'Geist Mono Variable', 'Geist Mono', monospace;
 
   /* Color Palette - Clean OpenITIL Light */
   --bg-primary: #f8fafc;
