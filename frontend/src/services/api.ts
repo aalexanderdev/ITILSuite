@@ -6,6 +6,14 @@ import type {
   EntityTreeNode,
   CreateEntityPayload,
   UserSummary,
+  TicketSummary,
+  TicketDetail,
+  CreateTicketPayload,
+  UpdateTicketPayload,
+  CreateFollowupPayload,
+  TicketFollowup,
+  TicketMetrics,
+  TicketFilterOptions,
 } from '../types';
 
 export const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8081';
@@ -182,3 +190,101 @@ export async function fetchUsers(): Promise<UserSummary[]> {
 
   return response.json();
 }
+
+// ITIL Service Desk (v0.0.3 Tickets)
+export async function fetchTickets(filters?: TicketFilterOptions): Promise<TicketSummary[]> {
+  const params = new URLSearchParams();
+  if (filters?.entity_id) params.append('entity_id', filters.entity_id);
+  if (filters?.status) params.append('status', filters.status);
+  if (filters?.ticket_type) params.append('ticket_type', filters.ticket_type);
+  if (filters?.priority) params.append('priority', filters.priority.toString());
+  if (filters?.assigned_to) params.append('assigned_to', filters.assigned_to);
+  if (filters?.search) params.append('search', filters.search);
+
+  const url = `${API_BASE_URL}/api/v1/tickets${params.toString() ? `?${params.toString()}` : ''}`;
+  const response = await fetch(url, {
+    method: 'GET',
+    headers: getAuthHeaders(),
+  });
+
+  if (!response.ok) {
+    throw new Error(`Failed to fetch tickets (${response.status})`);
+  }
+
+  return response.json();
+}
+
+export async function fetchTicketById(id: string): Promise<TicketDetail> {
+  const response = await fetch(`${API_BASE_URL}/api/v1/tickets/${id}`, {
+    method: 'GET',
+    headers: getAuthHeaders(),
+  });
+
+  if (!response.ok) {
+    throw new Error(`Failed to fetch ticket details (${response.status})`);
+  }
+
+  return response.json();
+}
+
+export async function createTicket(payload: CreateTicketPayload): Promise<TicketSummary> {
+  const response = await fetch(`${API_BASE_URL}/api/v1/tickets`, {
+    method: 'POST',
+    headers: getAuthHeaders(),
+    body: JSON.stringify(payload),
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => null);
+    throw new Error(errorData?.error?.message || errorData?.message || `Failed to create ticket (${response.status})`);
+  }
+
+  return response.json();
+}
+
+export async function updateTicket(id: string, payload: UpdateTicketPayload): Promise<TicketSummary> {
+  const response = await fetch(`${API_BASE_URL}/api/v1/tickets/${id}`, {
+    method: 'PATCH',
+    headers: getAuthHeaders(),
+    body: JSON.stringify(payload),
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => null);
+    throw new Error(errorData?.error?.message || errorData?.message || `Failed to update ticket (${response.status})`);
+  }
+
+  return response.json();
+}
+
+export async function addTicketFollowup(
+  ticketId: string,
+  payload: CreateFollowupPayload
+): Promise<TicketFollowup> {
+  const response = await fetch(`${API_BASE_URL}/api/v1/tickets/${ticketId}/followups`, {
+    method: 'POST',
+    headers: getAuthHeaders(),
+    body: JSON.stringify(payload),
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => null);
+    throw new Error(errorData?.error?.message || errorData?.message || `Failed to add followup (${response.status})`);
+  }
+
+  return response.json();
+}
+
+export async function fetchTicketMetrics(): Promise<TicketMetrics> {
+  const response = await fetch(`${API_BASE_URL}/api/v1/tickets/metrics`, {
+    method: 'GET',
+    headers: getAuthHeaders(),
+  });
+
+  if (!response.ok) {
+    throw new Error(`Failed to fetch ticket metrics (${response.status})`);
+  }
+
+  return response.json();
+}
+

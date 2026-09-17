@@ -7,6 +7,9 @@ import { LoginModal } from './components/auth/LoginModal';
 import { HelpdeskChatWidget } from './components/chat/HelpdeskChatWidget';
 import { EntityTreeView } from './components/entities/EntityTreeView';
 import { UsersListView } from './components/users/UsersListView';
+import { TicketsListView } from './components/tickets/TicketsListView';
+import { CreateTicketModal } from './components/tickets/CreateTicketModal';
+import { TicketDetailModal } from './components/tickets/TicketDetailModal';
 import { MetricsGrid } from './components/dashboard/MetricsGrid';
 import { ApiDiagnostics } from './components/dashboard/ApiDiagnostics';
 import { RoadmapCard } from './components/dashboard/RoadmapCard';
@@ -22,6 +25,7 @@ import {
   Globe,
   Monitor,
   MessageSquare,
+  LifeBuoy,
 } from 'lucide-react';
 
 function DashboardMain() {
@@ -30,6 +34,11 @@ function DashboardMain() {
   const [isChatOpen, setIsChatOpen] = useState(true); // Open by default like OpenITIL
   const [isChatPinned, setIsChatPinned] = useState(true);
   const { activeEntity } = useAuth();
+
+  // Ticket Modal states (v0.0.3)
+  const [isCreateTicketOpen, setIsCreateTicketOpen] = useState(false);
+  const [selectedTicketId, setSelectedTicketId] = useState<string | null>(null);
+  const [ticketRefreshTrigger, setTicketRefreshTrigger] = useState(0);
 
   useEffect(() => {
     pingBackendDiagnostics().then((res) => {
@@ -44,7 +53,7 @@ function DashboardMain() {
         onToggleChat={() => setIsChatOpen(!isChatOpen)}
         isChatOpen={isChatOpen}
         onNavigateEntities={() => setActiveNav('entities')}
-        onOpenCreateTicket={() => alert('ITIL Ticket creation workflow scheduled for v0.0.3')}
+        onOpenCreateTicket={() => setIsCreateTicketOpen(true)}
       />
 
       {/* Main Body Layout: Content Area + Right Chat Rail */}
@@ -55,6 +64,12 @@ function DashboardMain() {
             <EntityTreeView />
           ) : activeNav === 'users' ? (
             <UsersListView />
+          ) : activeNav === 'tickets' ? (
+            <TicketsListView
+              key={ticketRefreshTrigger}
+              onOpenCreateTicket={() => setIsCreateTicketOpen(true)}
+              onSelectTicket={(ticketId) => setSelectedTicketId(ticketId)}
+            />
           ) : (
             <div className="openitil-dashboard-view">
               {/* Welcome Header */}
@@ -68,8 +83,15 @@ function DashboardMain() {
                 </div>
                 <div className="welcome-actions">
                   <button
-                    onClick={() => setActiveNav('entities')}
+                    onClick={() => setActiveNav('tickets')}
                     className="btn-welcome-primary"
+                  >
+                    <LifeBuoy size={16} />
+                    <span>Mesa de Tickets</span>
+                  </button>
+                  <button
+                    onClick={() => setActiveNav('entities')}
+                    className="btn-welcome-secondary"
                   >
                     <FolderTree size={16} />
                     <span>Jerarquía de Entidades</span>
@@ -79,7 +101,7 @@ function DashboardMain() {
                     className="btn-welcome-secondary"
                   >
                     <PlusCircle size={16} />
-                    <span>Directorio de Usuarios</span>
+                    <span>Directorio Usuarios</span>
                   </button>
                 </div>
               </div>
@@ -254,7 +276,7 @@ function DashboardMain() {
       <BottomNavDock
         activeNav={activeNav}
         onSelectNav={setActiveNav}
-        onOpenCreateTicket={() => alert('Creación de tickets programada para v0.0.3')}
+        onOpenCreateTicket={() => setIsCreateTicketOpen(true)}
       />
 
       {/* Bottom-left floating launcher when chat is closed */}
@@ -268,6 +290,24 @@ function DashboardMain() {
           <span className="chat-launcher-badge">2</span>
         </button>
       )}
+
+      {/* Ticket Creation Modal */}
+      <CreateTicketModal
+        isOpen={isCreateTicketOpen}
+        onClose={() => setIsCreateTicketOpen(false)}
+        onTicketCreated={(ticket) => {
+          setSelectedTicketId(ticket.id);
+          setTicketRefreshTrigger((prev) => prev + 1);
+        }}
+      />
+
+      {/* Ticket Detail & Lifecycle Modal */}
+      <TicketDetailModal
+        ticketId={selectedTicketId}
+        isOpen={Boolean(selectedTicketId)}
+        onClose={() => setSelectedTicketId(null)}
+        onTicketUpdated={() => setTicketRefreshTrigger((prev) => prev + 1)}
+      />
 
       {/* Global Minimalist Login Modal */}
       <LoginModal />

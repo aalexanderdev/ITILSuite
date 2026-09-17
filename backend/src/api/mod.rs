@@ -1,6 +1,7 @@
 pub mod auth;
 pub mod entities;
 pub mod health;
+pub mod tickets;
 pub mod users;
 pub mod version;
 
@@ -43,6 +44,12 @@ impl Modify for SecurityAddon {
         entities::list_entities,
         entities::create_entity,
         users::list_users,
+        tickets::list_tickets,
+        tickets::get_ticket,
+        tickets::create_ticket,
+        tickets::update_ticket,
+        tickets::add_followup,
+        tickets::get_ticket_metrics,
     ),
     components(
         schemas(
@@ -55,6 +62,14 @@ impl Modify for SecurityAddon {
             crate::domain::entity::EntityTreeNode,
             crate::domain::entity::CreateEntityDto,
             crate::domain::user::UserSummaryDto,
+            crate::domain::ticket::Ticket,
+            crate::domain::ticket::TicketSummaryDto,
+            crate::domain::ticket::TicketDetailDto,
+            crate::domain::ticket::TicketFollowupDto,
+            crate::domain::ticket::CreateTicketDto,
+            crate::domain::ticket::UpdateTicketDto,
+            crate::domain::ticket::CreateFollowupDto,
+            crate::domain::ticket::TicketMetricsDto,
             crate::error::ErrorDetail,
             crate::error::ErrorResponse,
         )
@@ -64,12 +79,13 @@ impl Modify for SecurityAddon {
         (name = "Authentication", description = "User authentication and JWT token lifecycle"),
         (name = "Entities", description = "Hierarchical Multi-Tenancy Entity management"),
         (name = "Users", description = "User profiles and identity"),
+        (name = "Tickets", description = "ITIL Service Desk Incident/Request lifecycles and dispatch"),
         (name = "Health", description = "Service monitoring and status endpoints"),
         (name = "Version", description = "Application and environment version metadata")
     ),
     info(
         title = "ITILSuite REST API",
-        version = "0.0.2",
+        version = "0.0.3",
         description = "High-performance Rust REST API inspired by GLPI 11 for ITSM, ITAM, and CMDB.",
         license(name = "GPL-3.0-or-later", url = "https://www.gnu.org/licenses/gpl-3.0.html")
     )
@@ -83,7 +99,11 @@ pub fn create_router(state: AppState) -> Router {
         .route("/auth/login", post(auth::login))
         .route("/auth/me", get(auth::me))
         .route("/entities", get(entities::list_entities).post(entities::create_entity))
-        .route("/users", get(users::list_users));
+        .route("/users", get(users::list_users))
+        .route("/tickets", get(tickets::list_tickets).post(tickets::create_ticket))
+        .route("/tickets/metrics", get(tickets::get_ticket_metrics))
+        .route("/tickets/:id", get(tickets::get_ticket).patch(tickets::update_ticket))
+        .route("/tickets/:id/followups", post(tickets::add_followup));
 
     Router::new()
         .nest("/api/v1", api_v1)

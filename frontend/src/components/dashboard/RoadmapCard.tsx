@@ -13,13 +13,13 @@ export const RoadmapCard: React.FC = () => {
       version: 'v0.0.2',
       title: 'Multi-Tenancy & Authentication',
       desc: 'Hierarchical Entity tree, Users, RBAC profiles, and JWT authentication.',
-      status: 'in-progress',
+      status: 'completed',
     },
     {
       version: 'v0.0.3',
       title: 'ITIL Service Desk (Tickets)',
       desc: 'Incident/Request lifecycles, Urgency x Impact priority matrix, and technician dispatch.',
-      status: 'planned',
+      status: 'completed',
     },
     {
       version: 'v0.0.4',
