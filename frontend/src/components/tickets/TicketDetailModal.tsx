@@ -23,6 +23,8 @@ import {
   fetchUsers,
 } from '../../services/api';
 import { getPriorityMeta } from './PriorityMatrixPicker';
+import { TicketDetailSkeleton, Tooltip } from '../ui';
+import { useToast } from '../../context/ToastContext';
 
 interface TicketDetailModalProps {
   ticketId: string | null;
@@ -46,6 +48,7 @@ export const TicketDetailModal: React.FC<TicketDetailModalProps> = ({
   onClose,
   onTicketUpdated,
 }) => {
+  const { toast } = useToast();
   const [ticket, setTicket] = useState<TicketDetail | null>(null);
   const [loading, setLoading] = useState(false);
   const [updatingStatus, setUpdatingStatus] = useState(false);
@@ -110,14 +113,20 @@ export const TicketDetailModal: React.FC<TicketDetailModalProps> = ({
       await updateTicket(ticket.id, { status: newStatus });
       await loadTicket();
       onTicketUpdated();
+      toast.success(
+        `Estado: ${newStatus.toUpperCase()}`,
+        `Ticket ${ticket.ticket_number} actualizado a la etapa ${newStatus}.`
+      );
       setFeedbackMsg({
         type: 'success',
         text: `Estado actualizado a: ${newStatus.toUpperCase()}`,
       });
     } catch (err) {
+      const errMsg = err instanceof Error ? err.message : 'No se pudo actualizar el estado';
+      toast.error('Error al actualizar estado', errMsg);
       setFeedbackMsg({
         type: 'error',
-        text: err instanceof Error ? err.message : 'No se pudo actualizar el estado',
+        text: errMsg,
       });
     } finally {
       setUpdatingStatus(false);
@@ -137,14 +146,25 @@ export const TicketDetailModal: React.FC<TicketDetailModalProps> = ({
       });
       await loadTicket();
       onTicketUpdated();
+      const tech = technicians.find((u) => u.id === newTechId);
+      if (newTechId) {
+        toast.success(
+          'Técnico Asignado',
+          `${ticket.ticket_number} despachado a ${tech?.display_name || 'especialista'}.`
+        );
+      } else {
+        toast.info('Despacho Removido', `Ticket ${ticket.ticket_number} quedó sin asignar.`);
+      }
       setFeedbackMsg({
         type: 'success',
         text: newTechId ? 'Técnico despachado exitosamente' : 'Despacho removido',
       });
     } catch (err) {
+      const errMsg = err instanceof Error ? err.message : 'Error al reasignar técnico';
+      toast.error('Error de despacho', errMsg);
       setFeedbackMsg({
         type: 'error',
-        text: err instanceof Error ? err.message : 'Error al reasignar técnico',
+        text: errMsg,
       });
     } finally {
       setUpdatingDispatch(false);
@@ -175,9 +195,25 @@ export const TicketDetailModal: React.FC<TicketDetailModalProps> = ({
       setIsPrivate(false);
       await loadTicket();
       onTicketUpdated();
+
+      if (followupType === 'solution') {
+        toast.success(
+          'Solución Registrada',
+          `Solución implementada en ${ticket.ticket_number}. Ticket resuelto.`
+        );
+      } else {
+        toast.success(
+          'Seguimiento Añadido',
+          `Nueva anotación guardada en ${ticket.ticket_number}.`
+        );
+      }
+
       setFeedbackMsg({
         type: 'success',
-        text: followupType === 'solution' ? 'Solución registrada y ticket marcado como Resuelto' : 'Seguimiento añadido correctamente',
+        text:
+          followupType === 'solution'
+            ? 'Solución registrada y ticket marcado como Resuelto'
+            : 'Seguimiento añadido correctamente',
       });
     } catch (err) {
       setFeedbackMsg({
@@ -278,10 +314,7 @@ export const TicketDetailModal: React.FC<TicketDetailModalProps> = ({
         )}
 
         {loading && !ticket ? (
-          <div className="ticket-modal-loading">
-            <div className="loading-spinner" />
-            <p>Cargando información completa del ticket...</p>
-          </div>
+          <TicketDetailSkeleton />
         ) : ticket ? (
           <div className="ticket-modal-content-grid">
             {/* Left Column: Lifecycle, Description, Timeline */}
@@ -299,25 +332,25 @@ export const TicketDetailModal: React.FC<TicketDetailModalProps> = ({
                     const isCurrent = step.key === ticket.status;
                     const isPassed = currentStatusIndex > idx;
                     return (
-                      <button
-                        key={step.key}
-                        type="button"
-                        className={`lifecycle-step-btn ${isCurrent ? 'step-current' : ''} ${
-                          isPassed ? 'step-passed' : ''
-                        }`}
-                        onClick={() => handleStatusChange(step.key)}
-                        disabled={updatingStatus}
-                        title={step.description}
-                      >
-                        <div className="step-indicator">
-                          {isPassed ? (
-                            <CheckCircle2 size={14} />
-                          ) : (
-                            <span className="step-num">{idx + 1}</span>
-                          )}
-                        </div>
-                        <span className="step-label">{step.label}</span>
-                      </button>
+                      <Tooltip key={step.key} content={step.description} position="bottom">
+                        <button
+                          type="button"
+                          className={`lifecycle-step-btn ${isCurrent ? 'step-current' : ''} ${
+                            isPassed ? 'step-passed' : ''
+                          }`}
+                          onClick={() => handleStatusChange(step.key)}
+                          disabled={updatingStatus}
+                        >
+                          <div className="step-indicator">
+                            {isPassed ? (
+                              <CheckCircle2 size={14} />
+                            ) : (
+                              <span className="step-num">{idx + 1}</span>
+                            )}
+                          </div>
+                          <span className="step-label">{step.label}</span>
+                        </button>
+                      </Tooltip>
                     );
                   })}
                 </div>

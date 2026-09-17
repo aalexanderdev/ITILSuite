@@ -14,6 +14,8 @@ import type {
   TicketFollowup,
   TicketMetrics,
   TicketFilterOptions,
+  TicketTemplate,
+  CreateTicketTemplatePayload,
 } from '../types';
 
 export const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8081';
@@ -287,4 +289,63 @@ export async function fetchTicketMetrics(): Promise<TicketMetrics> {
 
   return response.json();
 }
+
+// ITIL Ticket Templates (Inspired by GLPI)
+export async function fetchTicketTemplates(filters?: {
+  entity_id?: string;
+  category?: string;
+  ticket_type?: string;
+}): Promise<TicketTemplate[]> {
+  const params = new URLSearchParams();
+  if (filters?.entity_id) params.append('entity_id', filters.entity_id);
+  if (filters?.category) params.append('category', filters.category);
+  if (filters?.ticket_type) params.append('ticket_type', filters.ticket_type);
+
+  const url = `${API_BASE_URL}/api/v1/ticket-templates${
+    params.toString() ? `?${params.toString()}` : ''
+  }`;
+  const response = await fetch(url, {
+    method: 'GET',
+    headers: getAuthHeaders(),
+  });
+
+  if (!response.ok) {
+    throw new Error(`Failed to fetch ticket templates (${response.status})`);
+  }
+
+  return response.json();
+}
+
+export async function fetchTicketTemplateById(id: string): Promise<TicketTemplate> {
+  const response = await fetch(`${API_BASE_URL}/api/v1/ticket-templates/${id}`, {
+    method: 'GET',
+    headers: getAuthHeaders(),
+  });
+
+  if (!response.ok) {
+    throw new Error(`Failed to fetch ticket template (${response.status})`);
+  }
+
+  return response.json();
+}
+
+export async function createTicketTemplate(
+  payload: CreateTicketTemplatePayload
+): Promise<TicketTemplate> {
+  const response = await fetch(`${API_BASE_URL}/api/v1/ticket-templates`, {
+    method: 'POST',
+    headers: getAuthHeaders(),
+    body: JSON.stringify(payload),
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => null);
+    throw new Error(
+      errorData?.error?.message || errorData?.message || `Failed to create template (${response.status})`
+    );
+  }
+
+  return response.json();
+}
+
 

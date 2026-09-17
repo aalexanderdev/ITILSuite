@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { ThemeProvider } from './context/ThemeContext';
+import { ToastProvider } from './context/ToastContext';
+import { ToastContainer } from './components/ui';
 import { Navbar } from './components/layout/Navbar';
 import { BottomNavDock } from './components/layout/BottomNavDock';
 import { LoginModal } from './components/auth/LoginModal';
@@ -319,7 +321,10 @@ export function App() {
   return (
     <ThemeProvider>
       <AuthProvider>
-        <DashboardMain />
+        <ToastProvider>
+          <DashboardMain />
+          <ToastContainer />
+        </ToastProvider>
       </AuthProvider>
     </ThemeProvider>
   );

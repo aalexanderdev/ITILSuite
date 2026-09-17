@@ -1,8 +1,21 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
-import { createTicket, fetchUsers, fetchEntities } from '../../services/api';
-import type { TicketSummary, UserSummary, EntityTreeNode, TicketType } from '../../types';
+import {
+  createTicket,
+  fetchUsers,
+  fetchEntities,
+  fetchTicketTemplates,
+} from '../../services/api';
+import type {
+  TicketSummary,
+  UserSummary,
+  EntityTreeNode,
+  TicketType,
+  TicketTemplate,
+} from '../../types';
 import { PriorityMatrixPicker } from './PriorityMatrixPicker';
+import { TemplateSelectorCard } from './TemplateSelectorCard';
+import { useToast } from '../../context/ToastContext';
 import {
   X,
   Plus,
@@ -12,19 +25,23 @@ import {
   UserCheck,
   Tag,
   FileText,
+  Info,
 } from 'lucide-react';
 
 interface CreateTicketModalProps {
   isOpen: boolean;
   onClose: () => void;
   onTicketCreated: (ticket: TicketSummary) => void;
+  initialTemplateId?: string | null;
 }
 
 export const CreateTicketModal: React.FC<CreateTicketModalProps> = ({
   isOpen,
   onClose,
   onTicketCreated,
+  initialTemplateId,
 }) => {
+  const { toast } = useToast();
   const { activeEntity } = useAuth();
   const [name, setName] = useState('');
   const [content, setContent] = useState('');
@@ -35,6 +52,9 @@ export const CreateTicketModal: React.FC<CreateTicketModalProps> = ({
   const [assignedTechnicianId, setAssignedTechnicianId] = useState<string>('');
   const [entityId, setEntityId] = useState<string>(activeEntity.id);
 
+  const [templates, setTemplates] = useState<TicketTemplate[]>([]);
+  const [selectedTemplate, setSelectedTemplate] = useState<TicketTemplate | null>(null);
+
   const [technicians, setTechnicians] = useState<UserSummary[]>([]);
   const [entities, setEntities] = useState<EntityTreeNode[]>([]);
   const [submitting, setSubmitting] = useState(false);
@@ -43,9 +63,11 @@ export const CreateTicketModal: React.FC<CreateTicketModalProps> = ({
   useEffect(() => {
     if (isOpen) {
       setEntityId(activeEntity.id);
+      setError(null);
+
+      // Load Users for Dispatch
       fetchUsers()
         .then((users) => {
-          // Technicians or Admins eligible for dispatch
           const techs = users.filter(
             (u) => u.profile_name === 'Technician' || u.profile_name === 'Super-Admin'
           );
@@ -53,6 +75,7 @@ export const CreateTicketModal: React.FC<CreateTicketModalProps> = ({
         })
         .catch(() => {});
 
+      // Load Entities
       fetchEntities()
         .then((tree) => {
           const flatten = (nodes: EntityTreeNode[], list: EntityTreeNode[] = []): EntityTreeNode[] => {
@@ -65,24 +88,121 @@ export const CreateTicketModal: React.FC<CreateTicketModalProps> = ({
           setEntities(flatten(tree));
         })
         .catch(() => {});
+
+      // Load Ticket Templates (GLPI Inspired)
+      fetchTicketTemplates({ entity_id: activeEntity.id })
+        .then((tpls) => {
+          setTemplates(tpls);
+          if (initialTemplateId) {
+            const match = tpls.find((t) => t.id === initialTemplateId);
+            if (match) applyTemplate(match);
+          }
+        })
+        .catch(() => {});
+    } else {
+      setSelectedTemplate(null);
     }
-  }, [isOpen, activeEntity]);
+  }, [isOpen, activeEntity, initialTemplateId]);
+
+  const applyTemplate = (tpl: TicketTemplate | null) => {
+    setSelectedTemplate(tpl);
+    setError(null);
+
+    if (!tpl) {
+      // Revert to default clean state
+      return;
+    }
+
+    // 1. Predefined Title & Content
+    if (tpl.predefined_title) {
+      setName(tpl.predefined_title);
+    }
+    if (tpl.predefined_content) {
+      setContent(tpl.predefined_content);
+    }
+
+    // 2. Predefined Type & Category
+    setTicketType(tpl.ticket_type);
+    if (tpl.category) {
+      setCategory(tpl.category);
+    }
+
+    // 3. Predefined Urgency & Impact
+    if (tpl.predefined_urgency) {
+      setUrgency(tpl.predefined_urgency);
+    }
+    if (tpl.predefined_impact) {
+      setImpact(tpl.predefined_impact);
+    }
+
+    // 4. Default Technician Dispatch
+    if (tpl.default_technician_id) {
+      setAssignedTechnicianId(tpl.default_technician_id);
+    }
+  };
+
+  const handleCategoryChange = (newCat: string) => {
+    setCategory(newCat);
+
+    // GLPI Feature: Link template to category automatically
+    const matchingTpl = templates.find(
+      (t) => t.category && t.category.toLowerCase() === newCat.toLowerCase()
+    );
+    if (matchingTpl && (!selectedTemplate || selectedTemplate.category !== newCat)) {
+      applyTemplate(matchingTpl);
+    }
+  };
 
   if (!isOpen) return null;
 
+  // Check hidden fields
+  const isPriorityHidden =
+    selectedTemplate?.hidden_fields.includes('urgency') ||
+    selectedTemplate?.hidden_fields.includes('impact');
+  const isTechnicianHidden = selectedTemplate?.hidden_fields.includes('assigned_technician_id');
+
+  // Check mandatory fields
+  const isUrgencyMandatory = selectedTemplate?.mandatory_fields.includes('urgency');
+  const isCategoryMandatory = selectedTemplate?.mandatory_fields.includes('category');
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setError(null);
+
     if (!name.trim()) {
       setError('Por favor indica un título para el ticket');
       return;
     }
+
     if (!content.trim()) {
       setError('Por favor detalla la descripción del incidente o solicitud');
       return;
     }
 
+    // GLPI Rule: If description is mandatory and unchanged from template default, force user modification
+    if (
+      selectedTemplate &&
+      selectedTemplate.mandatory_fields.includes('content') &&
+      selectedTemplate.predefined_content &&
+      content.trim() === selectedTemplate.predefined_content.trim()
+    ) {
+      setError(
+        'La plantilla requiere que completes la información específica del caso (no dejes los valores por defecto sin editar)'
+      );
+      return;
+    }
+
+    if (isCategoryMandatory && !category) {
+      setError('La categoría del servicio es obligatoria para esta plantilla');
+      return;
+    }
+
+    if (isUrgencyMandatory && urgency <= 0) {
+      setError('El nivel de urgencia es obligatorio para esta plantilla');
+      return;
+    }
+
     setSubmitting(true);
-    setError(null);
 
     try {
       const created = await createTicket({
@@ -97,15 +217,23 @@ export const CreateTicketModal: React.FC<CreateTicketModalProps> = ({
       });
 
       onTicketCreated(created);
+      toast.success(
+        `Ticket ${created.ticket_number} creado`,
+        `${created.name} (${created.ticket_type === 'incident' ? 'Incidente' : 'Solicitud'})`
+      );
       onClose();
+
       // Reset form
       setName('');
       setContent('');
       setUrgency(3);
       setImpact(3);
       setAssignedTechnicianId('');
+      setSelectedTemplate(null);
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Error al registrar el ticket');
+      const msg = err instanceof Error ? err.message : 'Error al registrar el ticket';
+      toast.error('Error al registrar ticket', msg);
+      setError(msg);
     } finally {
       setSubmitting(false);
     }
@@ -114,10 +242,11 @@ export const CreateTicketModal: React.FC<CreateTicketModalProps> = ({
   return (
     <div className="modal-overlay" onClick={onClose}>
       <div
-        className="modal-content"
-        style={{ maxWidth: 720, maxHeight: '90vh', overflowY: 'auto' }}
+        className="modal-content create-ticket-modal-shell"
+        style={{ maxWidth: 780, maxHeight: '92vh', overflowY: 'auto' }}
         onClick={(e) => e.stopPropagation()}
       >
+        {/* Modal Header */}
         <div className="modal-header">
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
             <div
@@ -139,7 +268,7 @@ export const CreateTicketModal: React.FC<CreateTicketModalProps> = ({
                 Crear Nuevo Ticket de Mesa de Ayuda
               </h2>
               <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                Módulo ITIL Service Desk v0.0.3 • Gestión de Incidentes y Peticiones de Servicio
+                ITIL Service Desk v0.0.3 • Plantillas Estandarizadas GLPI
               </p>
             </div>
           </div>
@@ -149,6 +278,7 @@ export const CreateTicketModal: React.FC<CreateTicketModalProps> = ({
           </button>
         </div>
 
+        {/* Error Alert */}
         {error && (
           <div
             style={{
@@ -170,10 +300,39 @@ export const CreateTicketModal: React.FC<CreateTicketModalProps> = ({
         )}
 
         <form onSubmit={handleSubmit} style={{ padding: '1.25rem 1.5rem', display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+          {/* Template Selector (GLPI Inspired) */}
+          <TemplateSelectorCard
+            templates={templates}
+            selectedTemplateId={selectedTemplate?.id || null}
+            onSelectTemplate={applyTemplate}
+          />
+
+          {/* Active Template Rules Indicator */}
+          {selectedTemplate && (
+            <div className="active-template-banner">
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', color: 'var(--accent-blue)', fontWeight: 600 }}>
+                <Info size={15} />
+                <span>Plantilla activa: <strong>{selectedTemplate.name}</strong></span>
+              </div>
+              <div className="template-rules-badges">
+                {selectedTemplate.mandatory_fields.length > 0 && (
+                  <span className="badge-rule mandatory">
+                    {selectedTemplate.mandatory_fields.length} campos requeridos
+                  </span>
+                )}
+                {selectedTemplate.hidden_fields.length > 0 && (
+                  <span className="badge-rule hidden">
+                    Formulario simplificado ({selectedTemplate.hidden_fields.length} campos pre-fijados)
+                  </span>
+                )}
+              </div>
+            </div>
+          )}
+
           {/* Ticket Type Toggle: Incidente vs Petición */}
           <div>
             <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 700, marginBottom: '0.45rem', color: 'var(--text-primary)' }}>
-              Tipo de Ticket (ITIL)
+              Tipo de Ticket (ITIL) *
             </label>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
               <button
@@ -221,7 +380,7 @@ export const CreateTicketModal: React.FC<CreateTicketModalProps> = ({
                 <div>
                   <strong style={{ display: 'block', fontSize: '0.85rem' }}>Petición de Servicio</strong>
                   <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>
-                    Solicitud de acceso, nuevo equipo o asesoría estándar
+                    Solicitud de acceso, nuevo equipo o asistencia estándar
                   </span>
                 </div>
               </button>
@@ -245,7 +404,7 @@ export const CreateTicketModal: React.FC<CreateTicketModalProps> = ({
           </div>
 
           {/* Scopes & Dispatch Grid */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: isTechnicianHidden ? '1fr' : '1fr 1fr', gap: '1rem' }}>
             {/* Entity Scope */}
             <div>
               <label style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', fontSize: '0.78rem', fontWeight: 700, marginBottom: '0.4rem', color: 'var(--text-primary)' }}>
@@ -270,56 +429,67 @@ export const CreateTicketModal: React.FC<CreateTicketModalProps> = ({
               </select>
             </div>
 
-            {/* Technician Dispatch */}
-            <div>
-              <label style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', fontSize: '0.78rem', fontWeight: 700, marginBottom: '0.4rem', color: 'var(--text-primary)' }}>
-                <UserCheck size={13} color="#34d399" />
-                <span>Despachar a Técnico</span>
-              </label>
-              <select
-                value={assignedTechnicianId}
-                onChange={(e) => setAssignedTechnicianId(e.target.value)}
-                className="input-control"
-                style={{ fontSize: '0.8rem' }}
-              >
-                <option value="">Sin asignar (Bolsa común de la mesa)</option>
-                {technicians.map((t) => (
-                  <option key={t.id} value={t.id}>
-                    {t.display_name} ({t.profile_name})
-                  </option>
-                ))}
-              </select>
-            </div>
+            {/* Technician Dispatch (Conditional if not hidden) */}
+            {!isTechnicianHidden && (
+              <div>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', fontSize: '0.78rem', fontWeight: 700, marginBottom: '0.4rem', color: 'var(--text-primary)' }}>
+                  <UserCheck size={13} color="#34d399" />
+                  <span>Despachar a Técnico</span>
+                </label>
+                <select
+                  value={assignedTechnicianId}
+                  onChange={(e) => setAssignedTechnicianId(e.target.value)}
+                  className="input-control"
+                  style={{ fontSize: '0.8rem' }}
+                >
+                  <option value="">Sin asignar (Bolsa común de la mesa)</option>
+                  {technicians.map((t) => (
+                    <option key={t.id} value={t.id}>
+                      {t.display_name} ({t.profile_name})
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
           </div>
 
           {/* Category */}
           <div>
             <label style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', fontSize: '0.78rem', fontWeight: 700, marginBottom: '0.4rem', color: 'var(--text-primary)' }}>
               <Tag size={13} color="#c084fc" />
-              <span>Categoría del Servicio</span>
+              <span>Categoría del Servicio {isCategoryMandatory ? '*' : ''}</span>
             </label>
             <select
               value={category}
-              onChange={(e) => setCategory(e.target.value)}
+              onChange={(e) => handleCategoryChange(e.target.value)}
               className="input-control"
               style={{ fontSize: '0.8rem' }}
             >
-              <option value="Hardware / Equipos">Hardware / Equipos de Cómputo</option>
+              <option value="Hardware / Equipos">Hardware / Equipos (Laptops, PCs, Servidores)</option>
+              <option value="Sistemas / Correo">Sistemas / Correo Electrónico y Buzones</option>
+              <option value="Cuentas y Accesos">Cuentas y Accesos (VPN, Directorio Activo)</option>
+              <option value="Gestión de Personal">Gestión de Personal (Onboarding TI, Bajas)</option>
+              <option value="Redes / Infraestructura">Redes / Infraestructura y Enlaces</option>
               <option value="Software / Licencias">Software / Licenciamiento y Aplicaciones</option>
-              <option value="Redes / Telecomunicaciones">Redes / Telecomunicaciones y VPN</option>
-              <option value="Acceso & Seguridad">Acceso, Cuentas y Ciberseguridad</option>
-              <option value="Servidores & Storage">Servidores, Storage y Cloud</option>
               <option value="Periféricos / Impresión">Periféricos e Impresión</option>
             </select>
           </div>
 
-          {/* Interactive Urgency x Impact Matrix */}
-          <PriorityMatrixPicker
-            urgency={urgency}
-            impact={impact}
-            onChangeUrgency={setUrgency}
-            onChangeImpact={setImpact}
-          />
+          {/* Interactive Urgency x Impact Matrix (Conditional if not hidden by template) */}
+          {!isPriorityHidden ? (
+            <PriorityMatrixPicker
+              urgency={urgency}
+              impact={impact}
+              onChangeUrgency={setUrgency}
+              onChangeImpact={setImpact}
+            />
+          ) : (
+            <div className="hidden-priority-notice">
+              <span className="notice-title">Prioridad Predefinida por Plantilla:</span>
+              <span className="notice-badge">Urgencia {urgency} • Impacto {impact}</span>
+              <span className="notice-desc">Esta solicitud cuenta con matriz de prioridad estandarizada</span>
+            </div>
+          )}
 
           {/* Description Content */}
           <div>
@@ -331,11 +501,16 @@ export const CreateTicketModal: React.FC<CreateTicketModalProps> = ({
               value={content}
               onChange={(e) => setContent(e.target.value)}
               placeholder="Indica paso a paso qué ocurre, personas afectadas, mensajes de error observados y ubicación..."
-              rows={4}
+              rows={5}
               required
               className="input-control"
-              style={{ fontSize: '0.82rem', resize: 'vertical' }}
+              style={{ fontSize: '0.82rem', resize: 'vertical', fontFamily: 'var(--font-mono)' }}
             />
+            {selectedTemplate && selectedTemplate.mandatory_fields.includes('content') && (
+              <span style={{ display: 'block', marginTop: '0.25rem', fontSize: '0.7rem', color: 'var(--accent-amber)' }}>
+                * Por favor completa cada uno de los puntos requeridos en el cuestionario de la plantilla.
+              </span>
+            )}
           </div>
 
           {/* Action Buttons */}

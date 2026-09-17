@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
+import { Tooltip } from '../ui';
 import {
   LayoutGrid,
   LifeBuoy,
@@ -29,95 +30,106 @@ export const BottomNavDock: React.FC<BottomNavDockProps> = ({
   return (
     <div className="bottom-dock-wrapper">
       {/* Toggle Handle 'Menú' */}
-      <button
-        onClick={() => setIsCollapsed(!isCollapsed)}
-        className="bottom-dock-toggle"
-        title={isCollapsed ? 'Show Navigation Menu' : 'Hide Navigation Menu'}
-      >
-        {isCollapsed ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
-        <span>Menú</span>
-      </button>
+      <Tooltip content={isCollapsed ? 'Mostrar Dock' : 'Ocultar Dock'} position="top">
+        <button
+          onClick={() => setIsCollapsed(!isCollapsed)}
+          className="bottom-dock-toggle"
+          aria-label={isCollapsed ? 'Mostrar Menú de Navegación' : 'Ocultar Menú de Navegación'}
+        >
+          {isCollapsed ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
+          <span>Menú</span>
+        </button>
+      </Tooltip>
 
       {/* Floating Pill Dock Bar */}
       {!isCollapsed && (
-        <nav className="bottom-dock-bar">
+        <nav className="bottom-dock-bar" aria-label="Navegación Rápida">
           {/* Dashboard / Panel */}
-          <button
-            onClick={() => onSelectNav('dashboard')}
-            className={`dock-item ${activeNav === 'dashboard' ? 'active' : ''}`}
-            title="Service Desk Dashboard"
-          >
-            <LayoutGrid size={16} />
-            <span>Panel</span>
-          </button>
+          <Tooltip content="Métricas globales y diagnóstico del sistema" position="top">
+            <button
+              onClick={() => onSelectNav('dashboard')}
+              className={`dock-item ${activeNav === 'dashboard' ? 'active' : ''}`}
+            >
+              <LayoutGrid size={16} />
+              <span>Panel</span>
+            </button>
+          </Tooltip>
 
           {/* Tickets */}
-          <button
-            onClick={() => onSelectNav('tickets')}
-            className={`dock-item ${activeNav === 'tickets' ? 'active' : ''}`}
-            title="Incidents & Service Requests"
-          >
-            <LifeBuoy size={16} />
-            <span>Tickets</span>
-            <span className="dock-badge">12</span>
-          </button>
+          <Tooltip content="Mesa de ayuda: gestión de incidentes y requerimientos" position="top">
+            <button
+              onClick={() => onSelectNav('tickets')}
+              className={`dock-item ${activeNav === 'tickets' ? 'active' : ''}`}
+            >
+              <LifeBuoy size={16} />
+              <span>Tickets</span>
+              <span className="dock-badge">12</span>
+            </button>
+          </Tooltip>
 
           {/* Primary Quick Create Button */}
-          <button
-            onClick={() => {
-              if (onOpenCreateTicket) onOpenCreateTicket();
-              else alert('Create Ticket dialog scheduled for v0.0.3');
-            }}
-            className="dock-item-create"
-            title="Create New Ticket / Incident"
-          >
-            <Plus size={16} />
-            <span>Crear</span>
-          </button>
+          <Tooltip content="Crear nuevo incidente o requerimiento con plantillas" position="top">
+            <button
+              onClick={() => {
+                if (onOpenCreateTicket) onOpenCreateTicket();
+              }}
+              className="dock-item-create"
+            >
+              <Plus size={16} />
+              <span>Crear</span>
+            </button>
+          </Tooltip>
 
           {/* Inventory / CMDB */}
-          <button
-            onClick={() => onSelectNav('computers')}
-            className={`dock-item ${activeNav === 'computers' || activeNav === 'inventory' ? 'active' : ''}`}
-            title="Assets & CMDB Inventory"
-          >
-            <Server size={16} />
-            <span>Inventario</span>
-            <span className="dock-badge">180</span>
-          </button>
+          <Tooltip content="Base de datos de gestión de configuración (CMDB)" position="top">
+            <button
+              onClick={() => onSelectNav('computers')}
+              className={`dock-item ${activeNav === 'computers' || activeNav === 'inventory' ? 'active' : ''}`}
+            >
+              <Server size={16} />
+              <span>Inventario</span>
+              <span className="dock-badge">180</span>
+            </button>
+          </Tooltip>
 
           {/* Organizational Entity Tree (v0.0.2) */}
-          <button
-            onClick={() => onSelectNav('entities')}
-            className={`dock-item ${activeNav === 'entities' ? 'active' : ''}`}
-            title="Hierarchical Entity Tree"
-          >
-            <FolderTree size={16} />
-            <span>Entidades</span>
-          </button>
+          <Tooltip content="Jerarquía multi-inquilino de organizaciones y sedes" position="top">
+            <button
+              onClick={() => onSelectNav('entities')}
+              className={`dock-item ${activeNav === 'entities' ? 'active' : ''}`}
+            >
+              <FolderTree size={16} />
+              <span>Entidades</span>
+            </button>
+          </Tooltip>
 
           {/* Users & RBAC Profiles (v0.0.2) */}
-          <button
-            onClick={() => onSelectNav('users')}
-            className={`dock-item ${activeNav === 'users' ? 'active' : ''}`}
-            title="User Directory & RBAC Profiles"
-          >
-            <Users size={16} />
-            <span>Usuarios</span>
-          </button>
+          <Tooltip content="Directorio de usuarios y perfiles de acceso ITIL" position="top">
+            <button
+              onClick={() => onSelectNav('users')}
+              className={`dock-item ${activeNav === 'users' ? 'active' : ''}`}
+            >
+              <Users size={16} />
+              <span>Usuarios</span>
+            </button>
+          </Tooltip>
 
           {/* Profile / Account */}
-          <button
-            onClick={() => {
-              if (!user) setLoginModalOpen(true);
-              else alert(`User profile: ${user.display_name} (${user.profile_name})`);
-            }}
-            className="dock-item"
-            title={user ? `${user.display_name} (${user.profile_name})` : 'Sign In'}
+          <Tooltip
+            content={user ? `Sesión activa: ${user.display_name} (${user.profile_name})` : 'Iniciar sesión en la suite'}
+            position="top"
           >
-            <User size={16} />
-            <span>{user ? user.username : 'Perfil'}</span>
-          </button>
+            <button
+              onClick={() => {
+                if (!user) setLoginModalOpen(true);
+                else alert(`User profile: ${user.display_name} (${user.profile_name})`);
+              }}
+              className="dock-item"
+            >
+              <User size={16} />
+              <span>{user ? user.username : 'Perfil'}</span>
+            </button>
+          </Tooltip>
         </nav>
       )}
     </div>

@@ -11,15 +11,26 @@ import {
   Tag,
   Calendar,
   Eye,
+  Sparkles,
 } from 'lucide-react';
 import type { TicketSummary, TicketMetrics, TicketStatus } from '../../types';
 import { fetchTickets, fetchTicketMetrics } from '../../services/api';
 import { getPriorityMeta } from './PriorityMatrixPicker';
+import { TicketTableSkeleton, Tooltip } from '../ui';
 
 interface TicketsListViewProps {
   onOpenCreateTicket: () => void;
   onSelectTicket: (ticketId: string) => void;
 }
+
+const STATUS_DESCRIPTIONS: Record<TicketStatus, string> = {
+  new: 'Nuevo: Registrado en Service Desk y pendiente de diagnóstico',
+  assigned: 'Asignado: En manos de un técnico especialista asignado',
+  planned: 'Planificado: Intervención agendada con ventana de mantenimiento',
+  pending: 'En Espera: Bloqueado a la espera de datos del solicitante o proveedor',
+  solved: 'Resuelto: Solución técnica aplicada, pendiente de validación',
+  closed: 'Cerrado: Ticket finalizado y archivado administrativamente',
+};
 
 const STATUS_OPTIONS: { value: string; label: string; color: string }[] = [
   { value: '', label: 'Todos los estados', color: '#64748b' },
@@ -92,22 +103,35 @@ export const TicketsListView: React.FC<TicketsListViewProps> = ({
   }, [tickets, searchQuery]);
 
   const getStatusPill = (status: TicketStatus) => {
+    let pill: React.ReactElement;
     switch (status) {
       case 'new':
-        return <span className="status-pill status-new">Nuevo</span>;
+        pill = <span className="status-pill status-new">Nuevo</span>;
+        break;
       case 'assigned':
-        return <span className="status-pill status-assigned">Asignado</span>;
+        pill = <span className="status-pill status-assigned">Asignado</span>;
+        break;
       case 'planned':
-        return <span className="status-pill status-planned">Planificado</span>;
+        pill = <span className="status-pill status-planned">Planificado</span>;
+        break;
       case 'pending':
-        return <span className="status-pill status-pending">En Espera</span>;
+        pill = <span className="status-pill status-pending">En Espera</span>;
+        break;
       case 'solved':
-        return <span className="status-pill status-solved">Resuelto</span>;
+        pill = <span className="status-pill status-solved">Resuelto</span>;
+        break;
       case 'closed':
-        return <span className="status-pill status-closed">Cerrado</span>;
+        pill = <span className="status-pill status-closed">Cerrado</span>;
+        break;
       default:
-        return <span className="status-pill">{status}</span>;
+        pill = <span className="status-pill">{status}</span>;
     }
+
+    return (
+      <Tooltip content={STATUS_DESCRIPTIONS[status] || status} position="top">
+        {pill}
+      </Tooltip>
+    );
   };
 
   const formatDate = (isoStr: string | null) => {
@@ -151,6 +175,16 @@ export const TicketsListView: React.FC<TicketsListViewProps> = ({
           >
             <RefreshCw size={16} className={refreshing ? 'spin-icon' : ''} />
             <span>Actualizar</span>
+          </button>
+
+          <button
+            type="button"
+            className="btn-tickets-templates"
+            onClick={onOpenCreateTicket}
+            title="Explorar plantillas y estandarizar requerimientos"
+          >
+            <Sparkles size={16} color="#c084fc" />
+            <span>Plantillas</span>
           </button>
 
           <button
@@ -301,10 +335,7 @@ export const TicketsListView: React.FC<TicketsListViewProps> = ({
       {/* Tickets Table */}
       <div className="tickets-table-container">
         {loading ? (
-          <div className="tickets-loading-state">
-            <div className="loading-spinner" />
-            <p>Cargando tickets de servicio...</p>
-          </div>
+          <TicketTableSkeleton rows={6} />
         ) : filteredTickets.length === 0 ? (
           <div className="tickets-empty-state">
             <LifeBuoy size={48} className="empty-icon" />
@@ -397,16 +428,30 @@ export const TicketsListView: React.FC<TicketsListViewProps> = ({
                       </div>
                     </td>
                     <td>
-                      <span
-                        className="table-priority-badge"
-                        style={{
-                          backgroundColor: pMeta.bg,
-                          color: pMeta.color,
-                          borderColor: pMeta.border,
-                        }}
+                      <Tooltip
+                        content={
+                          <div style={{ textAlign: 'left' }}>
+                            <strong>
+                              P{t.priority} {pMeta.label}
+                            </strong>
+                            <div style={{ fontSize: '0.68rem', opacity: 0.85, marginTop: '2px' }}>
+                              SLA: {pMeta.sla} | Matriz Urgencia × Impacto
+                            </div>
+                          </div>
+                        }
+                        position="top"
                       >
-                        P{t.priority} {pMeta.label.split(' ')[0]}
-                      </span>
+                        <span
+                          className="table-priority-badge"
+                          style={{
+                            backgroundColor: pMeta.bg,
+                            color: pMeta.color,
+                            borderColor: pMeta.border,
+                          }}
+                        >
+                          P{t.priority} {pMeta.label.split(' ')[0]}
+                        </span>
+                      </Tooltip>
                     </td>
                     <td>{getStatusPill(t.status)}</td>
                     <td>

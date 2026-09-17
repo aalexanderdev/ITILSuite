@@ -153,3 +153,40 @@ export interface TicketFilterOptions {
   assigned_to?: string;
   search?: string;
 }
+
+// ITIL Ticket Templates (Inspired by GLPI)
+export interface TicketTemplate {
+  id: string;
+  entity_id: string;
+  entity_name?: string;
+  name: string;
+  description?: string | null;
+  ticket_type: TicketType;
+  category?: string | null;
+  predefined_title?: string | null;
+  predefined_content?: string | null;
+  predefined_urgency?: number | null;
+  predefined_impact?: number | null;
+  default_technician_id?: string | null;
+  default_technician_name?: string | null;
+  mandatory_fields: string[];
+  hidden_fields: string[];
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CreateTicketTemplatePayload {
+  name: string;
+  description?: string;
+  entity_id?: string;
+  ticket_type?: TicketType;
+  category?: string;
+  predefined_title?: string;
+  predefined_content?: string;
+  predefined_urgency?: number;
+  predefined_impact?: number;
+  default_technician_id?: string;
+  mandatory_fields?: string[];
+  hidden_fields?: string[];
+}

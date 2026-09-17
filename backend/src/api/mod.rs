@@ -1,6 +1,7 @@
 pub mod auth;
 pub mod entities;
 pub mod health;
+pub mod templates;
 pub mod tickets;
 pub mod users;
 pub mod version;
@@ -50,6 +51,11 @@ impl Modify for SecurityAddon {
         tickets::update_ticket,
         tickets::add_followup,
         tickets::get_ticket_metrics,
+        templates::list_templates,
+        templates::get_template,
+        templates::create_template,
+        templates::update_template,
+        templates::delete_template,
     ),
     components(
         schemas(
@@ -70,6 +76,9 @@ impl Modify for SecurityAddon {
             crate::domain::ticket::UpdateTicketDto,
             crate::domain::ticket::CreateFollowupDto,
             crate::domain::ticket::TicketMetricsDto,
+            crate::domain::template::TicketTemplate,
+            crate::domain::template::CreateTicketTemplateDto,
+            crate::domain::template::UpdateTicketTemplateDto,
             crate::error::ErrorDetail,
             crate::error::ErrorResponse,
         )
@@ -80,6 +89,7 @@ impl Modify for SecurityAddon {
         (name = "Entities", description = "Hierarchical Multi-Tenancy Entity management"),
         (name = "Users", description = "User profiles and identity"),
         (name = "Tickets", description = "ITIL Service Desk Incident/Request lifecycles and dispatch"),
+        (name = "Templates", description = "ITIL Ticket Templates inspired by GLPI"),
         (name = "Health", description = "Service monitoring and status endpoints"),
         (name = "Version", description = "Application and environment version metadata")
     ),
@@ -103,10 +113,21 @@ pub fn create_router(state: AppState) -> Router {
         .route("/tickets", get(tickets::list_tickets).post(tickets::create_ticket))
         .route("/tickets/metrics", get(tickets::get_ticket_metrics))
         .route("/tickets/:id", get(tickets::get_ticket).patch(tickets::update_ticket))
-        .route("/tickets/:id/followups", post(tickets::add_followup));
+        .route("/tickets/:id/followups", post(tickets::add_followup))
+        .route(
+            "/ticket-templates",
+            get(templates::list_templates).post(templates::create_template),
+        )
+        .route(
+            "/ticket-templates/:id",
+            get(templates::get_template)
+                .patch(templates::update_template)
+                .delete(templates::delete_template),
+        );
 
     Router::new()
         .nest("/api/v1", api_v1)
         .merge(SwaggerUi::new("/swagger-ui").url("/api-docs/openapi.json", ApiDoc::openapi()))
         .with_state(state)
 }
+
