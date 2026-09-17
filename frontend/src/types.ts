@@ -375,3 +375,209 @@ export interface CollectResultDto {
   message: string;
 }
 
+// ITAM / CMDB Asset Management (v0.0.4)
+export type AssetType =
+  | 'computer'
+  | 'network_equipment'
+  | 'monitor'
+  | 'printer'
+  | 'peripheral'
+  | 'server'
+  | 'phone'
+  | 'other';
+
+export type AssetStatus =
+  | 'active'
+  | 'in_stock'
+  | 'in_repair'
+  | 'decommissioned'
+  | 'reserved';
+
+export interface AssetSummary {
+  id: string;
+  entity_id: string;
+  entity_name: string;
+  name: string;
+  asset_type: AssetType;
+  status: AssetStatus;
+  serial_number: string | null;
+  inventory_number: string | null;
+  uuid: string | null;
+  manufacturer: string | null;
+  model: string | null;
+  location: string | null;
+  user_name: string | null;
+  technician_name: string | null;
+  last_inventory_at: string | null;
+  agent_version: string | null;
+  is_locked: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface AssetConnectionSummary {
+  connection_id: string;
+  connected_asset_id: string;
+  name: string;
+  asset_type: AssetType;
+  connection_type: string;
+  model: string | null;
+}
+
+export interface ComputerSpecs {
+  os?: {
+    name?: string;
+    version?: string;
+    arch?: string;
+    kernel?: string;
+    install_date?: string;
+  };
+  cpu?: {
+    name?: string;
+    speed_mhz?: number;
+    cores?: number;
+    threads?: number;
+  };
+  memory?: {
+    total_mb?: number;
+    type?: string;
+    slots_used?: number;
+    slots_total?: number;
+  };
+  storage?: Array<{
+    name: string;
+    size_gb: number;
+    free_gb: number;
+    filesystem?: string;
+    mount_point?: string;
+    drive_type?: string;
+  }>;
+  networks?: Array<{
+    name: string;
+    mac?: string;
+    ip?: string;
+    netmask?: string;
+    status: string;
+    speed?: string;
+  }>;
+  softwares?: Array<{
+    name: string;
+    version?: string;
+    publisher?: string;
+  }>;
+}
+
+export interface NetworkEquipmentSpecs {
+  device_type?: string;
+  firmware_version?: string;
+  ports_count?: number;
+  management_ip?: string;
+  mac_address?: string;
+  vlans?: Array<{
+    id: number;
+    name: string;
+    subnet: string;
+  }>;
+  poe_budget_watts?: number;
+  poe_consumed_watts?: number;
+}
+
+export interface MonitorSpecs {
+  screen_size_inches?: number;
+  resolution?: string;
+  refresh_rate_hz?: number;
+  inputs?: string[];
+  has_speakers?: boolean;
+}
+
+export interface AssetDetail {
+  id: string;
+  entity_id: string;
+  entity_name: string;
+  name: string;
+  asset_type: AssetType;
+  status: AssetStatus;
+  serial_number: string | null;
+  inventory_number: string | null;
+  uuid: string | null;
+  manufacturer: string | null;
+  model: string | null;
+  location: string | null;
+  user_id: string | null;
+  user_name: string | null;
+  technician_id: string | null;
+  technician_name: string | null;
+  group_in_charge: string | null;
+  comments: string | null;
+  last_inventory_at: string | null;
+  agent_version: string | null;
+  is_locked: boolean;
+  locked_fields: string[];
+  specifications: ComputerSpecs & NetworkEquipmentSpecs & MonitorSpecs & Record<string, any>;
+  connections: AssetConnectionSummary[];
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CreateAssetPayload {
+  entity_id?: string;
+  name: string;
+  asset_type: AssetType;
+  status?: AssetStatus;
+  serial_number?: string;
+  inventory_number?: string;
+  uuid?: string;
+  manufacturer?: string;
+  model?: string;
+  location?: string;
+  user_id?: string;
+  technician_id?: string;
+  group_in_charge?: string;
+  comments?: string;
+  specifications?: Record<string, any>;
+}
+
+export interface UpdateAssetPayload {
+  name?: string;
+  asset_type?: AssetType;
+  status?: AssetStatus;
+  serial_number?: string;
+  inventory_number?: string;
+  manufacturer?: string;
+  model?: string;
+  location?: string;
+  user_id?: string;
+  technician_id?: string;
+  group_in_charge?: string;
+  comments?: string;
+  is_locked?: boolean;
+  locked_fields?: string[];
+  specifications?: Record<string, any>;
+}
+
+export interface AssetMetrics {
+  total_assets: number;
+  computers_count: number;
+  servers_count: number;
+  network_equipment_count: number;
+  monitors_count: number;
+  active_count: number;
+  in_stock_count: number;
+  in_repair_count: number;
+  agent_inventoried_count: number;
+}
+
+export interface AgentSimulationRequest {
+  preset_name: 'thinkpad_laptop' | 'new_macbook' | 'dl380_server' | 'ubuntu_workstation' | string;
+  entity_id?: string;
+}
+
+export interface AgentSimulationResponse {
+  status: string;
+  message: string;
+  asset_id: string;
+  action_taken: 'created' | 'reconciled_updated';
+  asset_name: string;
+}
+
+

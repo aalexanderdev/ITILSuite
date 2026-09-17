@@ -29,6 +29,13 @@ import type {
   CreateBlacklistDto,
   SimulateIncomingMailDto,
   CollectResultDto,
+  AssetSummary,
+  AssetDetail,
+  AssetMetrics,
+  CreateAssetPayload,
+  UpdateAssetPayload,
+  AgentSimulationRequest,
+  AgentSimulationResponse,
 } from '../types';
 
 export const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8081';
@@ -610,6 +617,108 @@ export async function simulateIncomingMail(dto: SimulateIncomingMailDto): Promis
   }
   return response.json();
 }
+
+// ----------------------------------------------------
+// ITAM / CMDB Asset Management Endpoints (v0.0.4)
+// ----------------------------------------------------
+
+export async function fetchAssets(filter?: {
+  entity_id?: string;
+  asset_type?: string;
+  status?: string;
+  search?: string;
+}): Promise<AssetSummary[]> {
+  const params = new URLSearchParams();
+  if (filter?.entity_id) params.append('entity_id', filter.entity_id);
+  if (filter?.asset_type && filter.asset_type !== 'all') params.append('asset_type', filter.asset_type);
+  if (filter?.status && filter.status !== 'all') params.append('status', filter.status);
+  if (filter?.search) params.append('search', filter.search);
+
+  const queryString = params.toString() ? `?${params.toString()}` : '';
+  const response = await fetch(`${API_BASE_URL}/api/v1/assets${queryString}`, {
+    method: 'GET',
+    headers: getAuthHeaders(),
+  });
+  if (!response.ok) {
+    throw new Error(`Failed to fetch assets (${response.status})`);
+  }
+  return response.json();
+}
+
+export async function fetchAssetMetrics(): Promise<AssetMetrics> {
+  const response = await fetch(`${API_BASE_URL}/api/v1/assets/metrics`, {
+    method: 'GET',
+    headers: getAuthHeaders(),
+  });
+  if (!response.ok) {
+    throw new Error(`Failed to fetch asset metrics (${response.status})`);
+  }
+  return response.json();
+}
+
+export async function fetchAssetById(id: string): Promise<AssetDetail> {
+  const response = await fetch(`${API_BASE_URL}/api/v1/assets/${id}`, {
+    method: 'GET',
+    headers: getAuthHeaders(),
+  });
+  if (!response.ok) {
+    const err = await response.json().catch(() => null);
+    throw new Error(err?.error?.message || err?.message || `Failed to fetch asset details (${response.status})`);
+  }
+  return response.json();
+}
+
+export async function createAsset(payload: CreateAssetPayload): Promise<AssetSummary> {
+  const response = await fetch(`${API_BASE_URL}/api/v1/assets`, {
+    method: 'POST',
+    headers: getAuthHeaders(),
+    body: JSON.stringify(payload),
+  });
+  if (!response.ok) {
+    const err = await response.json().catch(() => null);
+    throw new Error(err?.error?.message || err?.message || `Failed to create asset (${response.status})`);
+  }
+  return response.json();
+}
+
+export async function updateAsset(id: string, payload: UpdateAssetPayload): Promise<AssetSummary> {
+  const response = await fetch(`${API_BASE_URL}/api/v1/assets/${id}`, {
+    method: 'PATCH',
+    headers: getAuthHeaders(),
+    body: JSON.stringify(payload),
+  });
+  if (!response.ok) {
+    const err = await response.json().catch(() => null);
+    throw new Error(err?.error?.message || err?.message || `Failed to update asset (${response.status})`);
+  }
+  return response.json();
+}
+
+export async function deleteAsset(id: string): Promise<void> {
+  const response = await fetch(`${API_BASE_URL}/api/v1/assets/${id}`, {
+    method: 'DELETE',
+    headers: getAuthHeaders(),
+  });
+  if (!response.ok) {
+    throw new Error(`Failed to delete asset (${response.status})`);
+  }
+}
+
+export async function simulateAgentInventory(
+  req: AgentSimulationRequest
+): Promise<AgentSimulationResponse> {
+  const response = await fetch(`${API_BASE_URL}/api/v1/inventory/agent/simulate`, {
+    method: 'POST',
+    headers: getAuthHeaders(),
+    body: JSON.stringify(req),
+  });
+  if (!response.ok) {
+    const err = await response.json().catch(() => null);
+    throw new Error(err?.error?.message || err?.message || `Failed to simulate GLPI-Agent (${response.status})`);
+  }
+  return response.json();
+}
+
 
 
 

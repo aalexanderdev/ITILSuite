@@ -5,7 +5,7 @@
 [![License: GPL v3+](https://img.shields.io/badge/License-GPLv3%2B-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
 [![Rust](https://img.shields.io/badge/rust-1.75%2B-orange.svg)](https://www.rust-lang.org/)
 [![Node](https://img.shields.io/badge/node-v20%2B-green.svg)](https://nodejs.org/)
-[![Version](https://img.shields.io/badge/version-0.0.3-brightgreen.svg)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-0.0.4-brightgreen.svg)](CHANGELOG.md)
 
 ---
 
@@ -46,7 +46,20 @@ GLPI is an industry standard for IT service and asset management across enterpri
 * **Asynchronous Outbox Queue**: Persistent `notification_queue` processed by a dedicated Tokio background worker with automatic retry policies and audit status (`pending`, `sent`, `failed`).
 * **Air-Gap / Offline Mail Simulator**: In-app simulator for testing incoming mail ticket generation and replies in isolated or air-gapped deployments.
 
-### 4. User Experience & Design
+### 4. Asset Management (ITAM & CMDB) & GLPI-Agent Compatibility
+* **Unified Hardware Inventory**: Multi-category tracking for Computers, Servers, Network Equipments (Switches/Routers), and Monitors.
+* **Serde-Typed JSONB Specifications**: CPU telemetry, memory slots, disk partition gauges, and software lists indexed via PostgreSQL GIN indexes for sub-millisecond retrieval.
+* **Automated GLPI-Agent Ingestion Pipeline**: Dedicated REST endpoint `/api/v1/inventory/agent` compatible with the official `glpi-agent` daemon format.
+* **Hierarchical Reconciliation Pipeline**:
+  * Level 1: System BIOS UUID matching.
+  * Level 2: Motherboard Serial Number matching.
+  * Level 3: Network interface MAC address matching.
+  * Level 4: Organizational entity hostname resolution.
+* **GLPI Field Locks Protection**: Manual administrator field overrides (locations, technician assignment) shielded against agent overwriting.
+* **Automated Connected Monitor Discovery**: Automatic detection, registration, and linking of connected displays reported by workstations.
+* **Interactive Agent Simulator**: In-app simulator with realistic hardware presets for rapid local/offline validation.
+
+### 5. User Experience & Design
 * Dual-theme support: Dark Cyber-Navy and Clean Light modes.
 * Air-gap ready typography: 100% locally served Geist and Geist Mono font bundles.
 * Native, zero-dependency UX primitives: Shimmer skeleton loaders, accessible directional tooltips, and non-blocking toast notifications.
@@ -147,7 +160,11 @@ The web dashboard will be available at [http://localhost:5173](http://localhost:
   - Dynamic notification templates with tag replacement.
   - Tokio asynchronous background outbox queue worker.
   - High-density dual theme (Dark Cyber-Navy & Clean Light) with local Geist fonts.
-- [ ] **v0.0.4 - Asset Management (ITAM / CMDB)**: Inventory of computers, network gear, monitors, and GLPI-Agent ingestion endpoint.
+- [x] **v0.0.4 - Asset Management (ITAM / CMDB)**:
+  - Inventory of computers, network gear, monitors, and servers.
+  - GLPI-Agent compatible HTTP POST ingestion endpoint.
+  - 4-level reconciliation pipeline with field lock protection.
+  - Interactive agent preset simulator and high-density CMDB workspace.
 - [ ] **v0.0.5 - Business Rules Engine & Advanced SLAs**: Automated routing rules, escalation matrices, and SLA breach monitors.
 
 ---

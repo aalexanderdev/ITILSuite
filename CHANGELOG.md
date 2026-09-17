@@ -4,6 +4,32 @@ All notable changes to this project will be documented in this file in accordanc
 
 ---
 
+## [0.0.4] - 2026-09-18
+
+### Added
+* **IT Asset Management (ITAM) & Configuration Management Database (CMDB)**:
+  * Hybrid storage architecture combining strict relational PostgreSQL tables (`assets`, `asset_connections`, `ticket_assets`) with Serde-typed JSONB specifications indexed by GIN indexes.
+  * Unified inventory catalog supporting Computers, Enterprise Servers, Network Equipment (Switches, Routers, Firewalls), and Monitors.
+  * Rich component telemetry tracking: CPU clock speed, cores/threads, RAM capacity/slots, storage drives with free/total capacity gauges, and network interface MAC/IP addresses.
+* **GLPI-Agent Protocol & Ingestion Pipeline**:
+  * Dedicated REST ingestion endpoint `/api/v1/inventory/agent` supporting HTTP POST JSON payloads formatted according to the official GLPI-Agent schema.
+  * 4-level hierarchical reconciliation algorithm:
+    1. System BIOS / Hardware UUID matching.
+    2. Motherboard Serial Number matching.
+    3. Network interface MAC address matching within JSONB arrays.
+    4. Target organizational entity hostname matching.
+  * GLPI Field Locks: Ability for technicians to lock manual overrides (physical location, assigned user, custom comments) preventing automated agent overwriting.
+  * Connected Display Discovery: Automatic provisioning and relational linking of monitors detected during workstation inventory sweeps.
+* **In-App Agent Simulator**:
+  * Interactive simulation modal in the web client with realistic hardware presets (Lenovo ThinkPad T14s, Apple MacBook Pro M3 Max, Dell Precision 5570) to validate agent ingestion and reconciliation in real time.
+* **CMDB Workspace Frontend**:
+  * High-density React 19 interface (`AssetsListView`) with quick category filtering, live search, status badges, and relative agent synchronization indicators.
+  * GLPI-style multi-tab detail view (`AssetDetailModal`) with dedicated General, Hardware, Operating System & Software, Network, and Connections panels.
+* **Architecture Decision Records (ADR)**:
+  * Published `ADR 0002: ITAM / CMDB Asset Model and GLPI-Agent Ingestion Pipeline`.
+
+---
+
 ## [0.0.3] - 2026-09-17
 
 ### Added

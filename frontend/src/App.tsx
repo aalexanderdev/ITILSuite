@@ -16,6 +16,7 @@ import { MetricsGrid } from './components/dashboard/MetricsGrid';
 import { ApiDiagnostics } from './components/dashboard/ApiDiagnostics';
 import { RoadmapCard } from './components/dashboard/RoadmapCard';
 import { MailConfigView } from './components/notifications/MailConfigView';
+import { AssetsListView } from './components/assets/AssetsListView';
 import { pingBackendDiagnostics, type PingResult } from './services/api';
 import {
   PlusCircle,
@@ -77,6 +78,8 @@ function DashboardMain() {
             />
           ) : activeNav === 'mail_config' ? (
             <MailConfigView />
+          ) : activeNav === 'computers' || activeNav === 'assets' || activeNav === 'inventory' ? (
+            <AssetsListView />
           ) : (
             <div className="openitil-dashboard-view">
               {/* Welcome Header */}
@@ -95,6 +98,13 @@ function DashboardMain() {
                   >
                     <LifeBuoy size={16} />
                     <span>Mesa de Tickets</span>
+                  </button>
+                  <button
+                    onClick={() => setActiveNav('computers')}
+                    className="btn-welcome-secondary"
+                  >
+                    <Server size={16} />
+                    <span>Activos & CMDB</span>
                   </button>
                   <button
                     onClick={() => setActiveNav('mail_config')}
