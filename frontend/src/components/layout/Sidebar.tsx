@@ -13,13 +13,27 @@ import {
   GitPullRequest,
 } from 'lucide-react';
 
+import { BrandLogo } from '../common/BrandLogo';
+
+interface NavItem {
+  id: string;
+  label: string;
+  icon: React.ComponentType<{ size?: number; color?: string; opacity?: number }>;
+  badge?: string;
+}
+
+interface NavSection {
+  title: string;
+  items: NavItem[];
+}
+
 interface SidebarProps {
   activeNav: string;
   onSelectNav: (id: string) => void;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({ activeNav, onSelectNav }) => {
-  const navSections = [
+  const navSections: NavSection[] = [
     {
       title: 'ITIL Service Desk',
       items: [
@@ -31,8 +45,8 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeNav, onSelectNav }) => {
     {
       title: 'Assets & CMDB',
       items: [
-        { id: 'computers', label: 'Computers & Servers', icon: Server, badge: '148' },
-        { id: 'network', label: 'Network & Racks', icon: Network, badge: '32' },
+        { id: 'computers', label: 'Computers & Servers', icon: Server, badge: 'CMDB' },
+        { id: 'network', label: 'Network & Racks', icon: Network, badge: 'ITAM' },
       ],
     },
     {
@@ -45,8 +59,8 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeNav, onSelectNav }) => {
     {
       title: 'Administration & Multi-Tenancy',
       items: [
-        { id: 'entities', label: 'Entity Hierarchy Tree', icon: FolderTree, badge: 'v0.0.2' },
-        { id: 'users', label: 'Users & RBAC Profiles', icon: Users, badge: 'v0.0.2' },
+        { id: 'entities', label: 'Entity Hierarchy Tree', icon: FolderTree },
+        { id: 'users', label: 'Users & RBAC Profiles', icon: Users },
         { id: 'settings', label: 'Settings & Rules', icon: Settings },
       ],
     },
@@ -55,14 +69,14 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeNav, onSelectNav }) => {
   return (
     <aside className="sidebar">
       <div className="sidebar-header">
-        <div className="brand-icon">
-          <Layers size={18} />
+        <div className="brand-icon" style={{ background: 'transparent', boxShadow: 'none', width: 'auto', height: 'auto' }}>
+          <BrandLogo variant="mark" height={26} />
         </div>
         <div className="brand-info">
           <span className="brand-name">ITILSuite</span>
           <span className="brand-version">
             <span style={{ display: 'inline-block', width: 6, height: 6, borderRadius: '50%', backgroundColor: '#10b981' }}></span>
-            GLPI 11 Core • v0.0.2
+            GLPI 11 Core • v0.0.4
           </span>
         </div>
       </div>

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
-import { User, Lock, LogIn, X, ShieldCheck, AlertCircle, Sparkles } from 'lucide-react';
+import { User, Lock, LogIn, X, AlertCircle, Sparkles } from 'lucide-react';
+import { BrandLogo } from '../common/BrandLogo';
 
 export const LoginModal: React.FC = () => {
   const { login, loginModalOpen, setLoginModalOpen } = useAuth();
@@ -47,20 +48,20 @@ export const LoginModal: React.FC = () => {
         onClick={(e) => e.stopPropagation()}
       >
         <div className="modal-header">
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
             <div
               style={{
-                width: 36,
-                height: 36,
-                borderRadius: '8px',
-                backgroundColor: 'rgba(59, 130, 246, 0.12)',
-                color: '#60a5fa',
+                width: 40,
+                height: 40,
+                borderRadius: '10px',
+                backgroundColor: 'rgba(235, 77, 61, 0.08)',
+                border: '1px solid rgba(235, 77, 61, 0.2)',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
               }}
             >
-              <ShieldCheck size={20} />
+              <BrandLogo variant="mark" height={22} />
             </div>
             <div>
               <h2 style={{ fontSize: '1.1rem', fontWeight: 600, color: 'var(--text-primary)' }}>

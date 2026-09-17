@@ -13,11 +13,11 @@ import {
   Check,
   Plus,
   MessageSquare,
-  Layers,
   Sun,
   Moon,
   Mail,
 } from 'lucide-react';
+import { BrandLogo } from '../common/BrandLogo';
 
 interface NavbarProps {
   onToggleChat?: () => void;
@@ -76,11 +76,8 @@ export const Navbar: React.FC<NavbarProps> = ({
     <header className="openitil-navbar">
       {/* Brand & Entity Selector */}
       <div className="navbar-left">
-        <div className="navbar-brand">
-          <div className="brand-logo-badge">
-            <Layers size={17} />
-          </div>
-          <span className="brand-title">ITILSuite</span>
+        <div className="navbar-brand" title="ITILSuite Platform">
+          <BrandLogo variant="full" height={22} />
           <span className="brand-pill">ITSM</span>
         </div>
 

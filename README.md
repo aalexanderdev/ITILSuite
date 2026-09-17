@@ -1,11 +1,16 @@
-# ITILSuite
+<p align="center">
+  <img src="frontend/public/itilsuite-logo.svg" alt="ITILSuite Logo" width="360" />
+</p>
 
-> **Modern, high-performance open-source ITSM (IT Service Management), ITAM (IT Asset Management), and CMDB platform inspired by GLPI 11**, powered by **Rust (Axum + Tokio + SQLx)** on the backend and **React + TypeScript** on the frontend.
+<h3 align="center">Modern, High-Performance Open-Source ITSM, ITAM & CMDB Platform</h3>
+<p align="center">Inspired by GLPI 11 · Powered by <strong>Rust (Axum + Tokio + SQLx)</strong> & <strong>React 19 + TypeScript</strong></p>
 
-[![License: GPL v3+](https://img.shields.io/badge/License-GPLv3%2B-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
-[![Rust](https://img.shields.io/badge/rust-1.75%2B-orange.svg)](https://www.rust-lang.org/)
-[![Node](https://img.shields.io/badge/node-v20%2B-green.svg)](https://nodejs.org/)
-[![Version](https://img.shields.io/badge/version-0.0.4-brightgreen.svg)](CHANGELOG.md)
+<p align="center">
+  <a href="https://www.gnu.org/licenses/gpl-3.0"><img src="https://img.shields.io/badge/License-GPLv3%2B-blue.svg" alt="License: GPL v3+" /></a>
+  <a href="https://www.rust-lang.org/"><img src="https://img.shields.io/badge/rust-1.75%2B-orange.svg" alt="Rust" /></a>
+  <a href="https://nodejs.org/"><img src="https://img.shields.io/badge/node-v20%2B-green.svg" alt="Node" /></a>
+  <a href="CHANGELOG.md"><img src="https://img.shields.io/badge/version-0.0.4-brightgreen.svg" alt="Version" /></a>
+</p>
 
 ---
 
@@ -17,11 +22,11 @@ GLPI is an industry standard for IT service and asset management across enterpri
 * **Asynchronous Mail & Background Workers**: Asynchronous ingestion and dispatch workers driven by Tokio, separating long-running email polling and SMTP delivery from HTTP client requests.
 * **High-Density, Dual-Theme Frontend**: Built with **React 19, TypeScript, and Vite** delivering an enterprise-grade high-density desktop experience (Dark Cyber-Navy and Clean Light themes) using local Geist fonts and accessible native components with zero third-party UI framework bloat.
 * **Strict Hierarchical Multi-Tenancy**: Recursive entity tree scoping all assets, tickets, templates, collectors, and users across parent and child organizational units.
-* **Automated Agent Ingestion (Planned)**: Architecture prepared for high-concurrency ingestion of hardware and software inventory snapshots compatible with the GLPI-Agent ecosystem.
+* **Automated Agent Ingestion**: High-concurrency ingestion of hardware and software inventory snapshots compatible with the GLPI-Agent ecosystem.
 
 ---
 
-## Key Features (v0.0.3)
+## Key Features (v0.0.4)
 
 ### 1. Multi-Tenant Entity Hierarchy & RBAC
 * Recursive entity tree (GLPI-compatible hierarchical structure).

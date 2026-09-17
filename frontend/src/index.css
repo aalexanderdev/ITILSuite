@@ -1190,26 +1190,13 @@ body {
 .navbar-brand {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: 0.65rem;
+  cursor: pointer;
+  transition: opacity 0.15s ease;
 }
 
-.brand-logo-badge {
-  width: 30px;
-  height: 30px;
-  border-radius: 8px;
-  background: linear-gradient(135deg, #2563eb, #4f46e5);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: white;
-  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.35);
-}
-
-.brand-title {
-  font-size: 1.1rem;
-  font-weight: 800;
-  color: var(--text-primary);
-  letter-spacing: -0.02em;
+.navbar-brand:hover {
+  opacity: 0.92;
 }
 
 .brand-pill {
@@ -1217,9 +1204,10 @@ body {
   font-weight: 700;
   padding: 0.1rem 0.45rem;
   border-radius: 9999px;
-  background: rgba(59, 130, 246, 0.15);
-  color: #60a5fa;
-  border: 1px solid rgba(59, 130, 246, 0.3);
+  background: rgba(235, 77, 61, 0.12);
+  color: #eb4d3d;
+  border: 1px solid rgba(235, 77, 61, 0.28);
+  letter-spacing: 0.04em;
 }
 
 .navbar-entity-pill {
