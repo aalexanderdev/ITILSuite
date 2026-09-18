@@ -304,7 +304,7 @@ export const AssetDetailModal: React.FC<AssetDetailModalProps> = ({
               </div>
 
               {/* Comments */}
-              <div className="asset-info-card mt-3">
+              <div className="asset-info-card">
                 <h4 className="card-heading">Comentarios y Observaciones</h4>
                 <p className="text-sm text-slate-300 whitespace-pre-wrap">
                   {asset.comments || 'Sin comentarios registrados para este activo.'}
@@ -360,7 +360,7 @@ export const AssetDetailModal: React.FC<AssetDetailModalProps> = ({
               </div>
 
               {/* Storage Disks Section */}
-              <div className="asset-info-card mt-3">
+              <div className="asset-info-card">
                 <div className="card-icon-title">
                   <HardDrive size={18} className="text-amber-400" />
                   <h4 className="card-heading">Unidades de Almacenamiento</h4>
@@ -399,7 +399,7 @@ export const AssetDetailModal: React.FC<AssetDetailModalProps> = ({
           {activeTab === 'software' && (
             <div className="asset-tab-content">
               {/* OS Summary */}
-              <div className="asset-info-card mb-3">
+              <div className="asset-info-card">
                 <h4 className="card-heading">Sistema Operativo</h4>
                 {specs.os ? (
                   <div className="grid grid-cols-2 gap-3 text-sm mt-2">
@@ -524,7 +524,7 @@ export const AssetDetailModal: React.FC<AssetDetailModalProps> = ({
             <Clock size={13} />
             <span>Último inventario: {asset.last_inventory_at ? new Date(asset.last_inventory_at).toLocaleString() : 'Manual'}</span>
           </div>
-          <button onClick={onClose} className="btn-secondary">
+          <button onClick={onClose} className="btn btn-secondary btn-sm">
             Cerrar Ficha
           </button>
         </div>

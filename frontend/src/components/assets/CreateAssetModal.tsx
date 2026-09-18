@@ -216,10 +216,10 @@ export const CreateAssetModal: React.FC<CreateAssetModalProps> = ({
           </div>
 
           <div className="modal-footer">
-            <button type="button" onClick={onClose} className="btn-secondary" disabled={isSubmitting}>
+            <button type="button" onClick={onClose} className="btn btn-secondary" disabled={isSubmitting}>
               Cancelar
             </button>
-            <button type="submit" className="btn-primary" disabled={isSubmitting}>
+            <button type="submit" className="btn btn-primary" disabled={isSubmitting}>
               {isSubmitting ? 'Guardando...' : 'Guardar Activo'}
             </button>
           </div>

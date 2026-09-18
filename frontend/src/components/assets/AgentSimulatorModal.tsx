@@ -148,13 +148,13 @@ export const AgentSimulatorModal: React.FC<AgentSimulatorModalProps> = ({
         </div>
 
         <div className="modal-footer">
-          <button type="button" onClick={onClose} className="btn-secondary" disabled={isSimulating}>
+          <button type="button" onClick={onClose} className="btn btn-secondary" disabled={isSimulating}>
             Cerrar
           </button>
           <button
             type="button"
             onClick={handleSimulate}
-            className="btn-primary flex items-center gap-2"
+            className="btn btn-primary flex items-center gap-2"
             disabled={isSimulating}
           >
             {isSimulating ? <RefreshCw size={15} className="animate-spin" /> : <Play size={15} />}

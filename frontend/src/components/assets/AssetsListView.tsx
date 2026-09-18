@@ -230,7 +230,7 @@ export const AssetsListView: React.FC = () => {
           {/* Create Manual Asset */}
           <button
             onClick={() => setIsCreateModalOpen(true)}
-            className="btn-primary flex items-center gap-1.5"
+            className="btn btn-primary btn-sm"
           >
             <Plus size={15} />
             <span>Nuevo Activo</span>
@@ -364,17 +364,17 @@ export const AssetsListView: React.FC = () => {
 
                   {/* Actions */}
                   <td className="text-right" onClick={(e) => e.stopPropagation()}>
-                    <div className="flex items-center justify-end gap-1.5">
+                    <div className="table-actions-group">
                       <button
                         onClick={() => setSelectedAssetId(asset.id)}
-                        className="btn-action-icon"
+                        className="btn-action-icon btn-action-view"
                         title="Ver ficha técnica"
                       >
                         <Eye size={15} />
                       </button>
                       <button
                         onClick={() => handleDeleteAsset(asset.id, asset.name)}
-                        className="btn-action-icon text-rose-400 hover:bg-rose-500/20"
+                        className="btn-action-icon btn-action-delete"
                         title="Eliminar activo"
                       >
                         <Trash2 size={15} />
