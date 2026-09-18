@@ -4,6 +4,24 @@ All notable changes to this project will be documented in this file in accordanc
 
 ---
 
+## [Unreleased]
+
+### Planned (v0.0.5 - User Ingestion & Transversal Groups Management)
+* **Batch User Ingestion & Directory Management**:
+  * Bulk CSV/JSON user import engine with schema validation, conflict resolution (skip/overwrite), and role/entity pre-assignment.
+  * Dedicated User Directory administration interface with search, status filters, and credential management.
+* **Transversal Groups Architecture (`groups` & `group_users`)**:
+  * Centralized group creation, hierarchy, and assignment engine usable across all ITILSuite modules.
+  * Entity scoping: global groups vs. entity-specific group restrictions.
+  * Leader/supervisor roles within groups.
+* **Cross-Cutting (Transversal) Group Integrations**:
+  * **HelpdeskChat**: Dynamic team rooms synchronized with group rosters, group-level `@mention` auto-completion (`@redes`, `@infra`), and group broadcast channels.
+  * **ITIL Service Desk**: Ticket assignment to groups, group technician queues, requester group attribution, and SLA routing.
+  * **IT Asset Management (CMDB)**: Custodial and maintenance responsibility assigned to organizational groups (`group_in_charge`).
+  * **Notifications Engine**: Multi-recipient dispatch resolving all active users of an assigned group in the background outbox.
+
+---
+
 ## [0.0.4] - 2026-09-18
 
 ### Added

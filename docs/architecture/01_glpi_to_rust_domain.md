@@ -112,4 +112,6 @@ In Rust:
 * **v0.0.1**: Architectural foundation, Axum API skeleton, React shell, and Docker Compose.
 * **v0.0.2**: Database schema for Hierarchical Entities, Users, RBAC Profiles, and JWT + Argon2 authentication.
 * **v0.0.3**: ITIL Service Desk with Ticket lifecycles, SLA timers, and Priority calculation.
-* **v0.0.4**: Asset Management & CMDB with GLPI-Agent inventory ingestion endpoint.
+* **v0.0.4**: Asset Management & CMDB with GLPI-Agent inventory ingestion endpoint and HelpdeskChat.
+* **v0.0.5**: User Ingestion & Transversal Groups Architecture (Service Desk, CMDB, and Chat room synchronization).
+* **v0.0.6**: Business Rules Engine & Advanced SLAs.

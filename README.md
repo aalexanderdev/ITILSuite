@@ -183,12 +183,22 @@ The web dashboard will be available at [http://localhost:5173](http://localhost:
   - Dynamic notification templates with tag replacement.
   - Tokio asynchronous background outbox queue worker.
   - High-density dual theme (Dark Cyber-Navy & Clean Light) with local Geist fonts.
-- [x] **v0.0.4 - Asset Management (ITAM / CMDB)**:
-  - Inventory of computers, network gear, monitors, and servers.
-  - GLPI-Agent compatible HTTP POST ingestion endpoint.
-  - 4-level reconciliation pipeline with field lock protection.
+- [x] **v0.0.4 - Asset Management (ITAM / CMDB) & Real-Time HelpdeskChat**:
+  - Inventory of computers, network gear, monitors, and servers with component telemetry.
+  - GLPI-Agent compatible HTTP POST ingestion endpoint with 4-level reconciliation pipeline.
+  - GLPI Field Lock protection to preserve manual technician edits.
   - Interactive agent preset simulator and high-density CMDB workspace.
-- [ ] **v0.0.5 - Business Rules Engine & Advanced SLAs**: Automated routing rules, escalation matrices, and SLA breach monitors.
+  - Real-time WebSockets chat engine (`/api/v1/chat/ws`) with single-click conversion to ITIL tickets.
+  - Material Design 2 Dark Theme Elevation System with Warm Tones palette (WCAG AAA).
+- [ ] **v0.0.5 - User Ingestion & Transversal Groups Management**:
+  - **Batch User Ingestion**: Bulk CSV/JSON import parser with field mapping, schema validation, and role/entity pre-assignment.
+  - **Transversal Groups Architecture**: Centralized group directory (`groups`, `group_users`, `group_entities`) supporting cross-cutting team structures, leader roles, and entity scoping.
+  - **Cross-Platform Transversal Integrations**:
+    - **HelpdeskChat**: Dynamic team rooms synchronized with group rosters, group-level `@mention` targeting (`@soporte-l1`, `@redes`), and broadcast announcements.
+    - **ITIL Service Desk**: Group-based ticket assignment, technician team queues, requester group tracking, and escalation routing.
+    - **ITAM / CMDB**: Group asset custody, department allocation, and maintenance responsibility (`group_in_charge`).
+    - **Notification Engine**: Multiplexed group notifications resolving all active members in the background outbox.
+- [ ] **v0.0.6 - Business Rules Engine & Advanced SLAs**: Automated routing rules, escalation matrices, and SLA breach monitors.
 
 ---
 
