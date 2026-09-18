@@ -1,5 +1,6 @@
 pub mod assets;
 pub mod auth;
+pub mod chat;
 pub mod entities;
 pub mod health;
 pub mod inventory;
@@ -169,6 +170,7 @@ pub fn create_router(state: AppState) -> Router {
         )
         .route("/inventory/agent", post(inventory::handle_agent_inventory))
         .route("/inventory/agent/simulate", post(inventory::simulate_agent_inventory))
+        .nest("/chat", chat::chat_router())
         .merge(notifications::router())
         .merge(receivers::router());
 

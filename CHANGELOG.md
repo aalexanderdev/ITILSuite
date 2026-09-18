@@ -7,6 +7,23 @@ All notable changes to this project will be documented in this file in accordanc
 ## [0.0.4] - 2026-09-18
 
 ### Added
+* **HelpdeskChat Subsystem & Real-Time Telemetry Engine (Inspired by GLPI helpdesk-chat)**:
+  * Native WebSocket connection `/api/v1/chat/ws` powered by Rust `axum::extract::ws` and `tokio::sync::broadcast` supporting multi-client real-time messaging, typing indicators, presence tracking, reactions, and automated notifications.
+  * Bidirectional Service Desk integration: Single-click conversion from chat message to ITIL ticket (`/api/v1/chat/messages/:id/convert-to-ticket`) with automatic ITIL priority matrix calculation and backlink badges (`chat_message_tickets`).
+  * Automated Chat Event Notifications: Instant dispatch to requester and assigned technicians upon ticket creation (`chat_tickets_dispatch`).
+  * Interactive React 19 Support Chat Dock (`HelpdeskChatWidget.tsx`):
+    * Collapsible accordion sections: *En Línea* (live online users), *Destacados / Fijados* (pinned conversations), *Canales de Grupo* (team rooms), and *Directos & Sistema* (private & system channels).
+    * Shortcut buttons bar (`chat_shortcut_buttons`) with quick external links (Self-Service Portal, ITIL Knowledge Base).
+    * Atomic emoji reactions (👍, ❤️, 🚀, 👀) with live aggregate counts.
+    * Inline `:shortcode` emoji autocomplete popup (:rocket, :fire, :smile, :check, etc.).
+    * Group `@mention` autocomplete popup (`@all` and channel members).
+    * Multi-attachment support: file attachments, clipboard image paste (`Ctrl+V`), and click-to-zoom Lightbox modal.
+    * Real-time typing indicators with debounce dispatch.
+    * Full keyboard shortcuts (`Ctrl+Alt+.` toggle dock, `Esc` dismiss, `Ctrl+Alt+?` shortcuts modal).
+  * Chat Analytics & Session Telemetry Dashboard (`ChatDashboardView.tsx`):
+    * KPI summary cards: Total messages, daily averages, real-time online count, team channel share, and average open session duration.
+    * 24-Hour Session Gantt Timeline: Visual chronogram of user presence intervals across the workday based on periodic heartbeats.
+    * CSV Export endpoint `/api/v1/chat/export.csv` for external audit and reporting.
 * **IT Asset Management (ITAM) & Configuration Management Database (CMDB)**:
   * Hybrid storage architecture combining strict relational PostgreSQL tables (`assets`, `asset_connections`, `ticket_assets`) with Serde-typed JSONB specifications indexed by GIN indexes.
   * Unified inventory catalog supporting Computers, Enterprise Servers, Network Equipment (Switches, Routers, Firewalls), and Monitors.

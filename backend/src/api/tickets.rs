@@ -276,6 +276,27 @@ pub async fn create_ticket(
     // Dispatch ticket_created notification event
     let _ = crate::services::mail_service::MailService::dispatch_event(&state.pool, "ticket_created", new_id, None).await;
 
+    // Dispatch chat notifications to requester and assigned technician
+    let _ = crate::services::chat_service::ChatService::notify_ticket_event(
+        &state.pool,
+        &state.chat_hub,
+        summary.id,
+        &summary.ticket_number,
+        &format!("🎫 Nuevo Ticket Creado: #{} - \"{}\"", summary.ticket_number, summary.name),
+        summary.requester_id,
+    ).await;
+
+    if let Some(tech_id) = summary.assigned_technician_id {
+        let _ = crate::services::chat_service::ChatService::notify_ticket_event(
+            &state.pool,
+            &state.chat_hub,
+            summary.id,
+            &summary.ticket_number,
+            &format!("🛠️ Te ha sido asignado el Ticket #{} - \"{}\"", summary.ticket_number, summary.name),
+            Some(tech_id),
+        ).await;
+    }
+
     Ok((StatusCode::CREATED, Json(summary)))
 }
 

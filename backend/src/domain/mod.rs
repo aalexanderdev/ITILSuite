@@ -1,6 +1,7 @@
 pub mod agent;
 pub mod asset;
 pub mod auth;
+pub mod chat;
 pub mod entity;
 pub mod notification;
 pub mod template;

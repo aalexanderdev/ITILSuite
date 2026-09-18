@@ -17,6 +17,7 @@ import { ApiDiagnostics } from './components/dashboard/ApiDiagnostics';
 import { RoadmapCard } from './components/dashboard/RoadmapCard';
 import { MailConfigView } from './components/notifications/MailConfigView';
 import { AssetsListView } from './components/assets/AssetsListView';
+import { ChatDashboardView } from './components/chat/ChatDashboardView';
 import { pingBackendDiagnostics, type PingResult } from './services/api';
 import {
   PlusCircle,
@@ -51,6 +52,18 @@ function DashboardMain() {
     });
   }, []);
 
+  // Global Keyboard Shortcut: Ctrl + Alt + . toggles Chat Dock
+  useEffect(() => {
+    function handleGlobalShortcuts(e: KeyboardEvent) {
+      if (e.ctrlKey && e.altKey && (e.key === '.' || e.key === 'p')) {
+        e.preventDefault();
+        setIsChatOpen((prev) => !prev);
+      }
+    }
+    window.addEventListener('keydown', handleGlobalShortcuts);
+    return () => window.removeEventListener('keydown', handleGlobalShortcuts);
+  }, []);
+
   return (
     <div className="openitil-app-shell">
       {/* Top Navbar */}
@@ -76,6 +89,8 @@ function DashboardMain() {
               onOpenCreateTicket={() => setIsCreateTicketOpen(true)}
               onSelectTicket={(ticketId) => setSelectedTicketId(ticketId)}
             />
+          ) : activeNav === 'chat_dashboard' || activeNav === 'chat-analytics' || activeNav === 'chat' ? (
+            <ChatDashboardView />
           ) : activeNav === 'mail_config' ? (
             <MailConfigView />
           ) : activeNav === 'computers' || activeNav === 'assets' || activeNav === 'inventory' ? (
@@ -98,6 +113,13 @@ function DashboardMain() {
                   >
                     <LifeBuoy size={16} />
                     <span>Mesa de Tickets</span>
+                  </button>
+                  <button
+                    onClick={() => setActiveNav('chat_dashboard')}
+                    className="btn-welcome-secondary"
+                  >
+                    <MessageSquare size={16} />
+                    <span>Chat Analytics</span>
                   </button>
                   <button
                     onClick={() => setActiveNav('computers')}
@@ -293,6 +315,7 @@ function DashboardMain() {
           onClose={() => setIsChatOpen(false)}
           isPinned={isChatPinned}
           onTogglePin={() => setIsChatPinned(!isChatPinned)}
+          onNavigateTicket={(ticketId) => setSelectedTicketId(ticketId)}
         />
       </div>
 

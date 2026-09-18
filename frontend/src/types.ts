@@ -580,4 +580,126 @@ export interface AgentSimulationResponse {
   asset_name: string;
 }
 
+// ---------------------------------------------------------------------------
+// HelpdeskChat & Real-Time Collaboration Types
+// ---------------------------------------------------------------------------
 
+export interface MessageReactionSummary {
+  emoji: string;
+  count: number;
+  user_reacted: boolean;
+  user_names: string[];
+}
+
+export interface ChatMessage {
+  id: string;
+  conversation_id: string;
+  user_id?: string | null;
+  sender_name: string;
+  sender_username?: string | null;
+  content: string;
+  link_url?: string | null;
+  attachment_name?: string | null;
+  attachment_url?: string | null;
+  attachment_size?: number | null;
+  created_at: string;
+  is_self: boolean;
+  reactions: MessageReactionSummary[];
+  converted_ticket_id?: string | null;
+  converted_ticket_number?: string | null;
+}
+
+export interface ConversationSummary {
+  id: string;
+  entity_id: string;
+  name: string;
+  is_group: boolean;
+  is_self: boolean;
+  is_featured: boolean;
+  unread_count: number;
+  last_message?: string | null;
+  last_message_time?: string | null;
+  is_online?: boolean | null;
+}
+
+export interface ChatMember {
+  id: string;
+  username: string;
+  display_name: string;
+  email: string;
+  is_online: boolean;
+  role: string;
+}
+
+export interface OnlineUser {
+  user_id: string;
+  username: string;
+  display_name: string;
+  email: string;
+  status: string;
+  last_seen: string;
+  active_seconds: number;
+}
+
+export interface SessionInterval {
+  id: string;
+  user_id: string;
+  username: string;
+  display_name: string;
+  session_date: string;
+  start_time: string;
+  end_time: string;
+  duration_seconds: number;
+}
+
+export interface ChatDashboardMetrics {
+  total_messages: number;
+  daily_avg_messages: number;
+  group_messages_pct: number;
+  online_users_count: number;
+  daily_active_users_avg: number;
+  daily_online_seconds_avg: number;
+  recent_intervals: SessionInterval[];
+}
+
+export interface ChatSettings {
+  launcher_color: string;
+  bubble_color: string;
+  panel_width_px: number;
+  max_message_length: number;
+  ticket_conversion_enabled: boolean;
+  allow_attachments: boolean;
+  max_attachment_size_mb: number;
+  auto_notify_ticket_events: boolean;
+}
+
+export interface ShortcutButton {
+  id: string;
+  label: string;
+  url: string;
+  is_active: boolean;
+  ranking: number;
+}
+
+export interface ConvertToTicketPayload {
+  name: string;
+  category?: string;
+  urgency?: number;
+  impact?: number;
+  content_override?: string;
+  entity_id?: string;
+}
+
+export interface ConvertToTicketResponse {
+  ticket_id: string;
+  ticket_number: string;
+  message_id: string;
+  notice_message_id: string;
+}
+
+export type ChatWsEvent =
+  | { type: 'new_message'; payload: ChatMessage }
+  | { type: 'user_typing'; payload: { conversation_id: string; user_id: string; username: string } }
+  | { type: 'reaction_updated'; payload: { message_id: string; reactions: MessageReactionSummary[] } }
+  | { type: 'presence_updated'; payload: { user_id: string; status: string; last_seen: string } }
+  | { type: 'ticket_converted'; payload: { message_id: string; ticket_id: string; ticket_number: string; ticket_name: string } };

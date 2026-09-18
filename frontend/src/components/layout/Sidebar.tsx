@@ -11,6 +11,7 @@ import {
   ChevronRight,
   Network,
   GitPullRequest,
+  MessageSquare,
 } from 'lucide-react';
 
 import { BrandLogo } from '../common/BrandLogo';
@@ -39,6 +40,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeNav, onSelectNav }) => {
       items: [
         { id: 'dashboard', label: 'Service Desk Overview', icon: LifeBuoy, badge: 'Live' },
         { id: 'tickets', label: 'Tickets & Incidents', icon: GitPullRequest, badge: '12' },
+        { id: 'chat_dashboard', label: 'HelpdeskChat & Métricas', icon: MessageSquare, badge: 'Live' },
         { id: 'problems', label: 'Problems & Changes', icon: Layers, badge: '3' },
       ],
     },

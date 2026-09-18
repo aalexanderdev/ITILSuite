@@ -36,6 +36,16 @@ import type {
   UpdateAssetPayload,
   AgentSimulationRequest,
   AgentSimulationResponse,
+  ConversationSummary,
+  ChatMessage,
+  MessageReactionSummary,
+  ChatMember,
+  OnlineUser,
+  ChatDashboardMetrics,
+  ChatSettings,
+  ShortcutButton,
+  ConvertToTicketPayload,
+  ConvertToTicketResponse,
 } from '../types';
 
 export const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8081';
@@ -719,6 +729,205 @@ export async function simulateAgentInventory(
   return response.json();
 }
 
+// ---------------------------------------------------------------------------
+// HelpdeskChat & WebSocket Client Functions
+// ---------------------------------------------------------------------------
 
+export function getChatWsUrl(): string {
+  const token = getStoredToken() || '';
+  const httpUrl = new URL(API_BASE_URL);
+  const wsProtocol = httpUrl.protocol === 'https:' ? 'wss:' : 'ws:';
+  return `${wsProtocol}//${httpUrl.host}/api/v1/chat/ws?token=${encodeURIComponent(token)}`;
+}
 
+export async function fetchChatConversations(entityId?: string): Promise<ConversationSummary[]> {
+  const query = entityId ? `?entity_id=${entityId}` : '';
+  const response = await fetch(`${API_BASE_URL}/api/v1/chat/conversations${query}`, {
+    method: 'GET',
+    headers: getAuthHeaders(),
+  });
+  if (!response.ok) {
+    throw new Error(`Failed to fetch conversations (${response.status})`);
+  }
+  return response.json();
+}
 
+export async function createChatConversation(payload: {
+  name?: string;
+  is_group?: boolean;
+  participant_ids: string[];
+  entity_id?: string;
+}): Promise<ConversationSummary> {
+  const response = await fetch(`${API_BASE_URL}/api/v1/chat/conversations`, {
+    method: 'POST',
+    headers: getAuthHeaders(),
+    body: JSON.stringify(payload),
+  });
+  if (!response.ok) {
+    const err = await response.json().catch(() => null);
+    throw new Error(err?.error?.message || `Failed to create conversation (${response.status})`);
+  }
+  return response.json();
+}
+
+export async function toggleChatFeatured(conversationId: string): Promise<{ is_featured: boolean }> {
+  const response = await fetch(`${API_BASE_URL}/api/v1/chat/conversations/${conversationId}/featured`, {
+    method: 'POST',
+    headers: getAuthHeaders(),
+  });
+  if (!response.ok) {
+    throw new Error(`Failed to toggle featured (${response.status})`);
+  }
+  return response.json();
+}
+
+export async function fetchChatMessages(conversationId: string, limit = 100): Promise<ChatMessage[]> {
+  const response = await fetch(`${API_BASE_URL}/api/v1/chat/conversations/${conversationId}/messages?limit=${limit}`, {
+    method: 'GET',
+    headers: getAuthHeaders(),
+  });
+  if (!response.ok) {
+    throw new Error(`Failed to fetch messages (${response.status})`);
+  }
+  return response.json();
+}
+
+export async function sendChatMessage(
+  conversationId: string,
+  payload: {
+    content: string;
+    link_url?: string;
+    attachment_name?: string;
+    attachment_url?: string;
+    attachment_size?: number;
+    attachment_mime?: string;
+  }
+): Promise<ChatMessage> {
+  const response = await fetch(`${API_BASE_URL}/api/v1/chat/conversations/${conversationId}/messages`, {
+    method: 'POST',
+    headers: getAuthHeaders(),
+    body: JSON.stringify(payload),
+  });
+  if (!response.ok) {
+    const err = await response.json().catch(() => null);
+    throw new Error(err?.error?.message || `Failed to send message (${response.status})`);
+  }
+  return response.json();
+}
+
+export async function toggleMessageReaction(
+  messageId: string,
+  emoji: string
+): Promise<MessageReactionSummary[]> {
+  const response = await fetch(`${API_BASE_URL}/api/v1/chat/messages/${messageId}/react`, {
+    method: 'POST',
+    headers: getAuthHeaders(),
+    body: JSON.stringify({ emoji }),
+  });
+  if (!response.ok) {
+    throw new Error(`Failed to toggle reaction (${response.status})`);
+  }
+  return response.json();
+}
+
+export async function convertMessageToTicket(
+  messageId: string,
+  payload: ConvertToTicketPayload
+): Promise<ConvertToTicketResponse> {
+  const response = await fetch(`${API_BASE_URL}/api/v1/chat/messages/${messageId}/convert-to-ticket`, {
+    method: 'POST',
+    headers: getAuthHeaders(),
+    body: JSON.stringify(payload),
+  });
+  if (!response.ok) {
+    const err = await response.json().catch(() => null);
+    throw new Error(err?.error?.message || `Failed to convert message to ticket (${response.status})`);
+  }
+  return response.json();
+}
+
+export async function sendPresenceHeartbeat(status = 'online'): Promise<void> {
+  await fetch(`${API_BASE_URL}/api/v1/chat/presence/heartbeat`, {
+    method: 'POST',
+    headers: getAuthHeaders(),
+    body: JSON.stringify({ status }),
+  }).catch(() => {});
+}
+
+export async function fetchOnlineUsers(): Promise<OnlineUser[]> {
+  const response = await fetch(`${API_BASE_URL}/api/v1/chat/presence/online`, {
+    method: 'GET',
+    headers: getAuthHeaders(),
+  });
+  if (!response.ok) {
+    throw new Error(`Failed to fetch online users (${response.status})`);
+  }
+  return response.json();
+}
+
+export async function fetchConversationMembers(conversationId: string): Promise<ChatMember[]> {
+  const response = await fetch(`${API_BASE_URL}/api/v1/chat/conversations/${conversationId}/members`, {
+    method: 'GET',
+    headers: getAuthHeaders(),
+  });
+  if (!response.ok) {
+    throw new Error(`Failed to fetch members (${response.status})`);
+  }
+  return response.json();
+}
+
+export async function postChatTyping(conversationId: string): Promise<void> {
+  await fetch(`${API_BASE_URL}/api/v1/chat/conversations/${conversationId}/typing`, {
+    method: 'POST',
+    headers: getAuthHeaders(),
+  }).catch(() => {});
+}
+
+export async function fetchChatDashboardMetrics(): Promise<ChatDashboardMetrics> {
+  const response = await fetch(`${API_BASE_URL}/api/v1/chat/dashboard`, {
+    method: 'GET',
+    headers: getAuthHeaders(),
+  });
+  if (!response.ok) {
+    throw new Error(`Failed to fetch chat dashboard metrics (${response.status})`);
+  }
+  return response.json();
+}
+
+export async function fetchChatSettings(): Promise<ChatSettings> {
+  const response = await fetch(`${API_BASE_URL}/api/v1/chat/settings`, {
+    method: 'GET',
+    headers: getAuthHeaders(),
+  });
+  if (!response.ok) {
+    throw new Error(`Failed to fetch chat settings (${response.status})`);
+  }
+  return response.json();
+}
+
+export async function updateChatSettings(settings: ChatSettings): Promise<ChatSettings> {
+  const response = await fetch(`${API_BASE_URL}/api/v1/chat/settings`, {
+    method: 'PUT',
+    headers: getAuthHeaders(),
+    body: JSON.stringify(settings),
+  });
+  if (!response.ok) {
+    throw new Error(`Failed to update chat settings (${response.status})`);
+  }
+  return response.json();
+}
+
+export async function fetchChatShortcuts(): Promise<ShortcutButton[]> {
+  const response = await fetch(`${API_BASE_URL}/api/v1/chat/shortcuts`, {
+    method: 'GET',
+    headers: getAuthHeaders(),
+  });
+  if (!response.ok) {
+    throw new Error(`Failed to fetch chat shortcuts (${response.status})`);
+  }
+  return response.json();
+}
+
+export function getChatMessagesExportCsvUrl(): string {
+  return `${API_BASE_URL}/api/v1/chat/dashboard/export`;
+}

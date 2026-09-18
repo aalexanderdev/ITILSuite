@@ -64,7 +64,23 @@ GLPI is an industry standard for IT service and asset management across enterpri
 * **Automated Connected Monitor Discovery**: Automatic detection, registration, and linking of connected displays reported by workstations.
 * **Interactive Agent Simulator**: In-app simulator with realistic hardware presets for rapid local/offline validation.
 
-### 5. User Experience & Design
+### 5. HelpdeskChat & Real-Time Telemetry Subsystem (Inspired by GLPI helpdesk-chat)
+* **Native Rust WebSockets (`/api/v1/chat/ws`)**: High-performance multi-channel WebSocket hub with `axum::extract::ws` and `tokio::sync::broadcast` for instantaneous messaging, typing indicators, reactions, and live presence updates.
+* **Bi-directional Service Desk Integration**: One-click message-to-ticket conversion with ITIL priority calculations and live reciprocal links.
+* **Automated Ticket Event Notifications**: Real-time push notifications dispatched to requesters and assigned technicians on ticket creation.
+* **Docked Interactive Chat Widget (`HelpdeskChatWidget`)**:
+  * Collapsible sections: Live online agents, pinned channels, group rooms, and direct/system notices.
+  * Shortcut buttons bar for instant navigation to self-service portals and knowledge bases.
+  * Atomic emoji reactions (👍, ❤️, 🚀, 👀) with live counts.
+  * Inline autocomplete for `:shortcode` emojis and `@mentions` in team rooms.
+  * Multi-format attachments (drag & drop, clipboard paste `Ctrl+V`, and click-to-zoom Lightbox modal).
+  * Global hotkeys: `Ctrl+Alt+.` to toggle the dock, `Esc` to dismiss overlays, and `Ctrl+Alt+?` for shortcuts guide.
+* **Chat Analytics & Session Telemetry Dashboard (`ChatDashboardView`)**:
+  * Real-time KPI telemetry (messages, daily averages, online sessions, group volume, average session time).
+  * 24-Hour Session Gantt Timeline illustrating daily work intervals recorded via presence heartbeats.
+  * Audit-grade CSV export (`/api/v1/chat/export.csv`).
+
+### 6. User Experience & Design
 * Dual-theme support: Dark Cyber-Navy and Clean Light modes.
 * Air-gap ready typography: 100% locally served Geist and Geist Mono font bundles.
 * Native, zero-dependency UX primitives: Shimmer skeleton loaders, accessible directional tooltips, and non-blocking toast notifications.
@@ -75,22 +91,22 @@ GLPI is an industry standard for IT service and asset management across enterpri
 
 ```text
 ITILSuite/
-├── backend/                # REST API backend in Rust (Axum + Tokio + SQLx)
+├── backend/                # REST & WebSocket backend in Rust (Axum + Tokio + SQLx)
 │   ├── src/
-│   │   ├── api/            # HTTP routes (/health, /tickets, /entities, /users, /mail, /receivers)
-│   │   ├── domain/         # ITIL domain models (Tickets, Templates, Entities, Notifications)
-│   │   ├── services/       # Business logic (TicketService, MailService, ReceiverService, AuthService)
+│   │   ├── api/            # HTTP & WS routes (/health, /tickets, /entities, /users, /mail, /inventory, /chat)
+│   │   ├── domain/         # ITIL domain models (Tickets, Templates, Assets, Chat, Notifications)
+│   │   ├── services/       # Business logic (TicketService, AssetService, ChatService, MailService, AuthService)
 │   │   ├── config.rs       # Environment variable parsing and defaults
 │   │   ├── error.rs        # Typed application errors and JSON responses
-│   │   └── main.rs         # HTTP server, background workers, and OpenAPI / Swagger routes
+│   │   └── main.rs         # HTTP server, WS broadcast hub, background workers, and Swagger routes
 │   ├── migrations/         # Deterministic SQLx PostgreSQL migrations
 │   └── Cargo.toml
 │
 ├── frontend/               # Web client in React 19 + TypeScript + Vite
 │   ├── src/
-│   │   ├── components/     # High-density UI modules (tickets, notifications, entities, users, layout)
+│   │   ├── components/     # High-density UI modules (tickets, assets, chat, notifications, layout)
 │   │   ├── context/        # React context providers (AuthContext, ThemeContext, ToastContext)
-│   │   ├── services/       # Typed HTTP API clients and connectivity diagnostics
+│   │   ├── services/       # Typed HTTP & WebSocket API clients
 │   │   ├── types.ts        # TypeScript interfaces and DTOs
 │   │   ├── index.css       # Unified CSS design system and tokens
 │   │   └── App.tsx         # Main application shell and workspace routing
