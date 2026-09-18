@@ -81,7 +81,9 @@ GLPI is an industry standard for IT service and asset management across enterpri
   * Audit-grade CSV export (`/api/v1/chat/export.csv`).
 
 ### 6. User Experience & Design
-* Dual-theme support: Dark Cyber-Navy and Clean Light modes.
+* **Dual-theme support**:
+  * **Warm Tones Dark Mode**: Built on the official Material Design 2 Dark Theme specification with elevation overlay levels (`00dp` to `24dp`), deep espresso charcoal surface (`#141210`), warm parchment typography (`#F6F0EA`), desaturated accents, and cozy atmospheric ambient glow.
+  * **Clean Light Mode**: Crisp corporate OpenITIL layout with high-contrast slate surfaces.
 * Air-gap ready typography: 100% locally served Geist and Geist Mono font bundles.
 * Native, zero-dependency UX primitives: Shimmer skeleton loaders, accessible directional tooltips, and non-blocking toast notifications.
 

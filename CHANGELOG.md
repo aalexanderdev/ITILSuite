@@ -7,6 +7,12 @@ All notable changes to this project will be documented in this file in accordanc
 ## [0.0.4] - 2026-09-18
 
 ### Added
+* **Material Design 2 Dark Theme & Warm Tones Revamp**:
+  * Implemented official Material Design 2 Dark Theme elevation system with explicit overlay scale (`--surface-00dp` through `--surface-24dp`) using deep espresso charcoal (`#141210`) as base surface.
+  * Warm Tones color palette: warm parchment off-white typography (`#F6F0EA`, 88% high-emphasis, 14:1 contrast ratio), warm soft sand (`#B8ACA0`, 62% medium-emphasis), and warm stone (`#7C7269`).
+  * Desaturated, glare-free dark accents: terracotta coral brand primary (`#EB4D3D` / `#F06455`), golden honey amber (`#FBBF24`), warm sage emerald (`#34D399`), and warm lavender amethyst (`#C084FC`).
+  * Warm atmospheric shadows (`rgba(10, 8, 7, 0.4)` to `0.65`) and ambient background gradients replacing harsh cold blues.
+  * Harmonized primary buttons, floating dock, modal dialogs, and navigation states across the entire application.
 * **HelpdeskChat Subsystem & Real-Time Telemetry Engine (Inspired by GLPI helpdesk-chat)**:
   * Native WebSocket connection `/api/v1/chat/ws` powered by Rust `axum::extract::ws` and `tokio::sync::broadcast` supporting multi-client real-time messaging, typing indicators, presence tracking, reactions, and automated notifications.
   * Bidirectional Service Desk integration: Single-click conversion from chat message to ITIL ticket (`/api/v1/chat/messages/:id/convert-to-ticket`) with automatic ITIL priority matrix calculation and backlink badges (`chat_message_tickets`).

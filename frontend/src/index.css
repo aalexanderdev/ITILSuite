@@ -5,65 +5,100 @@
     sans-serif;
   --font-mono: 'Geist Mono Variable', 'Geist Mono', monospace;
 
-  /* Color Palette - Dark Cyber Navy */
-  --bg-primary: #0b0f19;
-  --bg-secondary: #111827;
-  --bg-card: rgba(17, 24, 39, 0.75);
-  --bg-card-hover: rgba(31, 41, 55, 0.85);
-  --bg-elevated: #1f2937;
-  --border-subtle: rgba(255, 255, 255, 0.08);
-  --border-active: rgba(59, 130, 246, 0.4);
+  /* ========================================================================
+     Material Design 2 Dark Theme Elevation System (Warm Tones Palette)
+     Specification: https://m2.material.io/design/color/dark-theme.html#ui-application
+     Inspiration: https://www.vev.design/blog/dark-mode-website-color-palette/
+     ======================================================================== */
 
-  /* Accents */
-  --accent-blue: #3b82f6;
-  --accent-cyan: #06b6d4;
-  --accent-indigo: #6366f1;
-  --accent-emerald: #10b981;
-  --accent-amber: #f59e0b;
-  --accent-rose: #f43f5e;
-  --accent-purple: #a855f7;
+  /* Material Elevation Scale (Base espresso charcoal + warm overlay steps) */
+  --surface-00dp: #141210; /* 0% - Base canvas background */
+  --surface-01dp: #1a1715; /* +5% warm white - Standard cards & containers */
+  --surface-02dp: #1f1c19; /* +7% warm white - Table rows & hover states */
+  --surface-03dp: #221e1b; /* +8% warm white - Input fields & search bars */
+  --surface-04dp: #25211e; /* +9% warm white - Top navbar & subheaders */
+  --surface-06dp: #292521; /* +11% warm white - Floating dock & docked chat */
+  --surface-08dp: #2d2824; /* +12% warm white - Dropdown menus & popovers */
+  --surface-16dp: #332e29; /* +15% warm white - Modal dialogs & sheets */
+  --surface-24dp: #37312c; /* +16% warm white - Directional tooltips & toasts */
 
-  /* Text colors */
-  --text-primary: #f9fafb;
-  --text-secondary: #9ca3af;
-  --text-muted: #6b7280;
-  --text-inverse: #111827;
+  /* Application Canvas & Container Backgrounds */
+  --bg-primary: var(--surface-00dp);
+  --bg-secondary: var(--surface-01dp);
+  --bg-card: rgba(26, 23, 21, 0.88);
+  --bg-card-hover: rgba(34, 30, 27, 0.96);
+  --bg-elevated: var(--surface-03dp);
+  --border-subtle: rgba(247, 242, 236, 0.09);
+  --border-active: rgba(235, 77, 61, 0.45);
 
-  /* Specific Component Surfaces */
-  --navbar-bg: rgba(15, 23, 42, 0.88);
-  --chat-bg: #0d1322;
-  --chat-bubble-other: rgba(255, 255, 255, 0.06);
-  --dock-bg: rgba(15, 23, 42, 0.92);
-  --dock-item-color: #94a3b8;
-  --dock-item-hover: rgba(255, 255, 255, 0.06);
-  --input-bg: rgba(255, 255, 255, 0.04);
-  --card-subtle-bg: rgba(255, 255, 255, 0.03);
-  --code-bg: #0b101b;
-  --hero-bg: linear-gradient(135deg, rgba(30, 58, 138, 0.4) 0%, rgba(17, 24, 39, 0.8) 100%);
-  --hero-border: rgba(59, 130, 246, 0.25);
-  --hero-title-grad: linear-gradient(to right, #ffffff, #bfdbfe);
+  /* Material Design 2 Text Hierarchy & WCAG AAA Contrast */
+  --text-primary: #f6f0ea;       /* High-emphasis (88%) - Warm Off-White (14:1 contrast on 00dp) */
+  --text-secondary: #b8aca0;     /* Medium-emphasis (62%) - Warm Soft Sand (7.5:1 contrast on 01dp) */
+  --text-muted: #7c7269;         /* Low-emphasis / Disabled (38%) - Warm Stone */
+  --text-inverse: #141210;       /* On-accent high contrast */
 
-  /* Glassmorphism & Shadows */
+  /* Desaturated Accents for Dark Mode (Eliminates optical retinal vibration) */
+  --accent-coral: #eb4d3d;
+  --accent-coral-subtle: #f06455;
+  --accent-blue: #60a5fa;        /* Warm-balanced Slate Blue */
+  --accent-cyan: #38bdf8;        /* Soft Sky Cyan */
+  --accent-indigo: #818cf8;      /* Warm Periwinkle Indigo */
+  --accent-emerald: #34d399;     /* Warm Sage Emerald (Online, Success) */
+  --accent-amber: #fbbf24;       /* Golden Honey Amber (Stars, Alerts) */
+  --accent-rose: #fb7185;        /* Terracotta Rose (Critical Incidents) */
+  --accent-purple: #c084fc;      /* Soft Lavender Amethyst (Templates) */
+
+  /* Specific Component Surfaces & Glassmorphism */
+  --navbar-bg: rgba(21, 19, 17, 0.92);
+  --chat-bg: #181513;
+  --chat-bubble-other: rgba(247, 242, 236, 0.06);
+  --dock-bg: rgba(25, 22, 20, 0.92);
+  --dock-item-color: #b8aca0;
+  --dock-item-hover: rgba(247, 242, 236, 0.08);
+  --input-bg: rgba(247, 242, 236, 0.04);
+  --card-subtle-bg: rgba(247, 242, 236, 0.03);
+  --code-bg: #171413;
+  --hero-bg: linear-gradient(135deg, rgba(235, 77, 61, 0.12) 0%, rgba(31, 28, 25, 0.95) 100%);
+  --hero-border: rgba(235, 77, 61, 0.25);
+  --hero-title-grad: linear-gradient(to right, #ffffff, #fcd5ce);
+
+  /* Primary Button Theming */
+  --btn-primary-from: #eb4d3d;
+  --btn-primary-to: #cf3a2b;
+  --btn-primary-shadow: rgba(235, 77, 61, 0.4);
+  --btn-primary-hover-from: #f05c4d;
+  --btn-primary-hover-to: #d94132;
+  --btn-primary-hover-shadow: rgba(235, 77, 61, 0.5);
+
+  /* Nav Item Active State */
+  --nav-item-active-bg: linear-gradient(90deg, rgba(235, 77, 61, 0.16), rgba(245, 158, 11, 0.06));
+  --nav-item-active-color: #f06455;
+  --nav-item-active-border: #eb4d3d;
+
+  /* Overlays & Modals */
+  --overlay-bg: rgba(12, 10, 9, 0.75);
+
+  /* Warm Atmospheric Shadows & Blur */
   --glass-blur: blur(16px);
-  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.3);
-  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.4), 0 2px 4px -2px rgba(0, 0, 0, 0.4);
-  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.5), 0 4px 6px -4px rgba(0, 0, 0, 0.5);
+  --shadow-sm: 0 1px 3px 0 rgba(10, 8, 7, 0.4);
+  --shadow-md: 0 4px 8px -1px rgba(10, 8, 7, 0.5), 0 2px 4px -2px rgba(10, 8, 7, 0.5);
+  --shadow-lg: 0 12px 24px -3px rgba(10, 8, 7, 0.65), 0 4px 8px -4px rgba(10, 8, 7, 0.6);
 
   --radius-sm: 6px;
   --radius-md: 10px;
   --radius-lg: 16px;
   --radius-xl: 20px;
 
-  /* Skeleton, Tooltip & Toast Tokens */
-  --skeleton-base: rgba(255, 255, 255, 0.05);
-  --skeleton-highlight: rgba(255, 255, 255, 0.12);
-  --tooltip-bg: #0f172a;
-  --tooltip-text: #f8fafc;
-  --tooltip-border: rgba(255, 255, 255, 0.14);
-  --toast-bg: rgba(15, 23, 42, 0.94);
-  --toast-border: rgba(255, 255, 255, 0.12);
-  --toast-text: #f9fafb;
-  --toast-subtext: #94a3b8;
+  /* Skeletons, Tooltips & Toasts */
+  --skeleton-base: rgba(247, 242, 236, 0.04);
+  --skeleton-highlight: rgba(247, 242, 236, 0.09);
+  --tooltip-bg: var(--surface-24dp);
+  --tooltip-text: #f6f0ea;
+  --tooltip-border: rgba(247, 242, 236, 0.14);
+  --toast-bg: rgba(37, 33, 29, 0.96);
+  --toast-border: rgba(247, 242, 236, 0.12);
+  --toast-text: #f6f0ea;
+  --toast-subtext: #b8aca0;
 }
 
 [data-theme='light'] {
@@ -71,6 +106,17 @@
     'Geist Variable', 'Geist', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto,
     sans-serif;
   --font-mono: 'Geist Mono Variable', 'Geist Mono', monospace;
+
+  /* Surface Scale (Light) */
+  --surface-00dp: #f8fafc;
+  --surface-01dp: #ffffff;
+  --surface-02dp: #f8fafc;
+  --surface-03dp: #f1f5f9;
+  --surface-04dp: #ffffff;
+  --surface-06dp: #ffffff;
+  --surface-08dp: #ffffff;
+  --surface-16dp: #ffffff;
+  --surface-24dp: #0f172a;
 
   /* Color Palette - Clean OpenITIL Light */
   --bg-primary: #f8fafc;
@@ -82,6 +128,8 @@
   --border-active: rgba(37, 99, 235, 0.45);
 
   /* Accents */
+  --accent-coral: #eb4d3d;
+  --accent-coral-subtle: #f06455;
   --accent-blue: #2563eb;
   --accent-cyan: #0891b2;
   --accent-indigo: #4f46e5;
@@ -109,6 +157,22 @@
   --hero-bg: linear-gradient(135deg, #eff6ff 0%, #ffffff 100%);
   --hero-border: rgba(37, 99, 235, 0.2);
   --hero-title-grad: linear-gradient(to right, #1e3a8a, #2563eb);
+
+  /* Primary Button Theming */
+  --btn-primary-from: #2563eb;
+  --btn-primary-to: #1d4ed8;
+  --btn-primary-shadow: rgba(37, 99, 235, 0.4);
+  --btn-primary-hover-from: #3b82f6;
+  --btn-primary-hover-to: #2563eb;
+  --btn-primary-hover-shadow: rgba(37, 99, 235, 0.5);
+
+  /* Nav Item Active State */
+  --nav-item-active-bg: linear-gradient(90deg, rgba(37, 99, 235, 0.12), rgba(37, 99, 235, 0.04));
+  --nav-item-active-color: #2563eb;
+  --nav-item-active-border: #2563eb;
+
+  /* Overlays & Modals */
+  --overlay-bg: rgba(15, 23, 42, 0.45);
 
   /* Glassmorphism & Shadows */
   --glass-blur: blur(16px);
@@ -185,8 +249,8 @@ body {
   min-height: 100vh;
   position: relative;
   background:
-    radial-gradient(circle at 10% 20%, rgba(59, 130, 246, 0.05) 0%, transparent 40%),
-    radial-gradient(circle at 90% 80%, rgba(99, 102, 241, 0.05) 0%, transparent 40%),
+    radial-gradient(circle at 10% 20%, rgba(235, 77, 61, 0.04) 0%, transparent 40%),
+    radial-gradient(circle at 90% 80%, rgba(245, 158, 11, 0.03) 0%, transparent 40%),
     var(--bg-primary);
 }
 
@@ -217,12 +281,12 @@ body {
   width: 38px;
   height: 38px;
   border-radius: var(--radius-md);
-  background: linear-gradient(135deg, #2563eb, #7c3aed);
+  background: linear-gradient(135deg, #eb4d3d, #c23b2d);
   display: flex;
   align-items: center;
   justify-content: center;
   color: white;
-  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.35);
+  box-shadow: 0 4px 12px rgba(235, 77, 61, 0.35);
 }
 
 .brand-info {
@@ -234,14 +298,14 @@ body {
   font-size: 1.15rem;
   font-weight: 800;
   letter-spacing: -0.02em;
-  background: linear-gradient(to right, #ffffff, #93c5fd);
+  background: linear-gradient(to right, #ffffff, #fcd5ce);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
 }
 
 .brand-version {
   font-size: 0.72rem;
-  color: var(--accent-cyan);
+  color: var(--accent-amber);
   font-weight: 600;
   display: flex;
   align-items: center;
@@ -287,9 +351,9 @@ body {
 }
 
 .nav-item.active {
-  background: linear-gradient(90deg, rgba(59, 130, 246, 0.18), rgba(99, 102, 241, 0.08));
-  color: #60a5fa;
-  border-left: 3px solid var(--accent-blue);
+  background: var(--nav-item-active-bg);
+  color: var(--nav-item-active-color);
+  border-left: 3px solid var(--nav-item-active-border);
   font-weight: 600;
 }
 
@@ -308,6 +372,18 @@ body {
   border-radius: 9999px;
   background: rgba(255, 255, 255, 0.08);
   color: var(--text-secondary);
+}
+
+.badge-coral {
+  background: rgba(235, 77, 61, 0.15);
+  color: #f87171;
+  border: 1px solid rgba(235, 77, 61, 0.3);
+}
+
+.badge-purple {
+  background: rgba(168, 85, 247, 0.15);
+  color: #d8b4fe;
+  border: 1px solid rgba(168, 85, 247, 0.3);
 }
 
 .badge-blue {
@@ -556,15 +632,15 @@ body {
 }
 
 .btn-primary {
-  background: linear-gradient(135deg, #2563eb, #1d4ed8);
+  background: linear-gradient(135deg, var(--btn-primary-from), var(--btn-primary-to));
   color: white;
-  box-shadow: 0 4px 14px rgba(37, 99, 235, 0.4);
+  box-shadow: 0 4px 14px var(--btn-primary-shadow);
 }
 
 .btn-primary:hover {
-  background: linear-gradient(135deg, #3b82f6, #2563eb);
+  background: linear-gradient(135deg, var(--btn-primary-hover-from), var(--btn-primary-hover-to));
   transform: translateY(-1px);
-  box-shadow: 0 6px 20px rgba(37, 99, 235, 0.5);
+  box-shadow: 0 6px 20px var(--btn-primary-hover-shadow);
 }
 
 .btn-secondary {
@@ -687,7 +763,7 @@ body {
 .modal-overlay {
   position: fixed;
   inset: 0;
-  background-color: rgba(5, 8, 15, 0.75);
+  background-color: var(--overlay-bg, rgba(12, 10, 9, 0.75));
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
   display: flex;
@@ -699,13 +775,13 @@ body {
 }
 
 .modal-content {
-  background-color: var(--bg-secondary);
+  background-color: var(--surface-16dp, var(--bg-secondary));
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-lg);
   width: 100%;
   box-shadow:
-    0 20px 35px -5px rgba(0, 0, 0, 0.6),
-    0 0 0 1px rgba(255, 255, 255, 0.05);
+    0 20px 35px -5px rgba(10, 8, 7, 0.65),
+    0 0 0 1px rgba(247, 242, 236, 0.05);
   overflow: hidden;
   animation: modalScaleUp 0.2s cubic-bezier(0.16, 1, 0.3, 1);
 }
@@ -1313,18 +1389,18 @@ body {
   gap: 0.4rem;
   padding: 0.45rem 0.95rem;
   border-radius: 9999px;
-  background: #2563eb;
+  background: var(--btn-primary-from, #eb4d3d);
   color: white;
   font-size: 0.8rem;
   font-weight: 600;
   border: none;
   cursor: pointer;
-  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.35);
+  box-shadow: 0 4px 12px var(--btn-primary-shadow, rgba(235, 77, 61, 0.35));
   transition: all 0.15s ease;
 }
 
 .btn-pill-primary:hover {
-  background: #1d4ed8;
+  background: var(--btn-primary-hover-from, #f05c4d);
   transform: translateY(-1px);
 }
 
@@ -1393,14 +1469,14 @@ body {
   width: 28px;
   height: 28px;
   border-radius: 50%;
-  background: #1e3a8a;
-  color: #93c5fd;
+  background: rgba(235, 77, 61, 0.16);
+  color: #f87171;
   display: flex;
   align-items: center;
   justify-content: center;
   font-weight: 700;
   font-size: 0.75rem;
-  border: 1px solid rgba(59, 130, 246, 0.35);
+  border: 1px solid rgba(235, 77, 61, 0.35);
 }
 
 .user-info-text {
@@ -1489,18 +1565,18 @@ body {
   gap: 0.45rem;
   padding: 0.5rem 1rem;
   border-radius: 9999px;
-  background: #2563eb;
+  background: var(--btn-primary-from);
   color: white;
   font-size: 0.82rem;
   font-weight: 600;
   border: none;
   cursor: pointer;
-  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.35);
+  box-shadow: 0 4px 12px var(--btn-primary-shadow);
   transition: all 0.15s ease;
 }
 
 .btn-welcome-primary:hover {
-  background: #1d4ed8;
+  background: var(--btn-primary-hover-from);
 }
 
 .btn-welcome-secondary {
@@ -1568,8 +1644,8 @@ body {
 
 .chat-header-icon-btn:hover,
 .chat-header-icon-btn.active {
-  color: #60a5fa;
-  background-color: rgba(59, 130, 246, 0.15);
+  color: var(--accent-coral, #eb4d3d);
+  background-color: rgba(235, 77, 61, 0.15);
 }
 
 .chat-dock-body {
@@ -1634,7 +1710,7 @@ body {
 }
 
 .chat-section-badge {
-  background: #0284c7;
+  background: var(--accent-coral, #eb4d3d);
   color: white;
   font-size: 0.65rem;
   font-weight: 700;
@@ -1768,9 +1844,9 @@ body {
 }
 
 .dock-item.active {
-  background: #2563eb;
+  background: var(--btn-primary-from, #eb4d3d);
   color: #ffffff;
-  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.4);
+  box-shadow: 0 4px 12px var(--btn-primary-shadow, rgba(235, 77, 61, 0.4));
 }
 
 .dock-item-create {
@@ -1779,18 +1855,18 @@ body {
   gap: 0.35rem;
   padding: 0.45rem 0.95rem;
   border-radius: 9999px;
-  background: #3b82f6;
+  background: linear-gradient(135deg, var(--btn-primary-from, #eb4d3d), var(--btn-primary-to, #cf3a2b));
   color: white;
   font-size: 0.8rem;
   font-weight: 700;
   border: none;
   cursor: pointer;
-  box-shadow: 0 4px 14px rgba(59, 130, 246, 0.45);
+  box-shadow: 0 4px 14px var(--btn-primary-shadow, rgba(235, 77, 61, 0.4));
   transition: all 0.15s ease;
 }
 
 .dock-item-create:hover {
-  background: #2563eb;
+  background: linear-gradient(135deg, var(--btn-primary-hover-from, #f05c4d), var(--btn-primary-hover-to, #d94132));
   transform: scale(1.03);
 }
 
@@ -1811,14 +1887,14 @@ body {
   width: 48px;
   height: 48px;
   border-radius: 50%;
-  background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+  background: linear-gradient(135deg, #eb4d3d, #cf3a2b);
   border: 2px solid rgba(255, 255, 255, 0.15);
   color: white;
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  box-shadow: 0 8px 24px rgba(37, 99, 235, 0.45);
+  box-shadow: 0 8px 24px rgba(235, 77, 61, 0.45);
   transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
@@ -1855,13 +1931,13 @@ body {
 }
 
 .badge-itil-tag {
-  background: rgba(59, 130, 246, 0.15);
-  color: var(--accent-blue);
+  background: rgba(235, 77, 61, 0.15);
+  color: var(--accent-coral, #eb4d3d);
   font-size: 0.7rem;
   font-weight: 700;
   padding: 0.15rem 0.5rem;
   border-radius: 9999px;
-  border: 1px solid rgba(59, 130, 246, 0.3);
+  border: 1px solid rgba(235, 77, 61, 0.3);
 }
 
 .badge-release-tag {
@@ -1921,13 +1997,13 @@ body {
   gap: 0.45rem;
   padding: 0.55rem 1.15rem;
   border-radius: var(--radius-md);
-  background: linear-gradient(135deg, #2563eb, #1d4ed8);
+  background: linear-gradient(135deg, var(--btn-primary-from, #eb4d3d), var(--btn-primary-to, #cf3a2b));
   color: #ffffff;
   font-size: 0.82rem;
   font-weight: 700;
   border: none;
   cursor: pointer;
-  box-shadow: 0 4px 14px rgba(37, 99, 235, 0.35);
+  box-shadow: 0 4px 14px var(--btn-primary-shadow, rgba(235, 77, 61, 0.35));
   transition:
     transform 0.15s ease,
     box-shadow 0.15s ease;
@@ -1935,7 +2011,7 @@ body {
 
 .btn-tickets-create:hover {
   transform: translateY(-1px);
-  box-shadow: 0 6px 18px rgba(37, 99, 235, 0.45);
+  box-shadow: 0 6px 18px var(--btn-primary-hover-shadow, rgba(235, 77, 61, 0.45));
 }
 
 .btn-tickets-templates {

@@ -104,13 +104,13 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeNav, onSelectNav }) => {
                     }}
                   >
                     <div className="nav-item-left">
-                      <Icon size={17} color={isActive ? '#60a5fa' : '#9ca3af'} />
+                      <Icon size={17} color={isActive ? 'var(--nav-item-active-color, #f06455)' : 'var(--text-muted)'} />
                       <span>{item.label}</span>
                     </div>
                     {item.badge ? (
-                      <span className={`badge ${isActive ? 'badge-blue' : ''}`}>{item.badge}</span>
+                      <span className={`badge ${isActive ? 'badge-coral' : ''}`}>{item.badge}</span>
                     ) : (
-                      <ChevronRight size={13} color="#6b7280" opacity={0.6} />
+                      <ChevronRight size={13} color="var(--text-muted)" opacity={0.6} />
                     )}
                   </button>
                 );
