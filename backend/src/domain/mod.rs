@@ -4,6 +4,7 @@ pub mod auth;
 pub mod chat;
 pub mod entity;
 pub mod notification;
+pub mod rule;
 pub mod template;
 pub mod ticket;
 pub mod user;

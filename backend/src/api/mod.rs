@@ -6,6 +6,7 @@ pub mod health;
 pub mod inventory;
 pub mod notifications;
 pub mod receivers;
+pub mod rules;
 pub mod templates;
 pub mod tickets;
 pub mod users;
@@ -131,7 +132,7 @@ impl Modify for SecurityAddon {
     ),
     info(
         title = "ITILSuite REST API",
-        version = "0.0.4",
+        version = "0.0.5",
         description = "High-performance Rust REST API inspired by GLPI 11 for ITSM, ITAM, and CMDB.",
         license(name = "GPL-3.0-or-later", url = "https://www.gnu.org/licenses/gpl-3.0.html")
     )
@@ -172,7 +173,8 @@ pub fn create_router(state: AppState) -> Router {
         .route("/inventory/agent/simulate", post(inventory::simulate_agent_inventory))
         .nest("/chat", chat::chat_router())
         .merge(notifications::router())
-        .merge(receivers::router());
+        .merge(receivers::router())
+        .merge(rules::router());
 
     Router::new()
         .nest("/api/v1", api_v1)

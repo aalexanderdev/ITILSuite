@@ -175,26 +175,81 @@ pub async fn create_ticket(
         return Err(AppError::BadRequest("Ticket content/description cannot be empty".to_string()));
     }
 
-    let ticket_type = match payload.ticket_type.as_deref() {
-        Some("request") => "request".to_string(),
-        _ => "incident".to_string(),
-    };
-
-    let urgency = payload.urgency.unwrap_or(3).clamp(1, 5);
-    let impact = payload.impact.unwrap_or(3).clamp(1, 5);
-    let priority = calculate_priority(urgency, impact);
-
     // Entity scope: defaults to user's active entity or Root Entity
-    let entity_id = payload.entity_id.unwrap_or_else(|| {
+    let mut entity_id = payload.entity_id.unwrap_or_else(|| {
         Uuid::parse_str(&claims.entity_id)
             .unwrap_or_else(|_| Uuid::parse_str("00000000-0000-0000-0000-000000000001").unwrap())
     });
 
     // Requester: authenticated user
     let requester_id = Uuid::parse_str(&claims.sub).ok();
+    let user_email = if let Some(req_id) = requester_id {
+        let row: Option<(Option<String>,)> = sqlx::query_as("SELECT email FROM users WHERE id = $1")
+            .bind(req_id)
+            .fetch_optional(&state.pool)
+            .await
+            .unwrap_or(None);
+        row.and_then(|r| r.0).unwrap_or_else(|| claims.username.clone())
+    } else {
+        claims.username.clone()
+    };
+
+    // Evaluate Helpdesk Entity Assignment Rule if caller didn't explicitly override entity
+    if payload.entity_id.is_none() {
+        if let Some(routed) = crate::services::rules::helpdesk::HelpdeskRulesService::evaluate_ticket_entity(
+            &state.pool,
+            &user_email,
+            None,
+            name,
+        )
+        .await
+        {
+            entity_id = routed;
+        }
+    }
+
+    let mut ticket_type = match payload.ticket_type.as_deref() {
+        Some("request") => "request".to_string(),
+        _ => "incident".to_string(),
+    };
+
+    let mut urgency = payload.urgency.unwrap_or(3).clamp(1, 5);
+    let mut impact = payload.impact.unwrap_or(3).clamp(1, 5);
+    let mut category = payload.category.clone();
+    let mut assigned_technician_id = payload.assigned_technician_id;
+
+    // Evaluate Ticket Business Rules (urgency/impact escalation, category routing, technician assignment)
+    let rule_mutations = crate::services::rules::helpdesk::HelpdeskRulesService::evaluate_ticket_business_rules(
+        &state.pool,
+        entity_id,
+        name,
+        content,
+        &user_email,
+        urgency,
+        impact,
+    )
+    .await;
+
+    if let Some(u) = rule_mutations.get("urgency").and_then(|v| v.parse::<i32>().ok()) {
+        urgency = u.clamp(1, 5);
+    }
+    if let Some(i) = rule_mutations.get("impact").and_then(|v| v.parse::<i32>().ok()) {
+        impact = i.clamp(1, 5);
+    }
+    if let Some(c) = rule_mutations.get("category") {
+        category = Some(c.clone());
+    }
+    if let Some(tt) = rule_mutations.get("ticket_type") {
+        ticket_type = tt.clone();
+    }
+    if let Some(tech_id) = rule_mutations.get("assigned_technician_id").and_then(|v| Uuid::parse_str(v).ok()) {
+        assigned_technician_id = Some(tech_id);
+    }
+
+    let priority = calculate_priority(urgency, impact);
 
     // Initial status: if technician is dispatched, status is 'assigned', otherwise 'new'
-    let status = if payload.assigned_technician_id.is_some() {
+    let status = if assigned_technician_id.is_some() {
         "assigned".to_string()
     } else {
         "new".to_string()
@@ -241,8 +296,8 @@ pub async fn create_ticket(
     .bind(impact)
     .bind(priority)
     .bind(requester_id)
-    .bind(payload.assigned_technician_id)
-    .bind(payload.category)
+    .bind(assigned_technician_id)
+    .bind(category)
     .bind(time_to_resolve)
     .execute(&state.pool)
     .await

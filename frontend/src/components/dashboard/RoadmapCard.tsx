@@ -23,8 +23,20 @@ export const RoadmapCard: React.FC = () => {
     },
     {
       version: 'v0.0.4',
-      title: 'Asset Management (ITAM / CMDB)',
-      desc: 'Computer and network hardware inventory with automated GLPI-Agent ingestion.',
+      title: 'Asset Management (ITAM / CMDB) & HelpdeskChat',
+      desc: 'Hardware telemetry, GLPI-Agent ingestion, field locks, and real-time WebSockets chat.',
+      status: 'completed',
+    },
+    {
+      version: 'v0.0.5',
+      title: 'Business Rules & Dictionaries',
+      desc: 'High-throughput Rust rule engine across 4 domains and 10 normalization dictionaries.',
+      status: 'completed',
+    },
+    {
+      version: 'v0.0.6',
+      title: 'User Ingestion & Transversal Groups',
+      desc: 'Bulk user directory ingestion, transversal groups architecture, and cross-platform integrations.',
       status: 'planned',
     },
   ];

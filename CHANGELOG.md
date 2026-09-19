@@ -6,7 +6,7 @@ All notable changes to this project will be documented in this file in accordanc
 
 ## [Unreleased]
 
-### Planned (v0.0.5 - User Ingestion & Transversal Groups Management)
+### Planned (v0.0.6 - User Ingestion & Transversal Groups Management)
 * **Batch User Ingestion & Directory Management**:
   * Bulk CSV/JSON user import engine with schema validation, conflict resolution (skip/overwrite), and role/entity pre-assignment.
   * Dedicated User Directory administration interface with search, status filters, and credential management.
@@ -22,7 +22,28 @@ All notable changes to this project will be documented in this file in accordanc
 
 ---
 
-## [0.0.4] - 2026-09-18
+## [0.0.5] - 2026-09-18
+
+### Added
+* **Business Rules & Dictionaries Normalization Suite (Inspired by GLPI)**:
+  * Unified metarule database schema with deterministic PostgreSQL migration (`rules`, `rule_criteria`, `rule_actions`, `rule_execution_logs`).
+  * High-performance asynchronous Rust rule evaluation engine (`RuleEngine`) featuring 11 conditional operators (`equals`, `not_equals`, `contains`, `not_contains`, `starts_with`, `ends_with`, `regex_match` with capture interpolation `$1..$N`, `in_subnet` for CIDR blocks like `192.168.10.0/24`, `is_empty`, and `is_not_empty`).
+  * Priority rankings, configurable match logic (`AND` / `OR`), fallback catch-all rules, and `stop_on_first_match` execution pipeline halting.
+  * **4 Complete Business Rule Domains**:
+    * **Helpdesk Rules**: Ticket business rules (urgency, impact, priority, category, technician mutation based on subject/content/sender keywords), ticket entity assignment rules (routing to corporate entity via email, domain, IP), and problem/change rules.
+    * **Assets & Inventory Rules**: Equipment entity assignment (routing incoming hardware to entities/branches by CIDR subnets and inventory tags), equipment import & link reconciliation rules (replaces hardcoded matching with configurable Link, Create, Reject, or Trash decisions).
+    * **Authorization & Authentication Rules**: Initial profile and entity assignments upon first login or LDAP/AD/SAML auth, including transversal group assignments.
+    * **Dictionaries & Normalization Engines (10 Specialized Subtypes)**: Hardware Manufacturers, Operating Systems, OS Versions, OS Architectures, Software & Licensable Programs, Computer Models, Monitor Models, Printer Models, Peripheral Models, and Phone Models.
+  * In-flight pipeline integrations:
+    * `AgentService`: Ingest normalization for GLPI-Agent payloads (manufacturer, model, OS, software) and reconciliation decisions.
+    * `ReceiverService`: Entity routing and ticket business rules for all incoming email collectors.
+    * `TicketService`: Dynamic rule evaluation during ticket creation via API and UI.
+  * **Interactive Frontend Workspace (`RuleManagementView.tsx`)**:
+    * Domain tabs and subtype pills for intuitive navigation across all rule categories.
+    * Interactive rule cards with dynamic priority reordering (`#10`, `#20` up/down buttons), status toggles, logic badges (`AND`/`OR`, `Detener flujo`, `Recursiva`), and live criteria/action tag previews.
+    * **Rule Editor Modal (`RuleEditorModal.tsx`)**: Dynamic criteria and action builder with contextual field suggestions and regex capture interpolation hints.
+    * **Rule Sandbox Simulator Modal (`RuleSimulatorModal.tsx`)**: Zero-side-effect test console with real-world presets, microsecond execution benchmarking, step-by-step checklist validation, and output payload JSON diff inspection.
+    * Responsive Warm Tones and Material Design 2 Dark Theme styling integrated into `index.css`.
 
 ### Added
 * **Material Design 2 Dark Theme & Warm Tones Revamp**:

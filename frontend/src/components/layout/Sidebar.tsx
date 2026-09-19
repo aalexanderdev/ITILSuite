@@ -12,6 +12,7 @@ import {
   Network,
   GitPullRequest,
   MessageSquare,
+  Sliders,
 } from 'lucide-react';
 
 import { BrandLogo } from '../common/BrandLogo';
@@ -63,6 +64,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeNav, onSelectNav }) => {
       items: [
         { id: 'entities', label: 'Entity Hierarchy Tree', icon: FolderTree },
         { id: 'users', label: 'Users & RBAC Profiles', icon: Users },
+        { id: 'rules', label: 'Reglas y Diccionarios', icon: Sliders, badge: 'Motor' },
         { id: 'settings', label: 'Settings & Rules', icon: Settings },
       ],
     },
@@ -78,7 +80,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeNav, onSelectNav }) => {
           <span className="brand-name">ITILSuite</span>
           <span className="brand-version">
             <span style={{ display: 'inline-block', width: 6, height: 6, borderRadius: '50%', backgroundColor: '#10b981' }}></span>
-            GLPI 11 Core • v0.0.4
+            GLPI 11 Core • v0.0.5
           </span>
         </div>
       </div>

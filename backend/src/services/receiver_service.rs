@@ -172,13 +172,59 @@ impl ReceiverService {
             }
         };
 
-        // Determine type based on subject keywords
-        let subject_lower = subject.to_lowercase();
-        let ticket_type = if subject_lower.contains("solicitud") || subject_lower.contains("peticion") || subject_lower.contains("request") {
-            "request"
-        } else {
-            "incident"
+        // Evaluate Helpdesk Entity Assignment Rules (e.g. domain, sender email)
+        let effective_entity_id = match crate::services::rules::helpdesk::HelpdeskRulesService::evaluate_ticket_entity(
+            pool,
+            from_email,
+            None,
+            subject,
+        )
+        .await
+        {
+            Some(routed_id) => routed_id,
+            None => entity_id,
         };
+
+        // Determine initial type based on subject keywords
+        let subject_lower = subject.to_lowercase();
+        let mut ticket_type = if subject_lower.contains("solicitud") || subject_lower.contains("peticion") || subject_lower.contains("request") {
+            "request".to_string()
+        } else {
+            "incident".to_string()
+        };
+
+        let mut urgency = 3;
+        let mut impact = 3;
+        let mut category = "Correo Electrónico".to_string();
+        let mut technician_id: Option<Uuid> = None;
+
+        // Evaluate Helpdesk Business Rules (escalation, categories, urgency mutations)
+        let mutations = crate::services::rules::helpdesk::HelpdeskRulesService::evaluate_ticket_business_rules(
+            pool,
+            effective_entity_id,
+            subject,
+            body,
+            from_email,
+            urgency,
+            impact,
+        )
+        .await;
+
+        if let Some(u) = mutations.get("urgency").and_then(|v| v.parse::<i32>().ok()) {
+            urgency = u.clamp(1, 5);
+        }
+        if let Some(i) = mutations.get("impact").and_then(|v| v.parse::<i32>().ok()) {
+            impact = i.clamp(1, 5);
+        }
+        if let Some(c) = mutations.get("category") {
+            category = c.clone();
+        }
+        if let Some(tt) = mutations.get("ticket_type") {
+            ticket_type = tt.clone();
+        }
+        if let Some(t_id) = mutations.get("assigned_technician_id").and_then(|v| Uuid::parse_str(v).ok()) {
+            technician_id = Some(t_id);
+        }
 
         let prefix = if ticket_type == "request" { "REQ" } else { "INC" };
         let count: (i64,) = sqlx::query_as("SELECT COUNT(*) FROM tickets")
@@ -187,26 +233,39 @@ impl ReceiverService {
             .unwrap_or((0,));
         let ticket_number = format!("{}-{}-{:04}", prefix, Utc::now().format("%Y"), count.0 + 1);
 
-        let priority = 3; // Standard medium priority for incoming emails
-        let time_to_resolve = Utc::now() + Duration::hours(24);
+        let priority = crate::domain::ticket::calculate_priority(urgency, impact);
+        let hours_to_resolve = match priority {
+            5 => 4,
+            4 => 8,
+            3 => 24,
+            2 => 48,
+            _ => 72,
+        };
+        let time_to_resolve = Utc::now() + Duration::hours(hours_to_resolve);
+        let status = if technician_id.is_some() { "assigned" } else { "new" };
 
         let new_ticket_id = sqlx::query_scalar!(
             r#"
             INSERT INTO tickets (
                 ticket_number, entity_id, name, content, ticket_type, status,
-                urgency, impact, priority, requester_id, category, time_to_resolve
+                urgency, impact, priority, requester_id, assigned_technician_id, category, time_to_resolve
             ) VALUES (
-                $1, $2, $3, $4, $5, 'new', 3, 3, $6, $7, 'Correo Electrónico', $8
+                $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13
             )
             RETURNING id
             "#,
             ticket_number,
-            entity_id,
+            effective_entity_id,
             subject.trim(),
             body.trim(),
             ticket_type,
+            status,
+            urgency,
+            impact,
             priority,
             requester_id,
+            technician_id,
+            category,
             time_to_resolve
         )
         .fetch_one(pool)
@@ -215,7 +274,7 @@ impl ReceiverService {
         // Dispatch new ticket notification
         let _ = MailService::dispatch_event(pool, "ticket_created", new_ticket_id, None).await;
 
-        tracing::info!("Created new ticket {} from incoming email sender {}", ticket_number, from_email);
+        tracing::info!("Created new ticket {} (priority {}) from incoming email sender {}", ticket_number, priority, from_email);
         Ok(format!("Nuevo ticket {} creado exitosamente desde correo", ticket_number))
     }
 

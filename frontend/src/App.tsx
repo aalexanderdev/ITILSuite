@@ -18,6 +18,7 @@ import { RoadmapCard } from './components/dashboard/RoadmapCard';
 import { MailConfigView } from './components/notifications/MailConfigView';
 import { AssetsListView } from './components/assets/AssetsListView';
 import { ChatDashboardView } from './components/chat/ChatDashboardView';
+import { RuleManagementView } from './components/rules/RuleManagementView';
 import { pingBackendDiagnostics, type PingResult } from './services/api';
 import {
   PlusCircle,
@@ -32,6 +33,7 @@ import {
   MessageSquare,
   LifeBuoy,
   Mail,
+  Sliders,
 } from 'lucide-react';
 
 function DashboardMain() {
@@ -95,6 +97,8 @@ function DashboardMain() {
             <MailConfigView />
           ) : activeNav === 'computers' || activeNav === 'assets' || activeNav === 'inventory' ? (
             <AssetsListView />
+          ) : activeNav === 'rules' || activeNav === 'settings' ? (
+            <RuleManagementView />
           ) : (
             <div className="openitil-dashboard-view">
               {/* Welcome Header */}
@@ -133,7 +137,14 @@ function DashboardMain() {
                     className="btn-welcome-secondary"
                   >
                     <Mail size={16} />
-                    <span>Correo & Colectores</span>
+                    <span>Correo & Notificaciones</span>
+                  </button>
+                  <button
+                    onClick={() => setActiveNav('rules')}
+                    className="btn-welcome-secondary"
+                  >
+                    <Sliders size={16} />
+                    <span>Motor de Reglas</span>
                   </button>
                   <button
                     onClick={() => setActiveNav('entities')}

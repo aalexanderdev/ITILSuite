@@ -703,3 +703,121 @@ export type ChatWsEvent =
   | { type: 'reaction_updated'; payload: { message_id: string; reactions: MessageReactionSummary[] } }
   | { type: 'presence_updated'; payload: { user_id: string; status: string; last_seen: string } }
   | { type: 'ticket_converted'; payload: { message_id: string; ticket_id: string; ticket_number: string; ticket_name: string } };
+
+// Business Rules & Dictionaries Engine
+export interface Rule {
+  id: string;
+  rule_type: string;
+  name: string;
+  description: string | null;
+  is_active: boolean;
+  ranking: number;
+  match_logic: string;
+  stop_on_first_match: boolean;
+  entity_id: string | null;
+  is_recursive: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface RuleCriteria {
+  id: string;
+  rule_id: string;
+  field: string;
+  operator: string;
+  pattern: string;
+  created_at: string;
+}
+
+export interface RuleAction {
+  id: string;
+  rule_id: string;
+  action_type: string;
+  field: string;
+  value: string;
+  created_at: string;
+}
+
+export interface RuleWithDetails {
+  rule: Rule;
+  criteria: RuleCriteria[];
+  actions: RuleAction[];
+}
+
+export interface CreateRuleCriteriaDto {
+  field: string;
+  operator: string;
+  pattern: string;
+}
+
+export interface CreateRuleActionDto {
+  action_type: string;
+  field: string;
+  value: string;
+}
+
+export interface CreateRulePayload {
+  rule_type: string;
+  name: string;
+  description?: string;
+  is_active?: boolean;
+  ranking?: number;
+  match_logic?: string;
+  stop_on_first_match?: boolean;
+  entity_id?: string;
+  is_recursive?: boolean;
+  criteria: CreateRuleCriteriaDto[];
+  actions: CreateRuleActionDto[];
+}
+
+export interface UpdateRulePayload {
+  name?: string;
+  description?: string;
+  is_active?: boolean;
+  ranking?: number;
+  match_logic?: string;
+  stop_on_first_match?: boolean;
+  entity_id?: string;
+  is_recursive?: boolean;
+  criteria?: CreateRuleCriteriaDto[];
+  actions?: CreateRuleActionDto[];
+}
+
+export interface CriteriaEvaluationResult {
+  field: string;
+  operator: string;
+  pattern: string;
+  actual_value: string | null;
+  matched: boolean;
+}
+
+export interface ActionEvaluationResult {
+  action_type: string;
+  field: string;
+  computed_value: string;
+}
+
+export interface EvaluatedRuleStep {
+  rule_id: string;
+  rule_name: string;
+  ranking: number;
+  matched: boolean;
+  criteria_results: CriteriaEvaluationResult[];
+  actions_executed: ActionEvaluationResult[];
+  stopped_pipeline: boolean;
+}
+
+export interface DryRunRequest {
+  rule_type: string;
+  entity_id?: string;
+  input_fields: Record<string, any>;
+}
+
+export interface DryRunResult {
+  rule_type: string;
+  total_rules_evaluated: number;
+  total_rules_matched: number;
+  final_output_fields: Record<string, any>;
+  steps: EvaluatedRuleStep[];
+  execution_time_us: number;
+}

@@ -46,6 +46,11 @@ import type {
   ShortcutButton,
   ConvertToTicketPayload,
   ConvertToTicketResponse,
+  RuleWithDetails,
+  CreateRulePayload,
+  UpdateRulePayload,
+  DryRunRequest,
+  DryRunResult,
 } from '../types';
 
 export const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8081';
@@ -931,3 +936,95 @@ export async function fetchChatShortcuts(): Promise<ShortcutButton[]> {
 export function getChatMessagesExportCsvUrl(): string {
   return `${API_BASE_URL}/api/v1/chat/dashboard/export`;
 }
+
+// ==========================================
+// Business Rules & Dictionaries Engine API
+// ==========================================
+
+export async function fetchRules(ruleType?: string, entityId?: string): Promise<RuleWithDetails[]> {
+  const params = new URLSearchParams();
+  if (ruleType) params.append('rule_type', ruleType);
+  if (entityId) params.append('entity_id', entityId);
+
+  const url = `${API_BASE_URL}/api/v1/rules${params.toString() ? `?${params.toString()}` : ''}`;
+  const response = await fetch(url, {
+    method: 'GET',
+    headers: getAuthHeaders(),
+  });
+  if (!response.ok) {
+    throw new Error(`Failed to fetch rules (${response.status})`);
+  }
+  return response.json();
+}
+
+export async function fetchRule(id: string): Promise<RuleWithDetails> {
+  const response = await fetch(`${API_BASE_URL}/api/v1/rules/${id}`, {
+    method: 'GET',
+    headers: getAuthHeaders(),
+  });
+  if (!response.ok) {
+    throw new Error(`Failed to fetch rule (${response.status})`);
+  }
+  return response.json();
+}
+
+export async function createRule(payload: CreateRulePayload): Promise<RuleWithDetails> {
+  const response = await fetch(`${API_BASE_URL}/api/v1/rules`, {
+    method: 'POST',
+    headers: getAuthHeaders(),
+    body: JSON.stringify(payload),
+  });
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => null);
+    throw new Error(errorData?.message || `Failed to create rule (${response.status})`);
+  }
+  return response.json();
+}
+
+export async function updateRule(id: string, payload: UpdateRulePayload): Promise<RuleWithDetails> {
+  const response = await fetch(`${API_BASE_URL}/api/v1/rules/${id}`, {
+    method: 'PUT',
+    headers: getAuthHeaders(),
+    body: JSON.stringify(payload),
+  });
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => null);
+    throw new Error(errorData?.message || `Failed to update rule (${response.status})`);
+  }
+  return response.json();
+}
+
+export async function deleteRule(id: string): Promise<void> {
+  const response = await fetch(`${API_BASE_URL}/api/v1/rules/${id}`, {
+    method: 'DELETE',
+    headers: getAuthHeaders(),
+  });
+  if (!response.ok) {
+    throw new Error(`Failed to delete rule (${response.status})`);
+  }
+}
+
+export async function reorderRules(rules: { id: string; ranking: number }[]): Promise<void> {
+  const response = await fetch(`${API_BASE_URL}/api/v1/rules/reorder`, {
+    method: 'POST',
+    headers: getAuthHeaders(),
+    body: JSON.stringify({ rules }),
+  });
+  if (!response.ok) {
+    throw new Error(`Failed to reorder rules (${response.status})`);
+  }
+}
+
+export async function dryRunRules(payload: DryRunRequest): Promise<DryRunResult> {
+  const response = await fetch(`${API_BASE_URL}/api/v1/rules/dry-run`, {
+    method: 'POST',
+    headers: getAuthHeaders(),
+    body: JSON.stringify(payload),
+  });
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => null);
+    throw new Error(errorData?.message || `Failed to execute dry-run (${response.status})`);
+  }
+  return response.json();
+}
+

@@ -959,15 +959,17 @@ checksum = "791930b43c0d5973160d90a8f3894509f2b273430f5c5c73b668636d0287c5c0"
 
 [[package]]
 name = "itilsuite-backend"
-version = "0.0.4"
+version = "0.0.5"
 dependencies = [
  "argon2",
  "axum",
  "chrono",
  "dotenvy",
  "http-body-util",
+ "ipnet",
  "jsonwebtoken",
  "password-hash",
+ "regex",
  "serde",
  "serde_json",
  "sqlx",

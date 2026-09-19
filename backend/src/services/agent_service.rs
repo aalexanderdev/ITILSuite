@@ -41,14 +41,77 @@ impl AgentService {
             .clone()
             .unwrap_or_else(|| "GLPI-Agent_v1.11".to_string());
 
+        // Normalize hardware manufacturer & model via Dictionary Engine
+        let norm_manufacturer = if let Some(ref m) = manufacturer_opt {
+            Some(crate::services::rules::dictionaries::DictionaryService::normalize_manufacturer(pool, m).await)
+        } else {
+            None
+        };
+
+        let norm_model = if let Some(ref m) = model_opt {
+            Some(crate::services::rules::dictionaries::DictionaryService::normalize_model(pool, "computer", m).await)
+        } else {
+            None
+        };
+
+        // Extract primary network details for entity evaluation
+        let primary_ip = content
+            .networks
+            .as_ref()
+            .and_then(|nets| nets.iter().find_map(|n| n.ipaddress.clone()));
+        let primary_mac = content
+            .networks
+            .as_ref()
+            .and_then(|nets| nets.iter().find_map(|n| n.mac.clone()));
+
+        // Entity assignment rule for equipment (IP/subnet/tag/hostname)
+        let target_entity_id = crate::services::rules::assets::AssetRulesService::evaluate_asset_entity(
+            pool,
+            primary_ip.as_deref(),
+            None,
+            hostname_opt.as_deref(),
+            None,
+        )
+        .await
+        .unwrap_or(default_entity_id);
+
+        // Equipment import & link reconciliation rules
+        let recon_decision = crate::services::rules::assets::AssetRulesService::evaluate_reconciliation_decision(
+            pool,
+            target_entity_id,
+            uuid_opt.as_deref(),
+            serial_opt.as_deref(),
+            primary_mac.as_deref(),
+            hostname_opt.as_deref(),
+        )
+        .await;
+
+        if recon_decision == "reject" {
+            info!("Equipment reconciliation rule REJECTED asset import for host: {:?}", hostname_opt);
+            return Ok(GlpiAgentResponse {
+                status: "rejected".to_string(),
+                message: "El equipo fue rechazado por una regla de reconciliación de inventario".to_string(),
+                asset_id: Uuid::nil(),
+                action_taken: "rejected_by_rule".to_string(),
+                asset_name: hostname_opt.unwrap_or_else(|| "Unknown".into()),
+            });
+        }
+
         // Construct Serde JSON specifications from GLPI-Agent payload
         let mut specs = json!({});
 
         if let Some(ref os) = content.operatingsystem {
+            let (norm_os, norm_ver, norm_arch) = crate::services::rules::dictionaries::DictionaryService::normalize_os(
+                pool,
+                os.name.as_deref().unwrap_or(""),
+                os.version.as_deref().unwrap_or(""),
+                os.arch.as_deref().unwrap_or(""),
+            ).await;
+
             specs["os"] = json!({
-                "name": os.name,
-                "version": os.version,
-                "arch": os.arch,
+                "name": norm_os,
+                "version": norm_ver,
+                "arch": norm_arch,
                 "kernel": os.kernel_version,
                 "install_date": os.install_date
             });
@@ -109,16 +172,20 @@ impl AgentService {
         }
 
         if let Some(ref softwares) = content.softwares {
-            let sw_list: Vec<serde_json::Value> = softwares
-                .iter()
-                .map(|s| {
-                    json!({
-                        "name": s.name,
-                        "version": s.version,
-                        "publisher": s.publisher
-                    })
-                })
-                .collect();
+            let mut sw_list = Vec::new();
+            for s in softwares {
+                let sw_name = s.name.clone().unwrap_or_default();
+                let norm_sw = if !sw_name.is_empty() {
+                    crate::services::rules::dictionaries::DictionaryService::normalize_software(pool, &sw_name).await
+                } else {
+                    sw_name
+                };
+                sw_list.push(json!({
+                    "name": norm_sw,
+                    "version": s.version,
+                    "publisher": s.publisher
+                }));
+            }
             specs["softwares"] = json!(sw_list);
         }
 
@@ -176,7 +243,7 @@ impl AgentService {
             }
         }
 
-        // Priority 4: Hostname in current entity
+        // Priority 4: Hostname in target entity
         if matched_asset_id.is_none() {
             if let Some(ref h) = hostname_opt {
                 let row: Option<(Uuid, serde_json::Value, String)> = sqlx::query_as(
@@ -184,7 +251,7 @@ impl AgentService {
                      WHERE LOWER(name) = LOWER($1) AND entity_id = $2"
                 )
                 .bind(h)
-                .bind(default_entity_id)
+                .bind(target_entity_id)
                 .fetch_optional(pool)
                 .await?;
                 if let Some(r) = row {
@@ -207,8 +274,8 @@ impl AgentService {
                     &current_name
                 };
 
-                let should_update_manuf = !locked_fields.contains(&"manufacturer".to_string()) && manufacturer_opt.is_some();
-                let should_update_model = !locked_fields.contains(&"model".to_string()) && model_opt.is_some();
+                let should_update_manuf = !locked_fields.contains(&"manufacturer".to_string()) && norm_manufacturer.is_some();
+                let should_update_model = !locked_fields.contains(&"model".to_string()) && norm_model.is_some();
                 let should_update_serial = !locked_fields.contains(&"serial_number".to_string()) && serial_opt.is_some();
                 let should_update_uuid = !locked_fields.contains(&"uuid".to_string()) && uuid_opt.is_some();
 
@@ -228,9 +295,9 @@ impl AgentService {
                 .bind(should_update_name)
                 .bind(new_name)
                 .bind(should_update_manuf)
-                .bind(manufacturer_opt.as_deref())
+                .bind(norm_manufacturer.as_deref())
                 .bind(should_update_model)
-                .bind(model_opt.as_deref())
+                .bind(norm_model.as_deref())
                 .bind(should_update_serial)
                 .bind(serial_opt.as_deref())
                 .bind(should_update_uuid)
@@ -253,25 +320,27 @@ impl AgentService {
                 } else {
                     "computer"
                 };
+                let asset_status = if recon_decision == "trash" { "trash" } else { "active" };
 
-                info!("GLPI-Agent registering NEW asset ID: {} ({})", new_id, name);
+                info!("GLPI-Agent registering NEW asset ID: {} ({}) with status {}", new_id, name, asset_status);
 
                 sqlx::query(
                     "INSERT INTO assets (
                         id, entity_id, name, asset_type, status, serial_number, uuid,
                         manufacturer, model, last_inventory_at, agent_version, specifications
                     ) VALUES (
-                        $1, $2, $3, $4, 'active', $5, $6, $7, $8, $9, $10, $11
+                        $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12
                     )"
                 )
                 .bind(new_id)
-                .bind(default_entity_id)
+                .bind(target_entity_id)
                 .bind(&name)
                 .bind(asset_type)
+                .bind(asset_status)
                 .bind(serial_opt.as_deref())
                 .bind(uuid_opt.as_deref())
-                .bind(manufacturer_opt.as_deref())
-                .bind(model_opt.as_deref())
+                .bind(norm_manufacturer.as_deref())
+                .bind(norm_model.as_deref())
                 .bind(Utc::now())
                 .bind(&agent_version)
                 .bind(&specs)

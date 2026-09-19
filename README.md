@@ -5,12 +5,16 @@
 <h3 align="center">Modern, High-Performance Open-Source ITSM, ITAM & CMDB Platform</h3>
 <p align="center">Inspired by GLPI 11 · Powered by <strong>Rust (Axum + Tokio + SQLx)</strong> & <strong>React 19 + TypeScript</strong></p>
 
-<p align="center">
-  <a href="https://www.gnu.org/licenses/gpl-3.0"><img src="https://img.shields.io/badge/License-GPLv3%2B-blue.svg" alt="License: GPL v3+" /></a>
-  <a href="https://www.rust-lang.org/"><img src="https://img.shields.io/badge/rust-1.75%2B-orange.svg" alt="Rust" /></a>
-  <a href="https://nodejs.org/"><img src="https://img.shields.io/badge/node-v20%2B-green.svg" alt="Node" /></a>
-  <a href="CHANGELOG.md"><img src="https://img.shields.io/badge/version-0.0.4-brightgreen.svg" alt="Version" /></a>
-</p>
+<div align="center">
+
+[![License: GPL-3.0-or-later](https://img.shields.io/badge/License-GPL--3.0--or--later-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
+[![Version](https://img.shields.io/badge/version-0.0.5-informational.svg)](https://github.com/aalexanderdev/ITILSuite/releases)
+[![Downloads](https://img.shields.io/github/downloads/aalexanderdev/ITILSuite/total.svg?color=blue)](https://github.com/aalexanderdev/ITILSuite/releases)
+[![Mastodon](https://img.shields.io/badge/Mastodon-@aalexander-6364FF.svg?logo=mastodon&logoColor=white)](https://mastodon.social/@aalexander)
+[![Rust](https://img.shields.io/badge/rust-1.75%2B-orange.svg)](https://www.rust-lang.org/)
+[![Node](https://img.shields.io/badge/node-v20%2B-green.svg)](https://nodejs.org/)
+
+</div>
 
 ---
 
@@ -26,7 +30,7 @@ GLPI is an industry standard for IT service and asset management across enterpri
 
 ---
 
-## Key Features (v0.0.4)
+## Key Features (v0.0.5)
 
 ### 1. Multi-Tenant Entity Hierarchy & RBAC
 * Recursive entity tree (GLPI-compatible hierarchical structure).
@@ -80,7 +84,33 @@ GLPI is an industry standard for IT service and asset management across enterpri
   * 24-Hour Session Gantt Timeline illustrating daily work intervals recorded via presence heartbeats.
   * Audit-grade CSV export (`/api/v1/chat/export.csv`).
 
-### 6. User Experience & Design
+### 6. Business Rules & Dictionaries Normalization Engine (Inspired by GLPI)
+* **High-Throughput Rust Rule Engine (`RuleEngine`)**:
+  * 11 conditional evaluation operators (`equals`, `not_equals`, `contains`, `not_contains`, `starts_with`, `ends_with`, `regex_match` with capture interpolation `$1..$N`, `in_subnet` for CIDR blocks like `192.168.10.0/24`, `is_empty`, and `is_not_empty`).
+  * Pipeline execution with configurable match logic (`AND` / `OR`), priority rankings, fallback catch-all rules, and `stop_on_first_match` short-circuiting.
+* **4 Comprehensive Business Rule Domains**:
+  * **Helpdesk Rules**:
+    * Business rules for tickets (incidents & requests): automatic mutation of urgency, impact, calculated priority, category, status, and technician/group dispatch based on subject keywords, content, and sender email.
+    * Entity assignment rules for tickets: automatic routing of new tickets (API and IMAP/POP3 email collectors) to corporate entities by sender domain, email, or IP address.
+    * Problem and Change management rules for lifecycle governance.
+  * **Assets & Inventory Rules**:
+    * Equipment entity assignment: automatic multi-tenant entity routing for GLPI-Agent discovered hardware based on CIDR subnet, inventory tag, or domain.
+    * Equipment import and reconciliation: configurable decision engine replacing hardcoded matching with Link by UUID/Serial/MAC/Hostname, Create New, Reject import, or Send to Trash.
+  * **Authorization & Authentication Rules**:
+    * Automatic profile and entity assignments upon first login or LDAP/AD/SAML authentication.
+    * Automatic membership assignment to transversal groups.
+  * **Dictionaries & Normalization Engines (10 Specialized Subtypes)**:
+    * Hardware Manufacturers (e.g. `Hewlett-Packard`, `HP Inc.` -> `HP`).
+    * Operating Systems, OS Versions, and OS Architectures (e.g. `amd64`, `x86_64` -> `64-bit`).
+    * Software & Applications (grouping disparate package strings into standardized licenses).
+    * Hardware Models: Computers, Monitors, Printers, Peripherals, and Phones.
+* **Interactive Frontend Workspace (`RuleManagementView`)**:
+  * Domain tabs and subtype pills for intuitive navigation across all rule types.
+  * Visual rule cards with inline priority reordering (`#10`, `#20` up/down), active/inactive switches, and live tag summaries.
+  * Modal rule editor with dynamic criteria and action builders.
+  * **Sandbox Simulator Modal (`RuleSimulatorModal`)**: Zero-side-effect test bench with real-world presets, execution microsecond benchmarking, criterion-by-criterion visual checklists, and output payload JSON diffs.
+
+### 7. User Experience & Design
 * **Dual-theme support**:
   * **Warm Tones Dark Mode**: Built on the official Material Design 2 Dark Theme specification with elevation overlay levels (`00dp` to `24dp`), deep espresso charcoal surface (`#141210`), warm parchment typography (`#F6F0EA`), desaturated accents, and cozy atmospheric ambient glow.
   * **Clean Light Mode**: Crisp corporate OpenITIL layout with high-contrast slate surfaces.
@@ -95,9 +125,9 @@ GLPI is an industry standard for IT service and asset management across enterpri
 ITILSuite/
 ├── backend/                # REST & WebSocket backend in Rust (Axum + Tokio + SQLx)
 │   ├── src/
-│   │   ├── api/            # HTTP & WS routes (/health, /tickets, /entities, /users, /mail, /inventory, /chat)
-│   │   ├── domain/         # ITIL domain models (Tickets, Templates, Assets, Chat, Notifications)
-│   │   ├── services/       # Business logic (TicketService, AssetService, ChatService, MailService, AuthService)
+│   │   ├── api/            # HTTP & WS routes (/health, /tickets, /entities, /users, /mail, /inventory, /chat, /rules)
+│   │   ├── domain/         # ITIL domain models (Tickets, Templates, Assets, Chat, Notifications, Rules)
+│   │   ├── services/       # Business logic (TicketService, AssetService, ChatService, MailService, RuleEngine)
 │   │   ├── config.rs       # Environment variable parsing and defaults
 │   │   ├── error.rs        # Typed application errors and JSON responses
 │   │   └── main.rs         # HTTP server, WS broadcast hub, background workers, and Swagger routes
@@ -106,7 +136,7 @@ ITILSuite/
 │
 ├── frontend/               # Web client in React 19 + TypeScript + Vite
 │   ├── src/
-│   │   ├── components/     # High-density UI modules (tickets, assets, chat, notifications, layout)
+│   │   ├── components/     # High-density UI modules (tickets, assets, chat, rules, notifications, layout)
 │   │   ├── context/        # React context providers (AuthContext, ThemeContext, ToastContext)
 │   │   ├── services/       # Typed HTTP & WebSocket API clients
 │   │   ├── types.ts        # TypeScript interfaces and DTOs
@@ -190,7 +220,12 @@ The web dashboard will be available at [http://localhost:5173](http://localhost:
   - Interactive agent preset simulator and high-density CMDB workspace.
   - Real-time WebSockets chat engine (`/api/v1/chat/ws`) with single-click conversion to ITIL tickets.
   - Material Design 2 Dark Theme Elevation System with Warm Tones palette (WCAG AAA).
-- [ ] **v0.0.5 - User Ingestion & Transversal Groups Management**:
+- [x] **v0.0.5 - Business Rules & Normalization Dictionaries**:
+  - Unified metarule evaluation engine in Rust (`RuleEngine`) with 11 operators (regex interpolation `$1..$N`, CIDR subnets).
+  - 4 Business Rule domains: Helpdesk, Assets & ITAM, Authorization, and 10 Normalization Dictionaries.
+  - In-flight pipeline integrations across Agent Ingestion, Mail Receivers, and Service Desk.
+  - Interactive visual Rule Management console, dynamic Criteria/Action editor modal, and zero-side-effect Sandbox Simulator with microsecond benchmarks.
+- [ ] **v0.0.6 - User Ingestion & Transversal Groups Management**:
   - **Batch User Ingestion**: Bulk CSV/JSON import parser with field mapping, schema validation, and role/entity pre-assignment.
   - **Transversal Groups Architecture**: Centralized group directory (`groups`, `group_users`, `group_entities`) supporting cross-cutting team structures, leader roles, and entity scoping.
   - **Cross-Platform Transversal Integrations**:
@@ -198,7 +233,7 @@ The web dashboard will be available at [http://localhost:5173](http://localhost:
     - **ITIL Service Desk**: Group-based ticket assignment, technician team queues, requester group tracking, and escalation routing.
     - **ITAM / CMDB**: Group asset custody, department allocation, and maintenance responsibility (`group_in_charge`).
     - **Notification Engine**: Multiplexed group notifications resolving all active members in the background outbox.
-- [ ] **v0.0.6 - Business Rules Engine & Advanced SLAs**: Automated routing rules, escalation matrices, and SLA breach monitors.
+- [ ] **v0.0.7 - Advanced SLAs & Automated Escalation Matrices**: Real-time SLA breach monitors and automated escalation pipelines.
 
 ---
 
