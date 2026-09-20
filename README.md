@@ -3,7 +3,7 @@
 </p>
 
 <h3 align="center">Modern, High-Performance Open-Source ITSM, ITAM & CMDB Platform</h3>
-<p align="center">Inspired by GLPI 11 · Powered by <strong>Rust (Axum + Tokio + SQLx)</strong> & <strong>React 19 + TypeScript</strong></p>
+<p align="center">Powered by <strong>Rust (Axum + Tokio + SQLx)</strong> & <strong>React 19 + TypeScript</strong></p>
 
 <div align="center">
 
