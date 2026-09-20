@@ -42,7 +42,13 @@ export const RoadmapCard: React.FC = () => {
     {
       version: 'v0.0.7',
       title: 'Advanced SLAs & Escalation Matrices',
-      desc: 'Real-time SLA breach monitors, TTO/TTR targets, and automated escalation pipelines.',
+      desc: 'Real-time SLA breach monitors, TTO/TTR targets, working calendars, and automated escalation pipelines.',
+      status: 'completed',
+    },
+    {
+      version: 'v0.0.8',
+      title: 'ITIL Problem & Change Management',
+      desc: 'Known error database (KEDB), root cause analysis, Change Advisory Board (CAB), and RFC approval lifecycles.',
       status: 'planned',
     },
   ];

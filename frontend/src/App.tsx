@@ -19,6 +19,7 @@ import { MailConfigView } from './components/notifications/MailConfigView';
 import { AssetsListView } from './components/assets/AssetsListView';
 import { ChatDashboardView } from './components/chat/ChatDashboardView';
 import { RuleManagementView } from './components/rules/RuleManagementView';
+import { SLAsManagementView } from './components/slas/SLAsManagementView';
 import { pingBackendDiagnostics, type PingResult } from './services/api';
 import {
   PlusCircle,
@@ -34,6 +35,7 @@ import {
   LifeBuoy,
   Mail,
   Sliders,
+  Clock,
 } from 'lucide-react';
 
 function DashboardMain() {
@@ -91,6 +93,8 @@ function DashboardMain() {
               onOpenCreateTicket={() => setIsCreateTicketOpen(true)}
               onSelectTicket={(ticketId) => setSelectedTicketId(ticketId)}
             />
+          ) : activeNav === 'slas' ? (
+            <SLAsManagementView />
           ) : activeNav === 'chat_dashboard' || activeNav === 'chat-analytics' || activeNav === 'chat' ? (
             <ChatDashboardView />
           ) : activeNav === 'mail_config' ? (
@@ -106,7 +110,7 @@ function DashboardMain() {
                 <div>
                   <h1 className="welcome-title">Bienvenido, Administrador</h1>
                   <p className="welcome-subtitle">
-                    Panel de control ITSM y gestión de inventario GLPI | Ámbito Activo:{' '}
+                    Panel de control ITSM e infraestructura de servicios ITIL | Ámbito Activo:{' '}
                     <strong>{activeEntity.name}</strong>
                   </p>
                 </div>
@@ -117,6 +121,13 @@ function DashboardMain() {
                   >
                     <LifeBuoy size={16} />
                     <span>Mesa de Tickets</span>
+                  </button>
+                  <button
+                    onClick={() => setActiveNav('slas')}
+                    className="btn-welcome-secondary"
+                  >
+                    <Clock size={16} />
+                    <span>Gestión de SLAs</span>
                   </button>
                   <button
                     onClick={() => setActiveNav('chat_dashboard')}
@@ -191,7 +202,7 @@ function DashboardMain() {
                       <div>
                         <h3 style={{ fontSize: '1rem', fontWeight: 700 }}>Comparativa de Arquitectura</h3>
                         <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                          Diferenciales frente al GLPI histórico tradicional
+                          Diferenciales frente a arquitecturas ITSM tradicionales
                         </span>
                       </div>
                     </div>
@@ -200,22 +211,22 @@ function DashboardMain() {
                       {[
                         {
                           aspect: 'Concurrencia e Ingestión',
-                          glpi: 'PHP Síncrono / pesado proceso por petición',
+                          legacy: 'PHP Síncrono / pesado proceso por petición',
                           itil: 'Tokio Asíncrono en Rust (miles de req/seg en RAM mínima)',
                         },
                         {
                           aspect: 'Seguridad y Hashing',
-                          glpi: 'bcrypt clásico / hashes estándar',
+                          legacy: 'bcrypt clásico / hashes estándar',
                           itil: 'Argon2id memory-hard con JWT firmado a 24 horas',
                         },
                         {
                           aspect: 'Multi-Inquilino (Tenancy)',
-                          glpi: 'Cookies de sesión y queries recursivas pesadas',
+                          legacy: 'Cookies de sesión y queries recursivas pesadas',
                           itil: 'Árbol jerárquico recursivo nativo en Rust con sub-millisecond resolution',
                         },
                         {
                           aspect: 'Documentación de API',
-                          glpi: 'REST legacy (apirest.php)',
+                          legacy: 'REST legacy (apirest.php)',
                           itil: 'OpenAPI 3.1 tipado y auto-generado vía Utoipa / Swagger',
                         },
                       ].map((row, i) => (
@@ -236,7 +247,7 @@ function DashboardMain() {
                             <strong style={{ color: '#93c5fd', display: 'block', marginBottom: '0.15rem' }}>
                               {row.aspect}
                             </strong>
-                            <span style={{ color: 'var(--text-muted)' }}>GLPI: {row.glpi}</span>
+                            <span style={{ color: 'var(--text-muted)' }}>Legacy: {row.legacy}</span>
                           </div>
                           <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
                             <Check size={14} color="#34d399" style={{ flexShrink: 0 }} />

@@ -8,6 +8,7 @@ pub mod inventory;
 pub mod notifications;
 pub mod receivers;
 pub mod rules;
+pub mod slas;
 pub mod templates;
 pub mod tickets;
 pub mod users;
@@ -84,6 +85,24 @@ impl Modify for SecurityAddon {
         assets::delete_asset,
         inventory::handle_agent_inventory,
         inventory::simulate_agent_inventory,
+        slas::list_calendars,
+        slas::create_calendar,
+        slas::get_calendar,
+        slas::update_calendar,
+        slas::delete_calendar,
+        slas::save_calendar_segments,
+        slas::add_calendar_holiday,
+        slas::delete_calendar_holiday,
+        slas::list_slas,
+        slas::create_sla,
+        slas::get_sla,
+        slas::update_sla,
+        slas::delete_sla,
+        slas::list_sla_levels,
+        slas::create_sla_level,
+        slas::update_sla_level,
+        slas::delete_sla_level,
+        slas::simulate_sla,
     ),
     components(
         schemas(
@@ -144,6 +163,24 @@ impl Modify for SecurityAddon {
             crate::domain::agent::GlpiSoftware,
             crate::domain::agent::GlpiAgentResponse,
             crate::domain::agent::AgentSimulationPresetRequest,
+            crate::domain::sla::Calendar,
+            crate::domain::sla::CalendarSegment,
+            crate::domain::sla::CalendarHoliday,
+            crate::domain::sla::CalendarDetailDto,
+            crate::domain::sla::CreateCalendarDto,
+            crate::domain::sla::UpdateCalendarDto,
+            crate::domain::sla::CreateCalendarSegmentDto,
+            crate::domain::sla::CreateCalendarHolidayDto,
+            crate::domain::sla::Sla,
+            crate::domain::sla::SlaSummaryDto,
+            crate::domain::sla::SlaDetailDto,
+            crate::domain::sla::SlaLevel,
+            crate::domain::sla::CreateSlaDto,
+            crate::domain::sla::UpdateSlaDto,
+            crate::domain::sla::CreateSlaLevelDto,
+            crate::domain::sla::UpdateSlaLevelDto,
+            crate::domain::sla::SlaSimulationRequest,
+            crate::domain::sla::SlaSimulationResponse,
             crate::error::ErrorDetail,
             crate::error::ErrorResponse,
         )
@@ -155,6 +192,7 @@ impl Modify for SecurityAddon {
         (name = "Users", description = "User profiles, identity, and batch ingestion"),
         (name = "Groups", description = "Transversal Groups and Teams inspired by GLPI"),
         (name = "Tickets", description = "ITIL Service Desk Incident/Request lifecycles and dispatch"),
+        (name = "SLAs", description = "Service Level Agreements (SLA), Business Calendars and Escalation Matrices"),
         (name = "Templates", description = "ITIL Ticket Templates inspired by GLPI"),
         (name = "Assets", description = "ITAM / CMDB Hardware and Software Asset Inventory inspired by GLPI"),
         (name = "GLPI Agent Inventory", description = "Automated Hardware & Software Ingestion compatible with GLPI-Agent"),
@@ -163,7 +201,7 @@ impl Modify for SecurityAddon {
     ),
     info(
         title = "ITILSuite REST API",
-        version = "0.0.6",
+        version = "0.0.7",
         description = "High-performance Rust REST API for ITSM, ITAM, and CMDB.",
         license(name = "GPL-3.0-or-later", url = "https://www.gnu.org/licenses/gpl-3.0.html")
     )
@@ -224,7 +262,8 @@ pub fn create_router(state: AppState) -> Router {
         .nest("/chat", chat::chat_router())
         .merge(notifications::router())
         .merge(receivers::router())
-        .merge(rules::router());
+        .merge(rules::router())
+        .merge(slas::router());
 
     Router::new()
         .nest("/api/v1", api_v1)

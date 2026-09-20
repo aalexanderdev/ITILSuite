@@ -11,10 +11,10 @@ import {
   Lock,
   MessageSquare,
   ShieldCheck,
-  Calendar,
   Layers,
   Info,
   Users,
+  Zap,
 } from 'lucide-react';
 import type { TicketDetail, TicketStatus, UserSummary, GroupSummary } from '../../types';
 import {
@@ -274,6 +274,99 @@ export const TicketDetailModal: React.FC<TicketDetailModalProps> = ({
   const currentStatusIndex = ticket
     ? STATUS_PIPELINE.findIndex((s) => s.key === ticket.status)
     : -1;
+
+  const getTicketSlaDetails = () => {
+    if (!ticket) return null;
+    const now = Date.now();
+
+    // TTR calculation
+    let ttrLabel = 'En Tiempo';
+    let ttrColor = '#10b981';
+    let ttrBg = 'rgba(16, 185, 129, 0.12)';
+    let ttrBorder = 'rgba(16, 185, 129, 0.25)';
+    let ttrPercent = 0;
+    let ttrCountdown = '—';
+
+    if (ticket.status === 'solved' || ticket.status === 'closed') {
+      ttrLabel = 'Cumplido';
+      ttrPercent = 100;
+      ttrCountdown = ticket.solved_at ? `Resuelto: ${formatDate(ticket.solved_at)}` : 'Resuelto';
+    } else if (ticket.time_to_resolve) {
+      const deadline = new Date(ticket.time_to_resolve).getTime();
+      const created = new Date(ticket.created_at).getTime();
+      const totalAllowed = Math.max(deadline - created, 1);
+      const elapsed = Math.max(now - created, 0);
+      ttrPercent = Math.min(Math.round((elapsed / totalAllowed) * 100), 100);
+      const diffMs = deadline - now;
+      const absDiff = Math.abs(diffMs);
+      const hours = Math.floor(absDiff / (1000 * 60 * 60));
+      const minutes = Math.floor((absDiff % (1000 * 60 * 60)) / (1000 * 60));
+
+      if (diffMs <= 0 || ticket.sla_ttr_status === 'breached') {
+        ttrLabel = 'Vencido';
+        ttrColor = '#ef4444';
+        ttrBg = 'rgba(239, 68, 68, 0.15)';
+        ttrBorder = 'rgba(239, 68, 68, 0.3)';
+        ttrCountdown = `Vencido (+${hours}h ${minutes}m)`;
+        ttrPercent = 100;
+      } else if (ticket.sla_ttr_status === 'at_risk' || diffMs < 60 * 60 * 1000) {
+        ttrLabel = 'En Riesgo';
+        ttrColor = '#f59e0b';
+        ttrBg = 'rgba(245, 158, 11, 0.15)';
+        ttrBorder = 'rgba(245, 158, 11, 0.3)';
+        ttrCountdown = `${hours > 0 ? `${hours}h ` : ''}${minutes}m restantes`;
+      } else {
+        ttrCountdown = `${hours > 0 ? `${hours}h ` : ''}${minutes}m restantes`;
+      }
+    }
+
+    // TTO calculation
+    let ttoLabel = 'Pendiente';
+    let ttoColor = '#94a3b8';
+    let ttoBg = 'rgba(148, 163, 184, 0.12)';
+    let ttoBorder = 'rgba(148, 163, 184, 0.25)';
+    if (ticket.acknowledged_at) {
+      const isLate = ticket.sla_tto_status === 'breached';
+      ttoLabel = isLate ? 'Atendido (Fuera de SLA)' : 'Atendido a Tiempo';
+      ttoColor = isLate ? '#ef4444' : '#10b981';
+      ttoBg = isLate ? 'rgba(239, 68, 68, 0.12)' : 'rgba(16, 185, 129, 0.12)';
+      ttoBorder = isLate ? 'rgba(239, 68, 68, 0.25)' : 'rgba(16, 185, 129, 0.25)';
+    } else if (ticket.time_to_own) {
+      const ttoDeadline = new Date(ticket.time_to_own).getTime();
+      if (now > ttoDeadline || ticket.sla_tto_status === 'breached') {
+        ttoLabel = 'TTO Vencido';
+        ttoColor = '#ef4444';
+        ttoBg = 'rgba(239, 68, 68, 0.15)';
+        ttoBorder = 'rgba(239, 68, 68, 0.3)';
+      } else {
+        ttoLabel = 'Dentro de Plazo';
+        ttoColor = '#38bdf8';
+        ttoBg = 'rgba(56, 189, 248, 0.15)';
+        ttoBorder = 'rgba(56, 189, 248, 0.25)';
+      }
+    }
+
+    // Escalations detection in followups
+    const escalations = (ticket.followups || []).filter(
+      (f) =>
+        f.item_type === 'task' &&
+        (f.content.includes('[Escalamiento SLA Automático]') || f.content.includes('Escalamiento'))
+    );
+
+    return {
+      ttrLabel,
+      ttrColor,
+      ttrBg,
+      ttrBorder,
+      ttrPercent,
+      ttrCountdown,
+      ttoLabel,
+      ttoColor,
+      ttoBg,
+      ttoBorder,
+      escalations,
+    };
+  };
 
   const formatDate = (isoStr: string | null) => {
     if (!isoStr) return '—';
@@ -702,50 +795,189 @@ export const TicketDetailModal: React.FC<TicketDetailModalProps> = ({
               </div>
 
               {/* SLA & Timestamps Card */}
-              <div className="sidebar-card">
-                <div className="sidebar-card-header">
-                  <Clock size={18} className="sidebar-icon" />
-                  <h4>Tiempos y SLA</h4>
-                </div>
-                <div className="metadata-list">
-                  <div className="metadata-item">
-                    <span className="metadata-label">Fecha de Apertura</span>
-                    <span className="metadata-value">{formatDate(ticket.created_at)}</span>
+              {(() => {
+                const sla = getTicketSlaDetails();
+                return (
+                  <div className="sidebar-card">
+                    <div className="sidebar-card-header" style={{ justifyContent: 'space-between', alignItems: 'center' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                        <Clock size={18} className="sidebar-icon" />
+                        <h4>Tiempos y SLA</h4>
+                      </div>
+                      {ticket.sla_name && (
+                        <span
+                          className="badge"
+                          style={{
+                            fontSize: '0.68rem',
+                            padding: '0.15rem 0.5rem',
+                            background: 'rgba(99, 102, 241, 0.15)',
+                            color: '#818cf8',
+                            border: '1px solid rgba(99, 102, 241, 0.3)',
+                          }}
+                        >
+                          {ticket.sla_name}
+                        </span>
+                      )}
+                    </div>
+
+                    <div className="metadata-list" style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                      {/* TTR (Resolución) Tracker */}
+                      {ticket.time_to_resolve && (
+                        <div
+                          style={{
+                            padding: '0.6rem 0.75rem',
+                            borderRadius: 'var(--border-radius-sm)',
+                            backgroundColor: 'rgba(255, 255, 255, 0.02)',
+                            border: '1px solid var(--border-color)',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: '0.4rem',
+                          }}
+                        >
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', fontWeight: 500 }}>
+                              Límite de Solución (TTR)
+                            </span>
+                            <span
+                              className="badge"
+                              style={{
+                                fontSize: '0.68rem',
+                                padding: '0.1rem 0.45rem',
+                                backgroundColor: sla?.ttrBg,
+                                color: sla?.ttrColor,
+                                border: `1px solid ${sla?.ttrBorder}`,
+                                fontWeight: 600,
+                              }}
+                            >
+                              {sla?.ttrLabel}
+                            </span>
+                          </div>
+
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
+                            <span style={{ fontSize: '0.8rem', color: 'var(--text-primary)', fontWeight: 600 }}>
+                              {formatDate(ticket.time_to_resolve)}
+                            </span>
+                            <span style={{ fontSize: '0.72rem', color: sla?.ttrColor, fontWeight: 500 }}>
+                              {sla?.ttrCountdown}
+                            </span>
+                          </div>
+
+                          {ticket.status !== 'solved' && ticket.status !== 'closed' && (
+                            <div
+                              style={{
+                                width: '100%',
+                                height: '6px',
+                                borderRadius: '3px',
+                                backgroundColor: 'rgba(255, 255, 255, 0.08)',
+                                overflow: 'hidden',
+                                marginTop: '0.2rem',
+                              }}
+                            >
+                              <div
+                                style={{
+                                  width: `${sla?.ttrPercent}%`,
+                                  height: '100%',
+                                  backgroundColor: sla?.ttrColor,
+                                  transition: 'width 0.4s ease',
+                                }}
+                              />
+                            </div>
+                          )}
+                        </div>
+                      )}
+
+                      {/* TTO (Toma / Atención) Tracker */}
+                      {ticket.time_to_own && (
+                        <div
+                          style={{
+                            padding: '0.5rem 0.75rem',
+                            borderRadius: 'var(--border-radius-sm)',
+                            backgroundColor: 'rgba(255, 255, 255, 0.02)',
+                            border: '1px solid var(--border-color)',
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            alignItems: 'center',
+                          }}
+                        >
+                          <div>
+                            <div style={{ fontSize: '0.72rem', color: 'var(--text-secondary)' }}>
+                              Primera Atención (TTO)
+                            </div>
+                            <div style={{ fontSize: '0.78rem', color: 'var(--text-primary)', marginTop: '0.1rem' }}>
+                              {ticket.acknowledged_at
+                                ? `Atendido: ${formatDate(ticket.acknowledged_at)}`
+                                : `Meta: ${formatDate(ticket.time_to_own)}`}
+                            </div>
+                          </div>
+                          <span
+                            className="badge"
+                            style={{
+                              fontSize: '0.66rem',
+                              padding: '0.1rem 0.45rem',
+                              backgroundColor: sla?.ttoBg,
+                              color: sla?.ttoColor,
+                              border: `1px solid ${sla?.ttoBorder}`,
+                            }}
+                          >
+                            {sla?.ttoLabel}
+                          </span>
+                        </div>
+                      )}
+
+                      {/* Active Escalations Alert */}
+                      {sla?.escalations && sla.escalations.length > 0 && (
+                        <div
+                          style={{
+                            padding: '0.5rem 0.75rem',
+                            borderRadius: 'var(--border-radius-sm)',
+                            backgroundColor: 'rgba(245, 158, 11, 0.08)',
+                            border: '1px solid rgba(245, 158, 11, 0.25)',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: '0.25rem',
+                          }}
+                        >
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', color: '#f59e0b', fontSize: '0.75rem', fontWeight: 600 }}>
+                            <Zap size={13} />
+                            <span>Escalamiento Automático Activado ({sla.escalations.length})</span>
+                          </div>
+                          <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>
+                            {sla.escalations[sla.escalations.length - 1].content.slice(0, 80)}...
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Standard Timestamps */}
+                      <div className="metadata-item" style={{ marginTop: '0.25rem' }}>
+                        <span className="metadata-label">Fecha de Apertura</span>
+                        <span className="metadata-value">{formatDate(ticket.created_at)}</span>
+                      </div>
+
+                      <div className="metadata-item">
+                        <span className="metadata-label">Última Modificación</span>
+                        <span className="metadata-value">{formatDate(ticket.updated_at)}</span>
+                      </div>
+
+                      {ticket.solved_at && (
+                        <div className="metadata-item">
+                          <span className="metadata-label">Resuelto el</span>
+                          <span className="metadata-value text-success">
+                            <CheckCircle2 size={13} style={{ display: 'inline', marginRight: '4px' }} />
+                            {formatDate(ticket.solved_at)}
+                          </span>
+                        </div>
+                      )}
+
+                      {ticket.closed_at && (
+                        <div className="metadata-item">
+                          <span className="metadata-label">Cerrado el</span>
+                          <span className="metadata-value">{formatDate(ticket.closed_at)}</span>
+                        </div>
+                      )}
+                    </div>
                   </div>
-
-                  <div className="metadata-item">
-                    <span className="metadata-label">Última Modificación</span>
-                    <span className="metadata-value">{formatDate(ticket.updated_at)}</span>
-                  </div>
-
-                  {ticket.time_to_resolve && (
-                    <div className="metadata-item">
-                      <span className="metadata-label">Límite SLA Resolución</span>
-                      <span className="metadata-value sla-target-highlight">
-                        <Calendar size={13} style={{ display: 'inline', marginRight: '4px' }} />
-                        {formatDate(ticket.time_to_resolve)}
-                      </span>
-                    </div>
-                  )}
-
-                  {ticket.solved_at && (
-                    <div className="metadata-item">
-                      <span className="metadata-label">Resuelto el</span>
-                      <span className="metadata-value text-success">
-                        <CheckCircle2 size={13} style={{ display: 'inline', marginRight: '4px' }} />
-                        {formatDate(ticket.solved_at)}
-                      </span>
-                    </div>
-                  )}
-
-                  {ticket.closed_at && (
-                    <div className="metadata-item">
-                      <span className="metadata-label">Cerrado el</span>
-                      <span className="metadata-value">{formatDate(ticket.closed_at)}</span>
-                    </div>
-                  )}
-                </div>
-              </div>
+                );
+              })()}
             </div>
           </div>
         ) : null}

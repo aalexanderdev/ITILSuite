@@ -34,7 +34,7 @@ const STATUS_DESCRIPTIONS: Record<TicketStatus, string> = {
 };
 
 const STATUS_OPTIONS: { value: string; label: string; color: string }[] = [
-  { value: '', label: 'Todos los estados', color: '#64748b' },
+  { value: '', label: 'Todos los estados', color: '#94a3b8' },
   { value: 'new', label: 'Nuevo', color: '#818cf8' },
   { value: 'assigned', label: 'Asignado', color: '#3b82f6' },
   { value: 'planned', label: 'Planificado', color: '#06b6d4' },
@@ -57,6 +57,7 @@ export const TicketsListView: React.FC<TicketsListViewProps> = ({
   const [typeFilter, setTypeFilter] = useState<'all' | 'incident' | 'request'>('all');
   const [statusFilter, setStatusFilter] = useState<string>('');
   const [priorityFilter, setPriorityFilter] = useState<string>('');
+  const [slaStatusFilter, setSlaStatusFilter] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState('');
 
   const loadData = async (isManualRefresh = false) => {
@@ -70,6 +71,7 @@ export const TicketsListView: React.FC<TicketsListViewProps> = ({
           ticket_type: typeFilter !== 'all' ? typeFilter : undefined,
           status: statusFilter || undefined,
           priority: priorityFilter ? parseInt(priorityFilter, 10) : undefined,
+          sla_status: slaStatusFilter !== 'all' ? slaStatusFilter : undefined,
           search: searchQuery || undefined,
         }),
         fetchTicketMetrics(),
@@ -87,7 +89,7 @@ export const TicketsListView: React.FC<TicketsListViewProps> = ({
 
   useEffect(() => {
     loadData();
-  }, [typeFilter, statusFilter, priorityFilter]);
+  }, [typeFilter, statusFilter, priorityFilter, slaStatusFilter]);
 
   // Client-side quick filter for text search if query is typed
   const filteredTickets = useMemo(() => {
@@ -103,6 +105,90 @@ export const TicketsListView: React.FC<TicketsListViewProps> = ({
         (t.assigned_group_name && t.assigned_group_name.toLowerCase().includes(q))
     );
   }, [tickets, searchQuery]);
+
+  const getSlaMeta = (t: TicketSummary) => {
+    if (t.status === 'solved' || t.status === 'closed') {
+      return {
+        label: 'Cumplido',
+        color: '#10b981',
+        bg: 'rgba(16, 185, 129, 0.12)',
+        border: 'rgba(16, 185, 129, 0.25)',
+        percent: 100,
+        countdown: t.solved_at ? `Resuelto: ${formatDate(t.solved_at)}` : 'Cerrado',
+        isBreached: false,
+        isAtRisk: false,
+      };
+    }
+
+    if (!t.time_to_resolve) {
+      return {
+        label: 'Sin SLA',
+        color: 'var(--text-muted)',
+        bg: 'rgba(255, 255, 255, 0.05)',
+        border: 'var(--border-color)',
+        percent: 0,
+        countdown: '—',
+        isBreached: false,
+        isAtRisk: false,
+      };
+    }
+
+    const now = Date.now();
+    const deadline = new Date(t.time_to_resolve).getTime();
+    const created = new Date(t.created_at).getTime();
+    const totalAllowed = Math.max(deadline - created, 1);
+    const elapsed = Math.max(now - created, 0);
+    const percent = Math.min(Math.round((elapsed / totalAllowed) * 100), 100);
+
+    const diffMs = deadline - now;
+    const isBreached = diffMs <= 0 || t.sla_ttr_status === 'breached';
+    const isAtRisk = !isBreached && (t.sla_ttr_status === 'at_risk' || diffMs < 60 * 60 * 1000);
+
+    let countdown = '';
+    const absDiff = Math.abs(diffMs);
+    const hours = Math.floor(absDiff / (1000 * 60 * 60));
+    const minutes = Math.floor((absDiff % (1000 * 60 * 60)) / (1000 * 60));
+
+    if (isBreached) {
+      countdown = `Vencido (+${hours}h ${minutes}m)`;
+      return {
+        label: 'Vencido',
+        color: '#ef4444',
+        bg: 'rgba(239, 68, 68, 0.14)',
+        border: 'rgba(239, 68, 68, 0.3)',
+        percent: 100,
+        countdown,
+        isBreached: true,
+        isAtRisk: false,
+      };
+    }
+
+    if (isAtRisk) {
+      countdown = `${hours > 0 ? `${hours}h ` : ''}${minutes}m restantes`;
+      return {
+        label: 'En Riesgo',
+        color: '#f59e0b',
+        bg: 'rgba(245, 158, 11, 0.14)',
+        border: 'rgba(245, 158, 11, 0.3)',
+        percent,
+        countdown,
+        isBreached: false,
+        isAtRisk: true,
+      };
+    }
+
+    countdown = `${hours > 0 ? `${hours}h ` : ''}${minutes}m restantes`;
+    return {
+      label: 'En Tiempo',
+      color: '#10b981',
+      bg: 'rgba(16, 185, 129, 0.12)',
+      border: 'rgba(16, 185, 129, 0.25)',
+      percent,
+      countdown,
+      isBreached: false,
+      isAtRisk: false,
+    };
+  };
 
   const getStatusPill = (status: TicketStatus) => {
     let pill: React.ReactElement;
@@ -158,12 +244,12 @@ export const TicketsListView: React.FC<TicketsListViewProps> = ({
         <div className="tickets-header-info">
           <div className="tickets-header-pretitle">
             <span className="badge-itil-tag">ITIL v4 Service Desk</span>
-            <span className="badge-release-tag">v0.0.3</span>
+            <span className="badge-release-tag">v0.0.7</span>
           </div>
           <h1 className="tickets-header-title">Mesa de Ayuda y Gestión de Incidentes</h1>
           <p className="tickets-header-description">
-            Administración del ciclo de vida de incidentes y solicitudes, matriz 5×5 de prioridad y
-            despacho dinámico a técnicos especialistas.
+            Administración del ciclo de vida de incidentes y solicitudes, matriz 5×5 de prioridad,
+            motor de SLA con calendarios laborales y escalamiento automático.
           </p>
         </div>
 
@@ -234,12 +320,22 @@ export const TicketsListView: React.FC<TicketsListViewProps> = ({
           </div>
 
           <div className="summary-strip-card card-risk">
-            <div className="strip-card-icon">
+            <div className="strip-card-icon" style={{ color: '#f59e0b' }}>
               <Clock size={20} />
             </div>
             <div className="strip-card-info">
-              <span className="strip-label">SLA en Riesgo / Vencido</span>
-              <span className="strip-value">{metrics.sla_at_risk_count}</span>
+              <span className="strip-label">SLA en Riesgo</span>
+              <span className="strip-value" style={{ color: '#f59e0b' }}>{metrics.sla_at_risk_count}</span>
+            </div>
+          </div>
+
+          <div className="summary-strip-card card-breached" style={{ borderColor: 'rgba(239, 68, 68, 0.3)' }}>
+            <div className="strip-card-icon" style={{ color: '#ef4444' }}>
+              <AlertTriangle size={20} />
+            </div>
+            <div className="strip-card-info">
+              <span className="strip-label">SLA Vencido</span>
+              <span className="strip-value" style={{ color: '#ef4444' }}>{metrics.sla_breached_count ?? 0}</span>
             </div>
           </div>
         </div>
@@ -320,6 +416,17 @@ export const TicketsListView: React.FC<TicketsListViewProps> = ({
             <option value="2">P4 - Baja</option>
             <option value="1">P5 - Muy Baja</option>
           </select>
+
+          <select
+            className="ticket-filter-select"
+            value={slaStatusFilter}
+            onChange={(e) => setSlaStatusFilter(e.target.value)}
+          >
+            <option value="">SLA (Todos)</option>
+            <option value="at_risk">⚠️ En Riesgo</option>
+            <option value="breached">🚨 Vencido</option>
+            <option value="on_track">✅ En Tiempo</option>
+          </select>
         </div>
       </div>
 
@@ -377,13 +484,14 @@ export const TicketsListView: React.FC<TicketsListViewProps> = ({
                 <th style={{ width: '130px' }}>Prioridad</th>
                 <th style={{ width: '110px' }}>Estado</th>
                 <th style={{ width: '170px' }}>Técnico Asignado</th>
-                <th style={{ width: '140px' }}>Límite SLA</th>
+                <th style={{ width: '175px' }}>Cumplimiento SLA</th>
                 <th style={{ width: '85px', textAlign: 'center' }}>Acción</th>
               </tr>
             </thead>
             <tbody>
               {filteredTickets.map((t) => {
                 const pMeta = getPriorityMeta(t.priority);
+                const sla = getSlaMeta(t);
                 return (
                   <tr
                     key={t.id}
@@ -490,9 +598,49 @@ export const TicketsListView: React.FC<TicketsListViewProps> = ({
                       </div>
                     </td>
                     <td>
-                      <div className="table-sla-cell">
-                        <Calendar size={12} style={{ marginRight: '4px', opacity: 0.7 }} />
-                        <span>{formatDate(t.time_to_resolve)}</span>
+                      <div className="table-sla-cell" style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.35rem' }}>
+                          <span
+                            className="badge"
+                            style={{
+                              fontSize: '0.66rem',
+                              padding: '0.1rem 0.4rem',
+                              backgroundColor: sla.bg,
+                              color: sla.color,
+                              border: `1px solid ${sla.border}`,
+                              fontWeight: 600,
+                            }}
+                          >
+                            {sla.label}
+                          </span>
+                          <span style={{ fontSize: '0.68rem', color: sla.color, fontWeight: 500 }}>
+                            {sla.countdown}
+                          </span>
+                        </div>
+                        {t.time_to_resolve && t.status !== 'solved' && t.status !== 'closed' && (
+                          <div
+                            style={{
+                              width: '100%',
+                              height: '4px',
+                              borderRadius: '2px',
+                              backgroundColor: 'rgba(255, 255, 255, 0.08)',
+                              overflow: 'hidden',
+                            }}
+                          >
+                            <div
+                              style={{
+                                width: `${sla.percent}%`,
+                                height: '100%',
+                                backgroundColor: sla.color,
+                                transition: 'width 0.3s ease',
+                              }}
+                            />
+                          </div>
+                        )}
+                        <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '3px' }}>
+                          <Calendar size={10} style={{ opacity: 0.7 }} />
+                          <span>{formatDate(t.time_to_resolve)}</span>
+                        </div>
                       </div>
                     </td>
                     <td style={{ textAlign: 'center' }}>

@@ -8,7 +8,7 @@
 <div align="center">
 
 [![License: GPL-3.0-or-later](https://img.shields.io/badge/License-GPL--3.0--or--later-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
-[![Version](https://img.shields.io/badge/version-0.0.6-informational.svg)](https://github.com/aalexanderdev/ITILSuite/releases)
+[![Version](https://img.shields.io/badge/version-0.0.7-informational.svg)](https://github.com/aalexanderdev/ITILSuite/releases)
 [![Downloads](https://img.shields.io/github/downloads/aalexanderdev/ITILSuite/total.svg?color=blue)](https://github.com/aalexanderdev/ITILSuite/releases)
 [![Mastodon](https://img.shields.io/badge/Mastodon-@aalexander-6364FF.svg?logo=mastodon&logoColor=white)](https://mastodon.social/@aalexander)
 [![Rust](https://img.shields.io/badge/rust-1.75%2B-orange.svg)](https://www.rust-lang.org/)
@@ -246,13 +246,15 @@ The web dashboard will be available at [http://localhost:5173](http://localhost:
     - **HelpdeskChat**: Dynamic team rooms synchronized with group rosters, group-level `@mention` targeting (`@soporte-l1`, `@redes`), and broadcast announcements.
     - **ITIL Service Desk**: Group-based ticket assignment, technician team queues, requester group tracking, and escalation routing.
     - **ITAM / CMDB**: Group asset custody, department allocation, and maintenance responsibility (`group_in_charge`).
-    - **Notification Engine**: Multiplexed group notifications resolving all active members in the background outbox.
-- [ ] **v0.0.7 - Advanced SLAs & Automated Escalation Matrices**: Real-time SLA breach monitors and automated escalation pipelines.
-
----
+- [x] **v0.0.7 - Advanced SLAs & Automated Escalation Matrices**:
+  - **Real-Time SLA Engine**: Working calendar arithmetic (weekly schedules 9x5 / 24x7, corporate holidays, timezone shifts) calculating dynamic TTO and TTR deadlines.
+  - **Automated Escalation Matrix**: Idempotent relative-trigger rules (`-30m`, `0m`, `+60m`) with automated priority elevation, group reassignment, and supervisor alert dispatch.
+  - **Interactive Management Workspace**: 3-tab SLA management console (SLA Profiles, Escalation Matrix, Working Calendars with live deadline simulation).
+  - **Service Desk Visual Indicators**: SLA risk badges, real-time countdowns, mini progress bars, and SLA filter dropdowns across ticket lists and detail dialogs.
+- [ ] **v0.0.8 - ITIL Problem & Change Management**: Known error database (KEDB), root cause analysis, Change Advisory Board (CAB), and RFC approval lifecycles.
 
 ## License
 
-This program is free software: you can redistribute it and/or modify it under the terms of the **GNU General Public License as published by the Free Software Foundation, either version 3 of the License, or (at your option) any later version (GPLv3+)**.
+This program is free software: you can redistribute it and/or modify it under the terms of the **GNU General Public License as published by the Free Software Foundation, either version 3 of the Licenses or any later version (GPLv3+)**.
 
 See the [LICENSE](LICENSE) file for details.

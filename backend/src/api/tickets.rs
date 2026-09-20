@@ -3,7 +3,7 @@ use axum::{
     http::StatusCode,
     Json,
 };
-use chrono::{Duration, Utc};
+use chrono::{DateTime, Utc};
 use serde::Deserialize;
 use utoipa::IntoParams;
 use uuid::Uuid;
@@ -30,6 +30,8 @@ pub struct TicketFilterParams {
     pub assigned_to: Option<Uuid>,
     /// Filter by assigned transversal group ID
     pub assigned_group_id: Option<Uuid>,
+    /// Filter by SLA status (within_sla, at_risk, breached)
+    pub sla_status: Option<String>,
     /// Search term across title, content, or ticket number
     pub search: Option<String>,
 }
@@ -63,7 +65,15 @@ pub async fn list_tickets(
             ag.name AS assigned_group_name,
             t.requester_group_id,
             rg.name AS requester_group_name,
-            t.category, t.time_to_resolve, t.solved_at, t.closed_at,
+            t.category,
+            t.sla_id,
+            sla.name AS sla_name,
+            t.time_to_own,
+            t.time_to_resolve,
+            t.acknowledged_at,
+            t.sla_tto_status,
+            t.sla_ttr_status,
+            t.solved_at, t.closed_at,
             t.created_at, t.updated_at
         FROM tickets t
         JOIN entities e ON e.id = t.entity_id
@@ -71,6 +81,7 @@ pub async fn list_tickets(
         LEFT JOIN users tech ON tech.id = t.assigned_technician_id
         LEFT JOIN groups ag ON ag.id = t.assigned_group_id
         LEFT JOIN groups rg ON rg.id = t.requester_group_id
+        LEFT JOIN slas sla ON sla.id = t.sla_id
         WHERE ($1::uuid IS NULL OR t.entity_id = $1)
           AND ($2::varchar IS NULL OR t.status = $2)
           AND ($3::varchar IS NULL OR t.ticket_type = $3)
@@ -78,6 +89,10 @@ pub async fn list_tickets(
           AND ($5::uuid IS NULL OR t.assigned_technician_id = $5)
           AND ($6::varchar IS NULL OR (t.name ILIKE '%' || $6 || '%' OR t.ticket_number ILIKE '%' || $6 || '%' OR t.content ILIKE '%' || $6 || '%'))
           AND ($7::uuid IS NULL OR t.assigned_group_id = $7)
+          AND ($8::varchar IS NULL OR 
+                ($8 = 'at_risk' AND t.sla_ttr_status = 'at_risk') OR 
+                ($8 = 'breached' AND (t.sla_ttr_status = 'breached' OR t.sla_tto_status = 'breached')) OR 
+                ($8 = 'within_sla' AND t.sla_ttr_status = 'within_sla'))
         ORDER BY t.priority DESC, t.created_at DESC
         "#
     )
@@ -88,6 +103,7 @@ pub async fn list_tickets(
     .bind(params.assigned_to)
     .bind(search_clean)
     .bind(params.assigned_group_id)
+    .bind(params.sla_status)
     .fetch_all(&state.pool)
     .await
     .map_err(|e| AppError::InternalServerError(format!("Failed to retrieve tickets: {}", e)))?;
@@ -125,7 +141,15 @@ pub async fn get_ticket(
             ag.name AS assigned_group_name,
             t.requester_group_id,
             rg.name AS requester_group_name,
-            t.category, t.time_to_resolve, t.solved_at, t.closed_at,
+            t.category,
+            t.sla_id,
+            sla.name AS sla_name,
+            t.time_to_own,
+            t.time_to_resolve,
+            t.acknowledged_at,
+            t.sla_tto_status,
+            t.sla_ttr_status,
+            t.solved_at, t.closed_at,
             t.created_at, t.updated_at
         FROM tickets t
         JOIN entities e ON e.id = t.entity_id
@@ -133,6 +157,7 @@ pub async fn get_ticket(
         LEFT JOIN users tech ON tech.id = t.assigned_technician_id
         LEFT JOIN groups ag ON ag.id = t.assigned_group_id
         LEFT JOIN groups rg ON rg.id = t.requester_group_id
+        LEFT JOIN slas sla ON sla.id = t.sla_id
         WHERE t.id = $1
         "#
     )
@@ -273,15 +298,19 @@ pub async fn create_ticket(
         "new".to_string()
     };
 
-    // Calculate SLA target resolution time based on priority
-    let hours_to_resolve = match priority {
-        5 => 4,   // Critical: 4 hours
-        4 => 8,   // High: 8 hours
-        3 => 24,  // Medium: 24 hours
-        2 => 48,  // Low: 48 hours
-        _ => 72,  // Very Low: 72 hours
-    };
-    let time_to_resolve = Utc::now() + Duration::hours(hours_to_resolve);
+    // Calculate dynamic SLA targets using SlaService and calendar schedules
+    let (sla_id, time_to_own, time_to_resolve) = crate::services::sla_service::SlaService::calculate_deadlines(
+        &state.pool,
+        payload.sla_id,
+        priority,
+        Utc::now(),
+    )
+    .await?;
+
+    let is_assigned = assigned_technician_id.is_some() || assigned_group_id.is_some();
+    let acknowledged_at = if is_assigned { Some(Utc::now()) } else { None };
+    let sla_tto_status = if is_assigned { "within_sla" } else { "pending" };
+    let sla_ttr_status = "within_sla";
 
     // Generate formatted ticket number (e.g. INC-2026-0007 / REQ-2026-0008)
     let prefix = if ticket_type == "request" { "REQ" } else { "INC" };
@@ -299,9 +328,10 @@ pub async fn create_ticket(
             id, ticket_number, entity_id, name, content, ticket_type, status,
             urgency, impact, priority, requester_id, assigned_technician_id,
             assigned_group_id, requester_group_id,
-            category, time_to_resolve, created_at, updated_at
+            category, sla_id, time_to_own, time_to_resolve, acknowledged_at,
+            sla_tto_status, sla_ttr_status, created_at, updated_at
         )
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, NOW(), NOW())
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, NOW(), NOW())
         "#
     )
     .bind(new_id)
@@ -319,7 +349,12 @@ pub async fn create_ticket(
     .bind(assigned_group_id)
     .bind(requester_group_id)
     .bind(category)
+    .bind(sla_id)
+    .bind(time_to_own)
     .bind(time_to_resolve)
+    .bind(acknowledged_at)
+    .bind(sla_tto_status)
+    .bind(sla_ttr_status)
     .execute(&state.pool)
     .await
     .map_err(|e| AppError::InternalServerError(format!("Failed to insert ticket: {}", e)))?;
@@ -339,7 +374,15 @@ pub async fn create_ticket(
             ag.name AS assigned_group_name,
             t.requester_group_id,
             rg.name AS requester_group_name,
-            t.category, t.time_to_resolve, t.solved_at, t.closed_at,
+            t.category,
+            t.sla_id,
+            sla.name AS sla_name,
+            t.time_to_own,
+            t.time_to_resolve,
+            t.acknowledged_at,
+            t.sla_tto_status,
+            t.sla_ttr_status,
+            t.solved_at, t.closed_at,
             t.created_at, t.updated_at
         FROM tickets t
         JOIN entities e ON e.id = t.entity_id
@@ -347,6 +390,7 @@ pub async fn create_ticket(
         LEFT JOIN users tech ON tech.id = t.assigned_technician_id
         LEFT JOIN groups ag ON ag.id = t.assigned_group_id
         LEFT JOIN groups rg ON rg.id = t.requester_group_id
+        LEFT JOIN slas sla ON sla.id = t.sla_id
         WHERE t.id = $1
         "#
     )
@@ -405,22 +449,67 @@ pub async fn update_ticket(
     Json(payload): Json<UpdateTicketDto>,
 ) -> Result<Json<TicketSummaryDto>, AppError> {
     // Check existing ticket
-    let existing: Option<(String, i32, i32)> = sqlx::query_as(
-        "SELECT status, urgency, impact FROM tickets WHERE id = $1"
+    let existing: Option<(String, i32, i32, Option<Uuid>, Option<DateTime<Utc>>, Option<DateTime<Utc>>, Option<DateTime<Utc>>)> = sqlx::query_as(
+        "SELECT status, urgency, impact, sla_id, time_to_own, time_to_resolve, acknowledged_at FROM tickets WHERE id = $1"
     )
     .bind(id)
     .fetch_optional(&state.pool)
     .await
     .map_err(|e| AppError::InternalServerError(format!("Database error: {}", e)))?;
 
-    let (old_status, old_urgency, old_impact) = existing
+    let (old_status, old_urgency, old_impact, old_sla_id, mut time_to_own, mut time_to_resolve, mut acknowledged_at) = existing
         .ok_or_else(|| AppError::NotFound("Ticket not found".to_string()))?;
 
     let new_urgency = payload.urgency.unwrap_or(old_urgency).clamp(1, 5);
     let new_impact = payload.impact.unwrap_or(old_impact).clamp(1, 5);
     let new_priority = calculate_priority(new_urgency, new_impact);
 
-    let new_status = payload.status.unwrap_or(old_status);
+    let new_status = payload.status.unwrap_or(old_status.clone());
+
+    // SLA recalculation if sla_id explicitly updated
+    let mut sla_id = old_sla_id;
+    if let Some(new_sla_id) = payload.sla_id {
+        if Some(new_sla_id) != old_sla_id {
+            sla_id = Some(new_sla_id);
+            if let Ok((_, new_tto, new_ttr)) = crate::services::sla_service::SlaService::calculate_deadlines(
+                &state.pool,
+                Some(new_sla_id),
+                new_priority,
+                Utc::now(),
+            ).await {
+                time_to_own = Some(new_tto);
+                time_to_resolve = Some(new_ttr);
+            }
+        }
+    }
+
+    // TTO Acknowledgement tracking
+    let mut sla_tto_clause = String::new();
+    if (payload.assigned_technician_id.is_some() || payload.assigned_group_id.is_some()) && acknowledged_at.is_none() {
+        if let Some(tto_limit) = time_to_own {
+            if Utc::now() <= tto_limit {
+                sla_tto_clause = ", acknowledged_at = NOW(), sla_tto_status = 'within_sla'".to_string();
+            } else {
+                sla_tto_clause = ", acknowledged_at = NOW(), sla_tto_status = 'breached'".to_string();
+            }
+        } else {
+            sla_tto_clause = ", acknowledged_at = NOW(), sla_tto_status = 'within_sla'".to_string();
+        }
+    }
+
+    // TTR Resolution tracking
+    let mut sla_ttr_clause = String::new();
+    if new_status == "solved" && old_status != "solved" {
+        if let Some(ttr_limit) = time_to_resolve {
+            if Utc::now() <= ttr_limit {
+                sla_ttr_clause = ", sla_ttr_status = 'solved_in_sla'".to_string();
+            } else {
+                sla_ttr_clause = ", sla_ttr_status = 'breached'".to_string();
+            }
+        } else {
+            sla_ttr_clause = ", sla_ttr_status = 'solved_in_sla'".to_string();
+        }
+    }
 
     // Lifecycle timestamps
     let solved_clause = if new_status == "solved" {
@@ -448,12 +537,17 @@ pub async fn update_ticket(
             assigned_group_id = COALESCE($9, assigned_group_id),
             requester_group_id = COALESCE($10, requester_group_id),
             category = COALESCE($11, category),
+            sla_id = COALESCE($12, sla_id),
+            time_to_own = COALESCE($13, time_to_own),
+            time_to_resolve = COALESCE($14, time_to_resolve),
             updated_at = NOW()
+            {}
+            {}
             {}
             {}
         WHERE id = $1
         "#,
-        solved_clause, closed_clause
+        solved_clause, closed_clause, sla_tto_clause, sla_ttr_clause
     );
 
     sqlx::query(&query_str)
@@ -468,6 +562,9 @@ pub async fn update_ticket(
         .bind(payload.assigned_group_id)
         .bind(payload.requester_group_id)
         .bind(payload.category)
+        .bind(sla_id)
+        .bind(time_to_own)
+        .bind(time_to_resolve)
         .execute(&state.pool)
         .await
         .map_err(|e| AppError::InternalServerError(format!("Failed to update ticket: {}", e)))?;
@@ -487,7 +584,15 @@ pub async fn update_ticket(
             ag.name AS assigned_group_name,
             t.requester_group_id,
             rg.name AS requester_group_name,
-            t.category, t.time_to_resolve, t.solved_at, t.closed_at,
+            t.category,
+            t.sla_id,
+            sla.name AS sla_name,
+            t.time_to_own,
+            t.time_to_resolve,
+            t.acknowledged_at,
+            t.sla_tto_status,
+            t.sla_ttr_status,
+            t.solved_at, t.closed_at,
             t.created_at, t.updated_at
         FROM tickets t
         JOIN entities e ON e.id = t.entity_id
@@ -495,6 +600,7 @@ pub async fn update_ticket(
         LEFT JOIN users tech ON tech.id = t.assigned_technician_id
         LEFT JOIN groups ag ON ag.id = t.assigned_group_id
         LEFT JOIN groups rg ON rg.id = t.requester_group_id
+        LEFT JOIN slas sla ON sla.id = t.sla_id
         WHERE t.id = $1
         "#
     )
@@ -617,6 +723,7 @@ struct MetricsRow {
     incidents_count: Option<i64>,
     requests_count: Option<i64>,
     sla_at_risk_count: Option<i64>,
+    sla_breached_count: Option<i64>,
     solved_count: Option<i64>,
     closed_count: Option<i64>,
     average_priority: Option<f64>,
@@ -639,7 +746,8 @@ pub async fn get_ticket_metrics(
             COUNT(*) FILTER (WHERE status NOT IN ('solved', 'closed')) AS total_open,
             COUNT(*) FILTER (WHERE ticket_type = 'incident' AND status NOT IN ('solved', 'closed')) AS incidents_count,
             COUNT(*) FILTER (WHERE ticket_type = 'request' AND status NOT IN ('solved', 'closed')) AS requests_count,
-            COUNT(*) FILTER (WHERE time_to_resolve < NOW() AND status NOT IN ('solved', 'closed')) AS sla_at_risk_count,
+            COUNT(*) FILTER (WHERE (sla_ttr_status = 'at_risk' OR (time_to_resolve >= NOW() AND time_to_resolve <= NOW() + INTERVAL '1 hour')) AND status NOT IN ('solved', 'closed')) AS sla_at_risk_count,
+            COUNT(*) FILTER (WHERE (sla_ttr_status = 'breached' OR sla_tto_status = 'breached' OR (time_to_resolve IS NOT NULL AND time_to_resolve < NOW())) AND status NOT IN ('solved', 'closed')) AS sla_breached_count,
             COUNT(*) FILTER (WHERE status = 'solved') AS solved_count,
             COUNT(*) FILTER (WHERE status = 'closed') AS closed_count,
             COALESCE(AVG(priority), 3.0)::float8 AS average_priority
@@ -655,8 +763,10 @@ pub async fn get_ticket_metrics(
         incidents_count: row.incidents_count.unwrap_or(0),
         requests_count: row.requests_count.unwrap_or(0),
         sla_at_risk_count: row.sla_at_risk_count.unwrap_or(0),
+        sla_breached_count: row.sla_breached_count.unwrap_or(0),
         solved_count: row.solved_count.unwrap_or(0),
         closed_count: row.closed_count.unwrap_or(0),
         average_priority: (row.average_priority.unwrap_or(3.0) * 10.0).round() / 10.0,
     }))
 }
+

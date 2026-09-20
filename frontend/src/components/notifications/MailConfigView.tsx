@@ -19,6 +19,10 @@ import {
   Server,
   Filter,
   Info,
+  Shield,
+  Lock,
+  User,
+  Hash,
 } from 'lucide-react';
 import type {
   MailSettings,
@@ -550,31 +554,48 @@ export const MailConfigView: React.FC = () => {
               </div>
             )}
 
-            <form onSubmit={handleSaveSettings} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-              {/* Switches */}
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', padding: '0.85rem', backgroundColor: 'var(--card-subtle-bg)', borderRadius: 'var(--radius-sm)' }}>
-                <label style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', cursor: 'pointer', fontSize: '0.82rem' }}>
-                  <input
-                    type="checkbox"
-                    checked={settingsForm.notifications_enabled ?? true}
-                    onChange={(e) => setSettingsForm({ ...settingsForm, notifications_enabled: e.target.checked })}
-                  />
-                  <span>Habilitar notificaciones por correo</span>
-                </label>
-                <label style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', cursor: 'pointer', fontSize: '0.82rem' }}>
-                  <input
-                    type="checkbox"
-                    checked={settingsForm.email_followups_enabled ?? true}
-                    onChange={(e) => setSettingsForm({ ...settingsForm, email_followups_enabled: e.target.checked })}
-                  />
-                  <span>Permitir responder por correo (Followups)</span>
-                </label>
+            <form onSubmit={handleSaveSettings} style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+              {/* Modern Toggle Cards */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '0.85rem' }}>
+                <div
+                  className={`form-toggle-card ${settingsForm.notifications_enabled ? 'active' : ''}`}
+                  onClick={() => setSettingsForm({ ...settingsForm, notifications_enabled: !settingsForm.notifications_enabled })}
+                >
+                  <div className={`form-toggle-switch ${settingsForm.notifications_enabled ? 'active' : ''}`} />
+                  <div>
+                    <div style={{ fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-primary)' }}>
+                      Notificaciones por Correo
+                    </div>
+                    <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
+                      Despacho automático de avisos
+                    </div>
+                  </div>
+                </div>
+
+                <div
+                  className={`form-toggle-card ${settingsForm.email_followups_enabled ? 'active' : ''}`}
+                  onClick={() => setSettingsForm({ ...settingsForm, email_followups_enabled: !settingsForm.email_followups_enabled })}
+                >
+                  <div className={`form-toggle-switch ${settingsForm.email_followups_enabled ? 'active' : ''}`} />
+                  <div>
+                    <div style={{ fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-primary)' }}>
+                      Respuestas por Correo (Followups)
+                    </div>
+                    <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
+                      Seguimiento bidireccional vía email
+                    </div>
+                  </div>
+                </div>
               </div>
 
-              {/* Host & Port */}
-              <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr', gap: '0.75rem' }}>
-                <div>
-                  <label className="form-label">Servidor SMTP (Host)</label>
+              {/* Host & Port & Encryption */}
+              <div style={{ display: 'grid', gridTemplateColumns: '2.2fr 1fr 1.2fr', gap: '0.85rem' }}>
+                <div className="form-group">
+                  <label className="form-label">
+                    <Server size={13} color="var(--accent-cyan)" />
+                    <span>Servidor SMTP (Host)</span>
+                    <span className="required">*</span>
+                  </label>
                   <input
                     type="text"
                     className="form-input"
@@ -584,8 +605,12 @@ export const MailConfigView: React.FC = () => {
                     required
                   />
                 </div>
-                <div>
-                  <label className="form-label">Puerto</label>
+                <div className="form-group">
+                  <label className="form-label">
+                    <Hash size={13} color="var(--text-muted)" />
+                    <span>Puerto</span>
+                    <span className="required">*</span>
+                  </label>
                   <input
                     type="number"
                     className="form-input"
@@ -594,10 +619,13 @@ export const MailConfigView: React.FC = () => {
                     required
                   />
                 </div>
-                <div>
-                  <label className="form-label">Cifrado</label>
+                <div className="form-group">
+                  <label className="form-label">
+                    <Shield size={13} color="var(--accent-emerald)" />
+                    <span>Cifrado</span>
+                  </label>
                   <select
-                    className="form-input"
+                    className="form-select"
                     value={settingsForm.smtp_encryption ?? 'tls'}
                     onChange={(e) => setSettingsForm({ ...settingsForm, smtp_encryption: e.target.value })}
                   >
@@ -609,9 +637,12 @@ export const MailConfigView: React.FC = () => {
               </div>
 
               {/* Username & Password */}
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
-                <div>
-                  <label className="form-label">Usuario SMTP</label>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.85rem' }}>
+                <div className="form-group">
+                  <label className="form-label">
+                    <User size={13} color="var(--text-muted)" />
+                    <span>Usuario SMTP</span>
+                  </label>
                   <input
                     type="text"
                     className="form-input"
@@ -620,8 +651,11 @@ export const MailConfigView: React.FC = () => {
                     placeholder="soporte@empresa.com"
                   />
                 </div>
-                <div>
-                  <label className="form-label">Contraseña SMTP</label>
+                <div className="form-group">
+                  <label className="form-label">
+                    <Lock size={13} color="var(--text-muted)" />
+                    <span>Contraseña SMTP</span>
+                  </label>
                   <input
                     type="password"
                     className="form-input"
@@ -633,9 +667,12 @@ export const MailConfigView: React.FC = () => {
               </div>
 
               {/* Sender info */}
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.2fr', gap: '0.75rem' }}>
-                <div>
-                  <label className="form-label">Nombre del Remitente</label>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.2fr', gap: '0.85rem' }}>
+                <div className="form-group">
+                  <label className="form-label">
+                    <span>Nombre del Remitente</span>
+                    <span className="required">*</span>
+                  </label>
                   <input
                     type="text"
                     className="form-input"
@@ -645,8 +682,12 @@ export const MailConfigView: React.FC = () => {
                     required
                   />
                 </div>
-                <div>
-                  <label className="form-label">Dirección de Remitente (From)</label>
+                <div className="form-group">
+                  <label className="form-label">
+                    <Mail size={13} color="var(--text-muted)" />
+                    <span>Dirección de Remitente (From)</span>
+                    <span className="required">*</span>
+                  </label>
                   <input
                     type="email"
                     className="form-input"
@@ -659,9 +700,11 @@ export const MailConfigView: React.FC = () => {
               </div>
 
               {/* Reply To & Prefix */}
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
-                <div>
-                  <label className="form-label">Responder a (Reply-To)</label>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.85rem' }}>
+                <div className="form-group">
+                  <label className="form-label">
+                    <span>Responder a (Reply-To)</span>
+                  </label>
                   <input
                     type="email"
                     className="form-input"
@@ -670,8 +713,10 @@ export const MailConfigView: React.FC = () => {
                     placeholder="helpdesk@empresa.com"
                   />
                 </div>
-                <div>
-                  <label className="form-label">Prefijo del Asunto</label>
+                <div className="form-group">
+                  <label className="form-label">
+                    <span>Prefijo del Asunto</span>
+                  </label>
                   <input
                     type="text"
                     className="form-input"
@@ -683,15 +728,18 @@ export const MailConfigView: React.FC = () => {
               </div>
 
               {/* Signature */}
-              <div>
-                <label className="form-label">Firma del Correo (HTML / Texto)</label>
+              <div className="form-group">
+                <label className="form-label">
+                  <span>Firma del Correo (HTML / Texto)</span>
+                  <span className="form-label-hint">Pie de firma en notificaciones</span>
+                </label>
                 <textarea
-                  className="form-input"
+                  className="form-textarea"
                   rows={3}
                   value={settingsForm.email_signature ?? ''}
                   onChange={(e) => setSettingsForm({ ...settingsForm, email_signature: e.target.value })}
                   placeholder="-- &#10;Mesa de Ayuda ITILSuite | Soporte TI Corporativo"
-                  style={{ fontFamily: 'var(--font-mono)', fontSize: '0.8rem' }}
+                  style={{ fontFamily: 'var(--font-mono)', fontSize: '0.82rem' }}
                 />
               </div>
 
@@ -701,7 +749,7 @@ export const MailConfigView: React.FC = () => {
                   type="submit"
                   disabled={savingSettings}
                   className="btn btn-primary"
-                  style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}
+                  style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', padding: '0.6rem 1.4rem' }}
                 >
                   <CheckCircle2 size={16} />
                   <span>{savingSettings ? 'Guardando...' : 'Guardar Configuración'}</span>
@@ -716,15 +764,18 @@ export const MailConfigView: React.FC = () => {
             <div className="card">
               <h3 style={{ fontSize: '1rem', fontWeight: 600, marginBottom: '0.8rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                 <Send size={16} color="#10b981" />
-                Prueba de Conexión y Envío
+                <span>Prueba de Conexión y Envío</span>
               </h3>
-              <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginBottom: '1rem' }}>
+              <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginBottom: '1.25rem', lineHeight: 1.5 }}>
                 Envía un correo de comprobación para verificar que el servidor SMTP acepte conexiones y autenticación.
               </p>
 
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-                <div>
-                  <label className="form-label">Destinatario de Prueba</label>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                <div className="form-group">
+                  <label className="form-label">
+                    <Mail size={13} color="var(--accent-emerald)" />
+                    <span>Destinatario de Prueba</span>
+                  </label>
                   <input
                     type="email"
                     className="form-input"
@@ -739,7 +790,7 @@ export const MailConfigView: React.FC = () => {
                   onClick={handleTestSmtp}
                   disabled={testingSmtp || !testEmail}
                   className="btn btn-secondary"
-                  style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}
+                  style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', width: '100%', height: '38px' }}
                 >
                   <Send size={14} className={testingSmtp ? 'spin' : ''} />
                   <span>{testingSmtp ? 'Enviando prueba...' : 'Enviar Correo de Prueba'}</span>

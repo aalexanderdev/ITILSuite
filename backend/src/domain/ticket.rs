@@ -39,7 +39,12 @@ pub struct Ticket {
     pub assigned_group_id: Option<Uuid>,
     pub requester_group_id: Option<Uuid>,
     pub category: Option<String>,
+    pub sla_id: Option<Uuid>,
+    pub time_to_own: Option<DateTime<Utc>>,
     pub time_to_resolve: Option<DateTime<Utc>>,
+    pub acknowledged_at: Option<DateTime<Utc>>,
+    pub sla_tto_status: String,
+    pub sla_ttr_status: String,
     pub solved_at: Option<DateTime<Utc>>,
     pub closed_at: Option<DateTime<Utc>>,
     pub created_at: DateTime<Utc>,
@@ -68,7 +73,13 @@ pub struct TicketSummaryDto {
     pub requester_group_id: Option<Uuid>,
     pub requester_group_name: Option<String>,
     pub category: Option<String>,
+    pub sla_id: Option<Uuid>,
+    pub sla_name: Option<String>,
+    pub time_to_own: Option<DateTime<Utc>>,
     pub time_to_resolve: Option<DateTime<Utc>>,
+    pub acknowledged_at: Option<DateTime<Utc>>,
+    pub sla_tto_status: String,
+    pub sla_ttr_status: String,
     pub solved_at: Option<DateTime<Utc>>,
     pub closed_at: Option<DateTime<Utc>>,
     pub created_at: DateTime<Utc>,
@@ -128,6 +139,8 @@ pub struct CreateTicketDto {
     pub requester_group_id: Option<Uuid>,
     /// Category (e.g. Hardware, Software, Redes, Accesos)
     pub category: Option<String>,
+    /// Optional SLA Profile ID override
+    pub sla_id: Option<Uuid>,
 }
 
 #[derive(Debug, Deserialize, ToSchema)]
@@ -142,6 +155,7 @@ pub struct UpdateTicketDto {
     pub assigned_group_id: Option<Uuid>,
     pub requester_group_id: Option<Uuid>,
     pub category: Option<String>,
+    pub sla_id: Option<Uuid>,
 }
 
 #[derive(Debug, Deserialize, ToSchema)]
@@ -160,6 +174,7 @@ pub struct TicketMetricsDto {
     pub incidents_count: i64,
     pub requests_count: i64,
     pub sla_at_risk_count: i64,
+    pub sla_breached_count: i64,
     pub solved_count: i64,
     pub closed_count: i64,
     pub average_priority: f64,

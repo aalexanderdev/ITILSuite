@@ -6,6 +6,7 @@ import {
   fetchEntities,
   fetchTicketTemplates,
   fetchGroups,
+  fetchSlas,
 } from '../../services/api';
 import type {
   TicketSummary,
@@ -14,6 +15,7 @@ import type {
   TicketType,
   TicketTemplate,
   GroupSummary,
+  SlaSummary,
 } from '../../types';
 import { PriorityMatrixPicker } from './PriorityMatrixPicker';
 import { TemplateSelectorCard } from './TemplateSelectorCard';
@@ -29,6 +31,7 @@ import {
   FileText,
   Info,
   Users,
+  Clock,
 } from 'lucide-react';
 
 interface CreateTicketModalProps {
@@ -55,6 +58,10 @@ export const CreateTicketModal: React.FC<CreateTicketModalProps> = ({
   const [assignedTechnicianId, setAssignedTechnicianId] = useState<string>('');
   const [assignedGroupId, setAssignedGroupId] = useState<string>('');
   const [entityId, setEntityId] = useState<string>(activeEntity.id);
+
+  const [slas, setSlas] = useState<SlaSummary[]>([]);
+  const [selectedSlaId, setSelectedSlaId] = useState<string>('');
+  const [userSelectedSla, setUserSelectedSla] = useState(false);
 
   const [templates, setTemplates] = useState<TicketTemplate[]>([]);
   const [selectedTemplate, setSelectedTemplate] = useState<TicketTemplate | null>(null);
@@ -101,7 +108,7 @@ export const CreateTicketModal: React.FC<CreateTicketModalProps> = ({
         })
         .catch(() => {});
 
-      // Load Ticket Templates (GLPI Inspired)
+      // Load Ticket Templates
       fetchTicketTemplates({ entity_id: activeEntity.id })
         .then((tpls) => {
           setTemplates(tpls);
@@ -111,10 +118,31 @@ export const CreateTicketModal: React.FC<CreateTicketModalProps> = ({
           }
         })
         .catch(() => {});
+
+      // Load Active SLAs
+      fetchSlas()
+        .then((slaList) => {
+          setSlas(slaList.filter((s) => s.is_active));
+        })
+        .catch(() => {});
     } else {
       setSelectedTemplate(null);
+      setUserSelectedSla(false);
     }
   }, [isOpen, activeEntity, initialTemplateId]);
+
+  // Current calculated priority
+  const currentPriority = Math.min(Math.max(urgency + impact - 1, 1), 5);
+
+  // Auto-suggest SLA if user hasn't explicitly overridden it
+  useEffect(() => {
+    if (slas.length > 0 && !userSelectedSla) {
+      const match = slas.find((s) => s.priority_override === currentPriority) || slas[0];
+      if (match) {
+        setSelectedSlaId(match.id);
+      }
+    }
+  }, [currentPriority, slas, userSelectedSla]);
 
   const applyTemplate = (tpl: TicketTemplate | null) => {
     setSelectedTemplate(tpl);
@@ -156,7 +184,7 @@ export const CreateTicketModal: React.FC<CreateTicketModalProps> = ({
   const handleCategoryChange = (newCat: string) => {
     setCategory(newCat);
 
-    // GLPI Feature: Link template to category automatically
+    // Link template to category automatically if found
     const matchingTpl = templates.find(
       (t) => t.category && t.category.toLowerCase() === newCat.toLowerCase()
     );
@@ -191,7 +219,7 @@ export const CreateTicketModal: React.FC<CreateTicketModalProps> = ({
       return;
     }
 
-    // GLPI Rule: If description is mandatory and unchanged from template default, force user modification
+    // If description is mandatory and unchanged from template default, force user modification
     if (
       selectedTemplate &&
       selectedTemplate.mandatory_fields.includes('content') &&
@@ -227,6 +255,7 @@ export const CreateTicketModal: React.FC<CreateTicketModalProps> = ({
         assigned_technician_id: assignedTechnicianId || undefined,
         assigned_group_id: assignedGroupId || undefined,
         category,
+        sla_id: selectedSlaId || undefined,
       });
 
       onTicketCreated(created);
@@ -524,6 +553,76 @@ export const CreateTicketModal: React.FC<CreateTicketModalProps> = ({
               <span className="notice-desc">Esta solicitud cuenta con matriz de prioridad estandarizada</span>
             </div>
           )}
+
+          {/* SLA Profile Selector & Preview */}
+          <div
+            style={{
+              padding: '0.85rem',
+              borderRadius: 'var(--border-radius-md)',
+              backgroundColor: 'rgba(255, 255, 255, 0.02)',
+              border: '1px solid var(--border-color)',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '0.5rem',
+            }}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <label style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', fontSize: '0.78rem', fontWeight: 700, margin: 0, color: 'var(--text-primary)' }}>
+                <Clock size={14} color="#818cf8" />
+                <span>Acuerdo de Nivel de Servicio (SLA)</span>
+              </label>
+              <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>
+                {userSelectedSla ? 'Personalizado manualmente' : 'Sugerido por matriz de prioridad'}
+              </span>
+            </div>
+
+            <select
+              value={selectedSlaId}
+              onChange={(e) => {
+                setSelectedSlaId(e.target.value);
+                setUserSelectedSla(true);
+              }}
+              className="input-control"
+              style={{ fontSize: '0.8rem' }}
+            >
+              <option value="">Sin SLA específico (Cálculo estándar por defecto)</option>
+              {slas.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.name} (TTO: {s.tto_duration_minutes}m • TTR: {Math.round(s.ttr_duration_minutes / 60)}h)
+                </option>
+              ))}
+            </select>
+
+            {(() => {
+              const activeSlaObj = slas.find((s) => s.id === selectedSlaId);
+              if (!activeSlaObj) return null;
+              return (
+                <div
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.75rem',
+                    fontSize: '0.72rem',
+                    color: 'var(--text-secondary)',
+                    marginTop: '0.2rem',
+                    flexWrap: 'wrap',
+                  }}
+                >
+                  <span>
+                    <strong>Calendario:</strong> {activeSlaObj.calendar_name || '9x5 Estándar'}
+                  </span>
+                  <span>•</span>
+                  <span>
+                    <strong>Meta TTO:</strong> {activeSlaObj.tto_duration_minutes} minutos
+                  </span>
+                  <span>•</span>
+                  <span>
+                    <strong>Meta TTR:</strong> {Math.round(activeSlaObj.ttr_duration_minutes / 60)} horas ({activeSlaObj.ttr_duration_minutes}m)
+                  </span>
+                </div>
+              );
+            })()}
+          </div>
 
           {/* Description Content */}
           <div>

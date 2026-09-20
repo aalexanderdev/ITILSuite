@@ -6,12 +6,36 @@ All notable changes to this project will be documented in this file in accordanc
 
 ## [Unreleased]
 
-### Planned (v0.0.7 - Advanced SLAs & Automated Escalation Matrices)
-* **Real-Time SLA Engine**: Dynamic TTO (Time to Own) and TTR (Time to Resolve) targets with working calendar hours.
-* **Escalation Rules & Actions**: Automatic re-assignment, priority elevation, and supervisory alerts on impending SLA breaches.
-* **SLA Dashboard & Breach Indicators**: Visual SLA progress bars and risk badges across Service Desk ticket views.
-
 ---
+
+## [0.0.7] - 2026-09-20
+
+### Added
+* **Real-Time SLA Engine with Working Calendars**:
+  * Unified database schema for service level agreements and working calendars (`calendars`, `calendar_segments`, `calendar_holidays`, `slas`, `sla_levels`, `ticket_sla_escalations_log`).
+  * Pure arithmetic calendar calculation engine in Rust (`calculate_target_time`), accurately computing deadlines across weekly shift segments (Monday to Sunday) and skipping non-working intervals, weekends, and corporate holidays (`is_recurring`).
+  * Default working calendars seeded: `Horario Laboral Estándar 9x5` (Monday–Friday 09:00–18:00) and `Soporte Continuo 24x7` (Monday–Sunday 00:00–23:59).
+  * Seeded SLA Profiles: `SLA Platino - Crítico 24x7` (P5, TTO 15m, TTR 120m), `SLA Oro - Alta Prioridad` (P4, TTO 30m, TTR 240m), and `SLA Estándar - Operaciones` (P3, TTO 120m, TTR 1440m).
+* **Automated Escalation Matrix & Idempotent Escalation Worker**:
+  * Configurable SLA escalation rules per profile with relative offset triggers (`execution_offset_minutes` like `-30m` warning, `0m` breach, `+60m` overdue escalation) and target types (`tto`, `ttr`).
+  * Automated escalation action dispatch:
+    * `escalate_priority`: Automatically increases ticket priority level.
+    * `reassign_group`: Dispatches ticket to higher-tier support groups.
+    * `reassign_technician`: Reassigns ticket to lead technicians or supervisors.
+    * `send_alert`: Dispatches warning and breach email alerts via the notification outbox subsystem.
+  * Strict idempotency guarantee via `ticket_sla_escalations_log` (`UNIQUE(ticket_id, sla_level_id)`), preventing duplicate action triggers.
+  * Automated timeline audit trail (`item_type = 'task'`) logged to `ticket_followups` describing each escalation action executed.
+  * Background Tokio daemon running continually every 30 seconds evaluating open tickets and transitioning SLA states (`within_sla` -> `at_risk` -> `breached`).
+* **Interactive SLA Management UI (`SLAsManagementView.tsx`)**:
+  * Dedicated 3-tab workspace:
+    1. *Perfiles SLA*: Summary cards with active SLA count and average TTO/TTR metrics, profile editor modal, calendar assignment, and priority override.
+    2. *Matriz de Escalamiento*: Multi-tier escalation rule manager with trigger timing pills, action badges, and rule configuration modal.
+    3. *Calendarios Laborales*: Weekly shift planner (7-day visual schedule with active day toggles and time ranges), holiday manager with recurring flag, and live interactive deadline projection simulator (`/api/v1/slas/simulate`).
+* **Service Desk & Ticket Views Integration**:
+  * `TicketsListView`: SLA status badges (`En tiempo`, `En riesgo`, `Vencido`, `Cumplido`), countdown timers, mini progress bars, SLA filter dropdown, and metric strip indicators for at-risk and breached tickets.
+  * `TicketDetailModal`: Expanded "Tiempos y SLA" card with TTO status, TTR countdown, progress bar, SLA profile badges, and automated escalation logs.
+  * `CreateTicketModal`: SLA Profile selector with automatic suggestion according to the 5×5 priority matrix, displaying estimated response and resolution targets.
+  * `Sidebar` & `App`: New navigation entry for SLA Management with `v0.0.7` badge, and bumped release badges.
 
 ## [0.0.6] - 2026-09-20
 

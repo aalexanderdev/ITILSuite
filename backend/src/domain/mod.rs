@@ -6,6 +6,7 @@ pub mod entity;
 pub mod group;
 pub mod notification;
 pub mod rule;
+pub mod sla;
 pub mod template;
 pub mod ticket;
 pub mod user;

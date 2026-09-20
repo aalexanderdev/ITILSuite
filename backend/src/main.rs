@@ -32,7 +32,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let addr_str = format!("{}:{}", config.server_host, config.server_port);
     let socket_addr: SocketAddr = addr_str.parse()?;
 
-    info!("🚀 Starting ITILSuite Backend v0.0.6...");
+    info!("🚀 Starting ITILSuite Backend v0.0.7...");
 
     // 1. Initialize PostgreSQL Connection Pool
     let pool = db::create_pool(&config).await?;
@@ -63,6 +63,18 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             interval.tick().await;
             if let Err(e) = services::mail_service::MailService::process_queue_batch(&worker_pool).await {
                 tracing::warn!("Error processing notification queue: {}", e);
+            }
+        }
+    });
+
+    // 5. Start Background SLA Monitoring & Escalation Worker
+    let sla_worker_pool = app_state.pool.clone();
+    tokio::spawn(async move {
+        let mut interval = tokio::time::interval(tokio::time::Duration::from_secs(30));
+        loop {
+            interval.tick().await;
+            if let Err(e) = services::sla_service::SlaService::process_sla_tick(&sla_worker_pool).await {
+                tracing::warn!("Error evaluating SLA tick: {}", e);
             }
         }
     });

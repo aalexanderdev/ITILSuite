@@ -61,6 +61,20 @@ import type {
   UpdateRulePayload,
   DryRunRequest,
   DryRunResult,
+  Calendar,
+  CalendarSegment,
+  CalendarHoliday,
+  CalendarDetail,
+  SlaSummary,
+  SlaLevel,
+  SlaDetail,
+  CreateSlaPayload,
+  UpdateSlaPayload,
+  CreateSlaLevelPayload,
+  UpdateSlaLevelPayload,
+  CreateCalendarPayload,
+  SlaSimulationRequest,
+  SlaSimulationResponse,
 } from '../types';
 
 export const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8081';
@@ -415,6 +429,7 @@ export async function fetchTickets(filters?: TicketFilterOptions): Promise<Ticke
   if (filters?.priority) params.append('priority', filters.priority.toString());
   if (filters?.assigned_to) params.append('assigned_to', filters.assigned_to);
   if (filters?.assigned_group_id) params.append('assigned_group_id', filters.assigned_group_id);
+  if (filters?.sla_status) params.append('sla_status', filters.sla_status);
   if (filters?.search) params.append('search', filters.search);
 
   const url = `${API_BASE_URL}/api/v1/tickets${params.toString() ? `?${params.toString()}` : ''}`;
@@ -1203,6 +1218,228 @@ export async function dryRunRules(payload: DryRunRequest): Promise<DryRunResult>
   if (!response.ok) {
     const errorData = await response.json().catch(() => null);
     throw new Error(errorData?.message || `Failed to execute dry-run (${response.status})`);
+  }
+  return response.json();
+}
+
+// ============================================================================
+// SLA Engine & Business Calendars API (v0.0.7)
+// ============================================================================
+
+export async function fetchSlas(): Promise<SlaSummary[]> {
+  const response = await fetch(`${API_BASE_URL}/api/v1/slas`, {
+    method: 'GET',
+    headers: getAuthHeaders(),
+  });
+  if (!response.ok) {
+    throw new Error(`Error al consultar perfiles SLA (${response.status})`);
+  }
+  return response.json();
+}
+
+export async function fetchSlaById(id: string): Promise<SlaDetail> {
+  const response = await fetch(`${API_BASE_URL}/api/v1/slas/${id}`, {
+    method: 'GET',
+    headers: getAuthHeaders(),
+  });
+  if (!response.ok) {
+    throw new Error(`Error al consultar detalle de SLA (${response.status})`);
+  }
+  return response.json();
+}
+
+export async function createSla(payload: CreateSlaPayload): Promise<SlaSummary> {
+  const response = await fetch(`${API_BASE_URL}/api/v1/slas`, {
+    method: 'POST',
+    headers: getAuthHeaders(),
+    body: JSON.stringify(payload),
+  });
+  if (!response.ok) {
+    const err = await response.json().catch(() => null);
+    throw new Error(err?.message || err?.error || `Error al crear perfil SLA (${response.status})`);
+  }
+  return response.json();
+}
+
+export async function updateSla(id: string, payload: UpdateSlaPayload): Promise<SlaSummary> {
+  const response = await fetch(`${API_BASE_URL}/api/v1/slas/${id}`, {
+    method: 'PUT',
+    headers: getAuthHeaders(),
+    body: JSON.stringify(payload),
+  });
+  if (!response.ok) {
+    const err = await response.json().catch(() => null);
+    throw new Error(err?.message || err?.error || `Error al actualizar perfil SLA (${response.status})`);
+  }
+  return response.json();
+}
+
+export async function deleteSla(id: string): Promise<void> {
+  const response = await fetch(`${API_BASE_URL}/api/v1/slas/${id}`, {
+    method: 'DELETE',
+    headers: getAuthHeaders(),
+  });
+  if (!response.ok) {
+    throw new Error(`Error al eliminar SLA (${response.status})`);
+  }
+}
+
+export async function fetchSlaLevels(slaId: string): Promise<SlaLevel[]> {
+  const response = await fetch(`${API_BASE_URL}/api/v1/slas/${slaId}/levels`, {
+    method: 'GET',
+    headers: getAuthHeaders(),
+  });
+  if (!response.ok) {
+    throw new Error(`Error al consultar niveles de escalamiento (${response.status})`);
+  }
+  return response.json();
+}
+
+export async function createSlaLevel(slaId: string, payload: CreateSlaLevelPayload): Promise<SlaLevel> {
+  const response = await fetch(`${API_BASE_URL}/api/v1/slas/${slaId}/levels`, {
+    method: 'POST',
+    headers: getAuthHeaders(),
+    body: JSON.stringify(payload),
+  });
+  if (!response.ok) {
+    const err = await response.json().catch(() => null);
+    throw new Error(err?.message || err?.error || `Error al crear regla de escalamiento (${response.status})`);
+  }
+  return response.json();
+}
+
+export async function updateSlaLevel(slaId: string, levelId: string, payload: UpdateSlaLevelPayload): Promise<SlaLevel> {
+  const response = await fetch(`${API_BASE_URL}/api/v1/slas/${slaId}/levels/${levelId}`, {
+    method: 'PUT',
+    headers: getAuthHeaders(),
+    body: JSON.stringify(payload),
+  });
+  if (!response.ok) {
+    const err = await response.json().catch(() => null);
+    throw new Error(err?.message || err?.error || `Error al actualizar regla de escalamiento (${response.status})`);
+  }
+  return response.json();
+}
+
+export async function deleteSlaLevel(slaId: string, levelId: string): Promise<void> {
+  const response = await fetch(`${API_BASE_URL}/api/v1/slas/${slaId}/levels/${levelId}`, {
+    method: 'DELETE',
+    headers: getAuthHeaders(),
+  });
+  if (!response.ok) {
+    throw new Error(`Error al eliminar nivel de escalamiento (${response.status})`);
+  }
+}
+
+export async function fetchCalendars(): Promise<Calendar[]> {
+  const response = await fetch(`${API_BASE_URL}/api/v1/calendars`, {
+    method: 'GET',
+    headers: getAuthHeaders(),
+  });
+  if (!response.ok) {
+    throw new Error(`Error al consultar calendarios laborales (${response.status})`);
+  }
+  return response.json();
+}
+
+export async function fetchCalendarById(id: string): Promise<CalendarDetail> {
+  const response = await fetch(`${API_BASE_URL}/api/v1/calendars/${id}`, {
+    method: 'GET',
+    headers: getAuthHeaders(),
+  });
+  if (!response.ok) {
+    throw new Error(`Error al consultar detalle de calendario (${response.status})`);
+  }
+  return response.json();
+}
+
+export async function createCalendar(payload: CreateCalendarPayload): Promise<CalendarDetail> {
+  const response = await fetch(`${API_BASE_URL}/api/v1/calendars`, {
+    method: 'POST',
+    headers: getAuthHeaders(),
+    body: JSON.stringify(payload),
+  });
+  if (!response.ok) {
+    const err = await response.json().catch(() => null);
+    throw new Error(err?.message || err?.error || `Error al crear calendario (${response.status})`);
+  }
+  return response.json();
+}
+
+export async function updateCalendar(id: string, payload: Partial<Calendar>): Promise<Calendar> {
+  const response = await fetch(`${API_BASE_URL}/api/v1/calendars/${id}`, {
+    method: 'PUT',
+    headers: getAuthHeaders(),
+    body: JSON.stringify(payload),
+  });
+  if (!response.ok) {
+    const err = await response.json().catch(() => null);
+    throw new Error(err?.message || err?.error || `Error al actualizar calendario (${response.status})`);
+  }
+  return response.json();
+}
+
+export async function deleteCalendar(id: string): Promise<void> {
+  const response = await fetch(`${API_BASE_URL}/api/v1/calendars/${id}`, {
+    method: 'DELETE',
+    headers: getAuthHeaders(),
+  });
+  if (!response.ok) {
+    throw new Error(`Error al eliminar calendario (${response.status})`);
+  }
+}
+
+export async function saveCalendarSegments(
+  calendarId: string,
+  segments: Array<{ day_of_week: number; start_time: string; end_time: string }>
+): Promise<CalendarSegment[]> {
+  const response = await fetch(`${API_BASE_URL}/api/v1/calendars/${calendarId}/segments`, {
+    method: 'POST',
+    headers: getAuthHeaders(),
+    body: JSON.stringify(segments),
+  });
+  if (!response.ok) {
+    const err = await response.json().catch(() => null);
+    throw new Error(err?.message || err?.error || `Error al guardar franjas horarias (${response.status})`);
+  }
+  return response.json();
+}
+
+export async function addCalendarHoliday(
+  calendarId: string,
+  payload: { name: string; holiday_date: string }
+): Promise<CalendarHoliday> {
+  const response = await fetch(`${API_BASE_URL}/api/v1/calendars/${calendarId}/holidays`, {
+    method: 'POST',
+    headers: getAuthHeaders(),
+    body: JSON.stringify(payload),
+  });
+  if (!response.ok) {
+    const err = await response.json().catch(() => null);
+    throw new Error(err?.message || err?.error || `Error al registrar día festivo (${response.status})`);
+  }
+  return response.json();
+}
+
+export async function deleteCalendarHoliday(calendarId: string, holidayId: string): Promise<void> {
+  const response = await fetch(`${API_BASE_URL}/api/v1/calendars/${calendarId}/holidays/${holidayId}`, {
+    method: 'DELETE',
+    headers: getAuthHeaders(),
+  });
+  if (!response.ok) {
+    throw new Error(`Error al eliminar día festivo (${response.status})`);
+  }
+}
+
+export async function simulateSlaDeadlines(payload: SlaSimulationRequest): Promise<SlaSimulationResponse> {
+  const response = await fetch(`${API_BASE_URL}/api/v1/slas/simulate`, {
+    method: 'POST',
+    headers: getAuthHeaders(),
+    body: JSON.stringify(payload),
+  });
+  if (!response.ok) {
+    const err = await response.json().catch(() => null);
+    throw new Error(err?.message || err?.error || `Error en simulación SLA (${response.status})`);
   }
   return response.json();
 }

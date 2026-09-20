@@ -91,7 +91,13 @@ export interface TicketSummary {
   requester_group_id?: string | null;
   requester_group_name?: string | null;
   category: string | null;
+  sla_id?: string | null;
+  sla_name?: string | null;
+  time_to_own?: string | null;
   time_to_resolve: string | null;
+  acknowledged_at?: string | null;
+  sla_tto_status?: 'pending' | 'within_sla' | 'breached';
+  sla_ttr_status?: 'within_sla' | 'at_risk' | 'breached' | 'solved_in_sla';
   solved_at: string | null;
   closed_at: string | null;
   created_at: string;
@@ -124,6 +130,7 @@ export interface CreateTicketPayload {
   assigned_group_id?: string;
   requester_group_id?: string;
   category?: string;
+  sla_id?: string;
 }
 
 export interface UpdateTicketPayload {
@@ -136,6 +143,7 @@ export interface UpdateTicketPayload {
   assigned_group_id?: string | null;
   requester_group_id?: string | null;
   category?: string;
+  sla_id?: string | null;
 }
 
 export interface CreateFollowupPayload {
@@ -149,6 +157,7 @@ export interface TicketMetrics {
   incidents_count: number;
   requests_count: number;
   sla_at_risk_count: number;
+  sla_breached_count: number;
   solved_count: number;
   closed_count: number;
   average_priority: number;
@@ -161,7 +170,139 @@ export interface TicketFilterOptions {
   priority?: number;
   assigned_to?: string;
   assigned_group_id?: string;
+  sla_status?: string;
   search?: string;
+}
+
+// ============================================================================
+// SLA Engine, Business Calendars & Escalation Matrices (v0.0.7)
+// ============================================================================
+
+export interface Calendar {
+  id: string;
+  entity_id: string | null;
+  name: string;
+  timezone: string;
+  is_default: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CalendarSegment {
+  id: string;
+  calendar_id: string;
+  day_of_week: number; // 1 = Monday ... 7 = Sunday
+  start_time: string;
+  end_time: string;
+  created_at: string;
+}
+
+export interface CalendarHoliday {
+  id: string;
+  calendar_id: string;
+  name: string;
+  holiday_date: string;
+  created_at: string;
+}
+
+export interface CalendarDetail extends Calendar {
+  segments: CalendarSegment[];
+  holidays: CalendarHoliday[];
+}
+
+export interface SlaSummary {
+  id: string;
+  entity_id: string | null;
+  entity_name: string | null;
+  name: string;
+  description: string | null;
+  calendar_id: string | null;
+  calendar_name: string | null;
+  tto_duration_minutes: number;
+  ttr_duration_minutes: number;
+  priority_override: number | null;
+  is_active: boolean;
+  escalation_levels_count: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export type EscalationActionType = 'escalate_priority' | 'reassign_group' | 'reassign_technician' | 'send_alert';
+
+export interface SlaLevel {
+  id: string;
+  sla_id: string;
+  name: string;
+  target_type: 'tto' | 'ttr';
+  execution_offset_minutes: number;
+  action_type: EscalationActionType;
+  action_value: string;
+  is_active: boolean;
+  created_at: string;
+}
+
+export interface SlaDetail extends SlaSummary {
+  levels: SlaLevel[];
+}
+
+export interface CreateSlaPayload {
+  name: string;
+  description?: string;
+  calendar_id?: string | null;
+  tto_duration_minutes: number;
+  ttr_duration_minutes: number;
+  priority_override?: number | null;
+  is_active?: boolean;
+}
+
+export interface UpdateSlaPayload {
+  name?: string;
+  description?: string;
+  calendar_id?: string | null;
+  tto_duration_minutes?: number;
+  ttr_duration_minutes?: number;
+  priority_override?: number | null;
+  is_active?: boolean;
+}
+
+export interface CreateSlaLevelPayload {
+  name: string;
+  target_type: 'tto' | 'ttr';
+  execution_offset_minutes: number;
+  action_type: EscalationActionType;
+  action_value: string;
+  is_active?: boolean;
+}
+
+export interface UpdateSlaLevelPayload {
+  name?: string;
+  target_type?: 'tto' | 'ttr';
+  execution_offset_minutes?: number;
+  action_type?: EscalationActionType;
+  action_value?: string;
+  is_active?: boolean;
+}
+
+export interface CreateCalendarPayload {
+  name: string;
+  timezone?: string;
+  is_default?: boolean;
+  segments?: Array<{ day_of_week: number; start_time: string; end_time: string }>;
+  holidays?: Array<{ name: string; holiday_date: string }>;
+}
+
+export interface SlaSimulationRequest {
+  start_time?: string;
+  calendar_id?: string;
+  duration_minutes: number;
+}
+
+export interface SlaSimulationResponse {
+  start_time: string;
+  target_time: string;
+  duration_minutes: number;
+  calendar_name: string;
+  working_days_elapsed: number;
 }
 
 // ITIL Ticket Templates (Inspired by GLPI)
