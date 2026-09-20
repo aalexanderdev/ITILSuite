@@ -15,14 +15,20 @@ import {
   Info,
   Users,
   Zap,
+  HeartHandshake,
+  Share2,
+  Copy,
+  ExternalLink,
 } from 'lucide-react';
-import type { TicketDetail, TicketStatus, UserSummary, GroupSummary } from '../../types';
+import type { TicketDetail, TicketStatus, UserSummary, GroupSummary, SurveyToken } from '../../types';
 import {
   fetchTicketById,
   updateTicket,
   addTicketFollowup,
   fetchUsers,
   fetchGroups,
+  fetchTicketSurveyToken,
+  generateTicketSurveyToken,
 } from '../../services/api';
 import { getPriorityMeta } from './PriorityMatrixPicker';
 import { TicketDetailSkeleton, Tooltip } from '../ui';
@@ -67,16 +73,45 @@ export const TicketDetailModal: React.FC<TicketDetailModalProps> = ({
   const [submittingFollowup, setSubmittingFollowup] = useState(false);
   const [feedbackMsg, setFeedbackMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
+  // Survey state
+  const [surveyToken, setSurveyToken] = useState<SurveyToken | null>(null);
+  const [generatingToken, setGeneratingToken] = useState(false);
+
   useEffect(() => {
     if (isOpen && ticketId) {
       loadTicket();
       loadTechnicians();
+      loadSurveyToken(ticketId);
     } else {
       setTicket(null);
+      setSurveyToken(null);
       setFollowupContent('');
       setFeedbackMsg(null);
     }
   }, [isOpen, ticketId]);
+
+  const loadSurveyToken = async (id: string) => {
+    try {
+      const tok = await fetchTicketSurveyToken(id);
+      setSurveyToken(tok);
+    } catch {
+      // ignore
+    }
+  };
+
+  const handleGenerateTicketToken = async () => {
+    if (!ticketId) return;
+    setGeneratingToken(true);
+    try {
+      const tok = await generateTicketSurveyToken(ticketId);
+      setSurveyToken(tok);
+      toast.success('Enlace generado', 'Enlace de satisfacción creado exitosamente.');
+    } catch (err: any) {
+      toast.error('Error al generar enlace', err.message);
+    } finally {
+      setGeneratingToken(false);
+    }
+  };
 
   const loadTicket = async () => {
     if (!ticketId) return;
@@ -978,6 +1013,137 @@ export const TicketDetailModal: React.FC<TicketDetailModalProps> = ({
                   </div>
                 );
               })()}
+
+              {/* Customer Satisfaction & Survey Card */}
+              <div className="sidebar-card">
+                <div className="sidebar-card-header" style={{ justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <HeartHandshake size={18} className="sidebar-icon" style={{ color: 'var(--accent-coral)' }} />
+                    <h4>Satisfacción del Cliente</h4>
+                  </div>
+                  {surveyToken && (
+                    <span
+                      style={{
+                        fontSize: '0.68rem',
+                        fontWeight: 600,
+                        padding: '0.15rem 0.5rem',
+                        borderRadius: '4px',
+                        background:
+                          surveyToken.status === 'completed'
+                            ? 'rgba(52, 211, 153, 0.15)'
+                            : surveyToken.status === 'expired'
+                            ? 'rgba(239, 68, 68, 0.15)'
+                            : 'rgba(251, 191, 36, 0.15)',
+                        color:
+                          surveyToken.status === 'completed'
+                            ? '#34d399'
+                            : surveyToken.status === 'expired'
+                            ? '#f87171'
+                            : '#fbbf24',
+                      }}
+                    >
+                      {surveyToken.status === 'completed'
+                        ? 'Completada'
+                        : surveyToken.status === 'expired'
+                        ? 'Expirada'
+                        : 'En Espera'}
+                    </span>
+                  )}
+                </div>
+
+                <div className="metadata-list" style={{ display: 'flex', flexDirection: 'column', gap: '0.65rem' }}>
+                  {surveyToken ? (
+                    <>
+                      <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
+                        Encuesta: <strong style={{ color: 'var(--text-primary)' }}>{surveyToken.survey_name}</strong>
+                      </div>
+
+                      {surveyToken.status === 'completed' ? (
+                        <div
+                          style={{
+                            padding: '0.6rem',
+                            borderRadius: '6px',
+                            background: 'rgba(52, 211, 153, 0.1)',
+                            border: '1px solid rgba(52, 211, 153, 0.25)',
+                            fontSize: '0.8rem',
+                            color: '#34d399',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '0.4rem',
+                          }}
+                        >
+                          <CheckCircle2 size={16} />
+                          <span>Encuesta respondida el {formatDate(surveyToken.answered_at || surveyToken.created_at)}</span>
+                        </div>
+                      ) : (
+                        <>
+                          <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                            Expira: {formatDate(surveyToken.expires_at)}
+                          </div>
+
+                          <div style={{ display: 'flex', gap: '0.4rem', marginTop: '0.25rem' }}>
+                            <button
+                              type="button"
+                              className="btn btn-secondary btn-sm"
+                              onClick={() => {
+                                const fullUrl = `${window.location.origin}/survey/${surveyToken.token}`;
+                                navigator.clipboard.writeText(fullUrl);
+                                toast.success('Enlace copiado', 'URL de satisfacción copiada');
+                              }}
+                              style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.35rem' }}
+                            >
+                              <Copy size={13} />
+                              <span>Copiar Enlace</span>
+                            </button>
+
+                            <button
+                              type="button"
+                              className="btn btn-secondary btn-sm"
+                              onClick={() => {
+                                const fullUrl = `${window.location.origin}/survey/${surveyToken.token}`;
+                                const text = encodeURIComponent(
+                                  `Hola! Nos gustaría conocer tu opinión sobre el ticket #${ticket.ticket_number}. Por favor completa la encuesta: ${fullUrl}`
+                                );
+                                window.open(`https://wa.me/?text=${text}`, '_blank');
+                              }}
+                              title="Compartir por WhatsApp"
+                              style={{ color: '#34d399' }}
+                            >
+                              <Share2 size={13} />
+                            </button>
+
+                            <a
+                              href={`/survey/${surveyToken.token}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="btn btn-secondary btn-sm"
+                              title="Abrir Encuesta"
+                            >
+                              <ExternalLink size={13} />
+                            </a>
+                          </div>
+                        </>
+                      )}
+                    </>
+                  ) : (
+                    <div style={{ textAlign: 'center', padding: '0.5rem 0' }}>
+                      <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)', margin: '0 0 0.5rem 0' }}>
+                        No se ha emitido enlace de satisfacción para este ticket aún.
+                      </p>
+                      <button
+                        type="button"
+                        className="btn btn-secondary btn-sm"
+                        disabled={generatingToken}
+                        onClick={handleGenerateTicketToken}
+                        style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.4rem' }}
+                      >
+                        <HeartHandshake size={13} />
+                        <span>{generatingToken ? 'Generando...' : 'Generar Enlace de Encuesta'}</span>
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
             </div>
           </div>
         ) : null}

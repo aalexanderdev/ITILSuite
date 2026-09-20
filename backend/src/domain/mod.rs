@@ -9,4 +9,5 @@ pub mod rule;
 pub mod sla;
 pub mod template;
 pub mod ticket;
+pub mod survey;
 pub mod user;

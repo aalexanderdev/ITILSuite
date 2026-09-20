@@ -47,6 +47,12 @@ export const RoadmapCard: React.FC = () => {
     },
     {
       version: 'v0.0.8',
+      title: 'Native Surveys & Satisfaction Management (CSAT/NPS)',
+      desc: 'Multi-entity survey builder, 9 question types, conditional visibility, tamper-proof 64-char tokens, live smartphone preview, and NPS/CSAT analytics.',
+      status: 'completed',
+    },
+    {
+      version: 'v0.0.9',
       title: 'ITIL Problem & Change Management',
       desc: 'Known error database (KEDB), root cause analysis, Change Advisory Board (CAB), and RFC approval lifecycles.',
       status: 'planned',

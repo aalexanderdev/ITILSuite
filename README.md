@@ -8,7 +8,7 @@
 <div align="center">
 
 [![License: GPL-3.0-or-later](https://img.shields.io/badge/License-GPL--3.0--or--later-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
-[![Version](https://img.shields.io/badge/version-0.0.7-informational.svg)](https://github.com/aalexanderdev/ITILSuite/releases)
+[![Version](https://img.shields.io/badge/version-0.0.8-informational.svg)](https://github.com/aalexanderdev/ITILSuite/releases)
 [![Downloads](https://img.shields.io/github/downloads/aalexanderdev/ITILSuite/total.svg?color=blue)](https://github.com/aalexanderdev/ITILSuite/releases)
 [![Mastodon](https://img.shields.io/badge/Mastodon-@aalexander-6364FF.svg?logo=mastodon&logoColor=white)](https://mastodon.social/@aalexander)
 [![Rust](https://img.shields.io/badge/rust-1.75%2B-orange.svg)](https://www.rust-lang.org/)
@@ -30,7 +30,7 @@ GLPI is an industry standard for IT service and asset management across enterpri
 
 ---
 
-## Key Features (v0.0.5)
+## Key Features (v0.0.8)
 
 ### 1. Multi-Tenant Entity Hierarchy & RBAC
 * Recursive entity tree (GLPI-compatible hierarchical structure).
@@ -124,7 +124,22 @@ GLPI is an industry standard for IT service and asset management across enterpri
   * **Notifications**: Asynchronous fan-out resolving all active group members in the Tokio outbox worker.
   * **CMDB**: Asset responsible team ownership (`group_id`).
 
-### 8. User Experience & Design
+### 8. Real-Time Service Level Agreements (SLAs) & Working Calendars (v0.0.7)
+* **Real-Time Calendar Arithmetic Engine**: Precision computation of TTO (Time to Own) and TTR (Time to Resolve) targets across weekly shift segments (e.g. 9x5 or 24x7) skipping weekends and corporate holidays.
+* **Automated Escalation Matrices**: Tiered multi-action escalations (priority bump, group reassignment, technician dispatch, alert notification) executed idempotently via `ticket_sla_escalations_log`.
+* **Proactive Tokio SLA Monitor**: Real-time evaluation background worker scanning open tickets and transitioning status (`within_sla` -> `at_risk` -> `breached`).
+
+### 9. Native Surveys & Customer Satisfaction Management (CSAT / NPS) (v0.0.8)
+* **Multi-Entity Survey Management**: Scoped surveys with recursive child inheritance, default fallback, and customizable expiration (`ttl_days_override`).
+* **9 Native Question Types**: 1-5 Star Ratings, NPS (0-10 Scale), Yes/No, Radio Choice, Multi-Checkbox, Dropdown, Short Text, Long Textarea, and Date.
+* **Dynamic Conditional Logic**: Real-time question revelation based on previous answer values (e.g., prompting for improvement suggestions only when CSAT is `<=3`).
+* **Starter Presets with 1-Click Instantiation**: Ready-to-use templates for CSAT Estándar, Net Promoter Score, and Technical Support Quality (FCR).
+* **Deep Survey Cloning**: 1-click duplication replicating all nested questions, options, and conditional dependency graphs.
+* **Cryptographic Access Tokens**: Tamper-proof 64-character tokens supporting draft autosave and single-use atomic completion.
+* **Ticket Lifecycle Automation**: Automatic token generation on ticket resolution, 1-click sharing (WhatsApp, Teams, Email), and customer responses logged as private timeline followups.
+* **Admin Console & Live Device Simulator**: 6-tab workspace featuring live interactive previews in Desktop and Smartphone mockup with notch.
+
+### 10. User Experience & Design
 * **Dual-theme support**:
   * **Warm Tones Dark Mode**: Built on the official Material Design 2 Dark Theme specification with elevation overlay levels (`00dp` to `24dp`), deep espresso charcoal surface (`#141210`), warm parchment typography (`#F6F0EA`), desaturated accents, and cozy atmospheric ambient glow.
   * **Clean Light Mode**: Crisp corporate OpenITIL layout with high-contrast slate surfaces.

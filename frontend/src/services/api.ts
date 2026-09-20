@@ -75,6 +75,20 @@ import type {
   CreateCalendarPayload,
   SlaSimulationRequest,
   SlaSimulationResponse,
+  SurveySummary,
+  SurveyDetail,
+  CreateSurveyPayload,
+  UpdateSurveyPayload,
+  CreateQuestionPayload,
+  UpdateQuestionPayload,
+  SurveyToken,
+  GenerateTokenPayload,
+  PublicSurvey,
+  SaveDraftPayload,
+  SubmitSurveyPayload,
+  SurveyDashboardMetrics,
+  SurveyPresetDef,
+  SurveyQuestion,
 } from '../types';
 
 export const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8081';
@@ -1442,5 +1456,267 @@ export async function simulateSlaDeadlines(payload: SlaSimulationRequest): Promi
     throw new Error(err?.message || err?.error || `Error en simulación SLA (${response.status})`);
   }
   return response.json();
+}
+
+// ==========================================
+// Survey & Satisfaction API Service (v0.0.8)
+// ==========================================
+
+export async function fetchSurveys(entityId?: string, isActive?: boolean): Promise<SurveySummary[]> {
+  const params = new URLSearchParams();
+  if (entityId) params.append('entity_id', entityId);
+  if (isActive !== undefined) params.append('is_active', String(isActive));
+  const query = params.toString() ? `?${params.toString()}` : '';
+
+  const response = await fetch(`${API_BASE_URL}/api/v1/surveys${query}`, {
+    method: 'GET',
+    headers: getAuthHeaders(),
+  });
+  if (!response.ok) {
+    throw new Error(`Error al listar encuestas (${response.status})`);
+  }
+  return response.json();
+}
+
+export async function fetchSurveyDetail(id: string): Promise<SurveyDetail> {
+  const response = await fetch(`${API_BASE_URL}/api/v1/surveys/${id}`, {
+    method: 'GET',
+    headers: getAuthHeaders(),
+  });
+  if (!response.ok) {
+    throw new Error(`Error al obtener detalle de la encuesta (${response.status})`);
+  }
+  return response.json();
+}
+
+export async function createSurvey(payload: CreateSurveyPayload): Promise<SurveyDetail> {
+  const response = await fetch(`${API_BASE_URL}/api/v1/surveys`, {
+    method: 'POST',
+    headers: getAuthHeaders(),
+    body: JSON.stringify(payload),
+  });
+  if (!response.ok) {
+    const err = await response.json().catch(() => null);
+    throw new Error(err?.error?.message || err?.message || `Error al crear encuesta (${response.status})`);
+  }
+  return response.json();
+}
+
+export async function updateSurvey(id: string, payload: UpdateSurveyPayload): Promise<SurveyDetail> {
+  const response = await fetch(`${API_BASE_URL}/api/v1/surveys/${id}`, {
+    method: 'PUT',
+    headers: getAuthHeaders(),
+    body: JSON.stringify(payload),
+  });
+  if (!response.ok) {
+    const err = await response.json().catch(() => null);
+    throw new Error(err?.error?.message || err?.message || `Error al actualizar encuesta (${response.status})`);
+  }
+  return response.json();
+}
+
+export async function deleteSurvey(id: string): Promise<void> {
+  const response = await fetch(`${API_BASE_URL}/api/v1/surveys/${id}`, {
+    method: 'DELETE',
+    headers: getAuthHeaders(),
+  });
+  if (!response.ok) {
+    throw new Error(`Error al eliminar encuesta (${response.status})`);
+  }
+}
+
+export async function cloneSurvey(id: string, name?: string): Promise<SurveyDetail> {
+  const response = await fetch(`${API_BASE_URL}/api/v1/surveys/${id}/clone`, {
+    method: 'POST',
+    headers: getAuthHeaders(),
+    body: JSON.stringify({ name }),
+  });
+  if (!response.ok) {
+    const err = await response.json().catch(() => null);
+    throw new Error(err?.error?.message || err?.message || `Error al clonar encuesta (${response.status})`);
+  }
+  return response.json();
+}
+
+export async function fetchSurveyPresets(): Promise<SurveyPresetDef[]> {
+  const response = await fetch(`${API_BASE_URL}/api/v1/surveys/presets`, {
+    method: 'GET',
+    headers: getAuthHeaders(),
+  });
+  if (!response.ok) {
+    throw new Error(`Error al obtener plantillas predefinidas (${response.status})`);
+  }
+  return response.json();
+}
+
+export async function fetchSurveyDashboardMetrics(
+  surveyId?: string,
+  dateFrom?: string,
+  dateTo?: string
+): Promise<SurveyDashboardMetrics> {
+  const params = new URLSearchParams();
+  if (surveyId) params.append('survey_id', surveyId);
+  if (dateFrom) params.append('date_from', dateFrom);
+  if (dateTo) params.append('date_to', dateTo);
+  const query = params.toString() ? `?${params.toString()}` : '';
+
+  const response = await fetch(`${API_BASE_URL}/api/v1/surveys/dashboard${query}`, {
+    method: 'GET',
+    headers: getAuthHeaders(),
+  });
+  if (!response.ok) {
+    throw new Error(`Error al cargar métricas de satisfacción (${response.status})`);
+  }
+  return response.json();
+}
+
+export async function createSurveyQuestion(
+  surveyId: string,
+  payload: CreateQuestionPayload
+): Promise<SurveyQuestion> {
+  const response = await fetch(`${API_BASE_URL}/api/v1/surveys/${surveyId}/questions`, {
+    method: 'POST',
+    headers: getAuthHeaders(),
+    body: JSON.stringify(payload),
+  });
+  if (!response.ok) {
+    const err = await response.json().catch(() => null);
+    throw new Error(err?.error?.message || err?.message || `Error al agregar pregunta (${response.status})`);
+  }
+  return response.json();
+}
+
+export async function updateSurveyQuestion(
+  questionId: string,
+  payload: UpdateQuestionPayload
+): Promise<SurveyQuestion> {
+  const response = await fetch(`${API_BASE_URL}/api/v1/surveys/questions/${questionId}`, {
+    method: 'PUT',
+    headers: getAuthHeaders(),
+    body: JSON.stringify(payload),
+  });
+  if (!response.ok) {
+    const err = await response.json().catch(() => null);
+    throw new Error(err?.error?.message || err?.message || `Error al actualizar pregunta (${response.status})`);
+  }
+  return response.json();
+}
+
+export async function deleteSurveyQuestion(questionId: string): Promise<void> {
+  const response = await fetch(`${API_BASE_URL}/api/v1/surveys/questions/${questionId}`, {
+    method: 'DELETE',
+    headers: getAuthHeaders(),
+  });
+  if (!response.ok) {
+    throw new Error(`Error al eliminar pregunta (${response.status})`);
+  }
+}
+
+export async function reorderSurveyQuestions(surveyId: string, questionIds: string[]): Promise<void> {
+  const response = await fetch(`${API_BASE_URL}/api/v1/surveys/${surveyId}/questions/reorder`, {
+    method: 'POST',
+    headers: getAuthHeaders(),
+    body: JSON.stringify({ question_ids: questionIds }),
+  });
+  if (!response.ok) {
+    throw new Error(`Error al reordenar preguntas (${response.status})`);
+  }
+}
+
+export async function fetchSurveyTokens(query?: {
+  survey_id?: string;
+  ticket_id?: string;
+  status?: string;
+  limit?: number;
+  offset?: number;
+}): Promise<SurveyToken[]> {
+  const params = new URLSearchParams();
+  if (query?.survey_id) params.append('survey_id', query.survey_id);
+  if (query?.ticket_id) params.append('ticket_id', query.ticket_id);
+  if (query?.status) params.append('status', query.status);
+  if (query?.limit) params.append('limit', String(query.limit));
+  if (query?.offset) params.append('offset', String(query.offset));
+  const qStr = params.toString() ? `?${params.toString()}` : '';
+
+  const response = await fetch(`${API_BASE_URL}/api/v1/surveys/tokens${qStr}`, {
+    method: 'GET',
+    headers: getAuthHeaders(),
+  });
+  if (!response.ok) {
+    throw new Error(`Error al listar tokens de encuesta (${response.status})`);
+  }
+  return response.json();
+}
+
+export async function generateSurveyToken(payload: GenerateTokenPayload): Promise<SurveyToken> {
+  const response = await fetch(`${API_BASE_URL}/api/v1/surveys/tokens`, {
+    method: 'POST',
+    headers: getAuthHeaders(),
+    body: JSON.stringify(payload),
+  });
+  if (!response.ok) {
+    const err = await response.json().catch(() => null);
+    throw new Error(err?.error?.message || err?.message || `Error al generar token (${response.status})`);
+  }
+  return response.json();
+}
+
+export async function fetchTicketSurveyToken(ticketId: string): Promise<SurveyToken | null> {
+  const response = await fetch(`${API_BASE_URL}/api/v1/tickets/${ticketId}/survey-token`, {
+    method: 'GET',
+    headers: getAuthHeaders(),
+  });
+  if (!response.ok) {
+    return null;
+  }
+  return response.json();
+}
+
+export async function generateTicketSurveyToken(ticketId: string): Promise<SurveyToken> {
+  const response = await fetch(`${API_BASE_URL}/api/v1/tickets/${ticketId}/survey-token`, {
+    method: 'POST',
+    headers: getAuthHeaders(),
+  });
+  if (!response.ok) {
+    const err = await response.json().catch(() => null);
+    throw new Error(err?.error?.message || err?.message || `Error al generar enlace de encuesta (${response.status})`);
+  }
+  return response.json();
+}
+
+// Zero-Login Public Survey API (No Auth Headers required)
+export async function fetchPublicSurvey(token: string): Promise<PublicSurvey> {
+  const response = await fetch(`${API_BASE_URL}/api/v1/public/surveys/${encodeURIComponent(token)}`, {
+    method: 'GET',
+  });
+  if (!response.ok) {
+    const err = await response.json().catch(() => null);
+    throw new Error(err?.error?.message || err?.message || `Encuesta no disponible (${response.status})`);
+  }
+  return response.json();
+}
+
+export async function savePublicSurveyDraft(token: string, payload: SaveDraftPayload): Promise<void> {
+  const response = await fetch(`${API_BASE_URL}/api/v1/public/surveys/${encodeURIComponent(token)}/draft`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  if (!response.ok) {
+    const err = await response.json().catch(() => null);
+    throw new Error(err?.error?.message || err?.message || `Error al guardar borrador (${response.status})`);
+  }
+}
+
+export async function submitPublicSurvey(token: string, payload: SubmitSurveyPayload): Promise<void> {
+  const response = await fetch(`${API_BASE_URL}/api/v1/public/surveys/${encodeURIComponent(token)}/submit`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  if (!response.ok) {
+    const err = await response.json().catch(() => null);
+    throw new Error(err?.error?.message || err?.message || `Error al enviar encuesta (${response.status})`);
+  }
 }
 

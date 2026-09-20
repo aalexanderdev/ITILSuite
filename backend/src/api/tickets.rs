@@ -457,7 +457,7 @@ pub async fn update_ticket(
     .await
     .map_err(|e| AppError::InternalServerError(format!("Database error: {}", e)))?;
 
-    let (old_status, old_urgency, old_impact, old_sla_id, mut time_to_own, mut time_to_resolve, mut acknowledged_at) = existing
+    let (old_status, old_urgency, old_impact, old_sla_id, mut time_to_own, mut time_to_resolve, acknowledged_at) = existing
         .ok_or_else(|| AppError::NotFound("Ticket not found".to_string()))?;
 
     let new_urgency = payload.urgency.unwrap_or(old_urgency).clamp(1, 5);
@@ -615,6 +615,8 @@ pub async fn update_ticket(
     }
     if new_status == "solved" {
         let _ = crate::services::mail_service::MailService::dispatch_event(&state.pool, "ticket_solved", id, None).await;
+        // Auto-generate survey token for customer satisfaction feedback
+        let _ = crate::services::survey_service::SurveyService::generate_token(&state.pool, None, Some(id), None, None).await;
     } else if new_status == "closed" {
         let _ = crate::services::mail_service::MailService::dispatch_event(&state.pool, "ticket_closed", id, None).await;
     }

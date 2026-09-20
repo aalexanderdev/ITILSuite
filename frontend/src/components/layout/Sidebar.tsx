@@ -14,6 +14,7 @@ import {
   MessageSquare,
   Sliders,
   Clock,
+  HeartHandshake,
 } from 'lucide-react';
 
 import { BrandLogo } from '../common/BrandLogo';
@@ -42,7 +43,8 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeNav, onSelectNav }) => {
       items: [
         { id: 'dashboard', label: 'Service Desk Overview', icon: LifeBuoy, badge: 'Live' },
         { id: 'tickets', label: 'Tickets & Incidents', icon: GitPullRequest, badge: '12' },
-        { id: 'slas', label: 'Acuerdos de Nivel (SLA)', icon: Clock, badge: 'v0.0.7' },
+        { id: 'slas', label: 'Acuerdos de Nivel (SLA)', icon: Clock, badge: 'SLAs' },
+        { id: 'surveys', label: 'Encuestas & CSAT', icon: HeartHandshake, badge: 'v0.0.8' },
         { id: 'chat_dashboard', label: 'HelpdeskChat & Métricas', icon: MessageSquare, badge: 'Live' },
         { id: 'problems', label: 'Problems & Changes', icon: Layers, badge: '3' },
       ],
@@ -82,7 +84,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeNav, onSelectNav }) => {
           <span className="brand-name">ITILSuite</span>
           <span className="brand-version">
             <span style={{ display: 'inline-block', width: 6, height: 6, borderRadius: '50%', backgroundColor: '#10b981' }}></span>
-            ITIL Core • v0.0.7
+            ITIL Core • v0.0.8
           </span>
         </div>
       </div>

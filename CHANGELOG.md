@@ -8,6 +8,47 @@ All notable changes to this project will be documented in this file in accordanc
 
 ---
 
+## [0.0.8] - 2026-09-20
+
+### Added
+* **Native Survey & Customer Satisfaction Subsystem (CSAT & NPS)**:
+  * Complete native port and architecture replacing external PHP plugins with high-performance Rust Axum, PostgreSQL, and React 19.
+  * Multi-entity survey configuration with recursive inheritance (`is_recursive`), default survey indicators, and customizable link lifetime (`ttl_days_override`).
+  * 9 native question types supported across builder and respondents:
+    1. `rating5`: 1 to 5 visual stars with animated hover and fill.
+    2. `nps`: Net Promoter Score 0 to 10 scale categorized into Detractors (0-6), Passives (7-8), and Promoters (9-10).
+    3. `yesno`: Binary feedback with visual thumbs buttons.
+    4. `choice_single`: Radio option selector.
+    5. `choice_multiple`: Multi-option checkbox selector.
+    6. `dropdown`: Native dropdown selector.
+    7. `text`: Single-line text input.
+    8. `textarea`: Multi-line text field for detailed user suggestions.
+    9. `date`: Calendar date selector.
+  * Real-time conditional visibility evaluator (`condition_question_id` + `condition_value`, e.g. `<3` or exact string match) dynamically revealing follow-up questions when negative ratings are given.
+  * 1-Click Starter Presets: `CSAT Estándar` (1-5 stars with conditional improvement question), `NPS Estándar` (0-10 scale), `Calidad de Soporte Técnico` (Multi-criteria FCR + technician professionalism), and `Personalizada (En Blanco)`.
+  * Deep survey cloning endpoint (`POST /api/v1/surveys/:id/clone`) replicating surveys, questions, conditional links, and options in a single atomic transaction.
+* **Cryptographic Tokens & Zero-Login Public Responder**:
+  * 64-character hex cryptographic tokens (`survey_tokens`) ensuring tamper-proof public access links.
+  * Draft autosave mechanism (`survey_answers` status `'draft'` with `UNIQUE(token_id, question_id)`) allowing respondents to leave and re-enter surveys before final submission.
+  * Dedicated standalone zero-login respondent view (`PublicSurveyView.tsx`) without administrative chrome, supporting mobile and desktop layouts.
+  * Atomic survey submission (`survey_answers` status `'final'`) recording respondent IP and completion timestamp, locking the token against duplicate submissions.
+* **Service Desk & Ticket Lifecycle Integration**:
+  * Automated trigger: when a ticket transitions to `solved`, a satisfaction survey token is automatically generated.
+  * Ticket Detail Integration: "Satisfacción del Cliente" card in `TicketDetailModal` with direct 1-click URL copying, WhatsApp Web sharing (`https://wa.me/?text=...`), and survey opening.
+  * Automated Customer Response Followup: submitting a survey for a ticket instantly generates a private markdown satisfaction audit note in `ticket_followups` with star rating, NPS score, and answer summaries.
+* **Administrative Console & Live Simulator (`SurveysManagementView.tsx`)**:
+  * Dedicated 6-tab administrative console:
+    1. *Plantillas Predefinidas*: 1-click instantiation cards.
+    2. *Constructor & Preguntas*: Survey list and interactive question editor with ranking reordering.
+    3. *Diseño & Etiquetas*: HTML header/footer/success screen editor with click-to-copy tag chips (`##ticket.id##`, `##ticket.title##`, `##ticket.technician##`, `##ticket.requester##`).
+    4. *Previsualización en Vivo*: Real-time interactive simulator with toggle between Desktop (PC) and Smartphone device frame (with notch and screen mockup).
+    5. *Enlaces & Tokens*: Token audit table with filter by survey and status, copyable URLs, and manual token generation modal.
+    6. *Métricas CSAT / NPS*: Executive dashboard with total surveys, response rate, average CSAT (1-5 stars), NPS score gauge (-100 to +100), 5-star distribution chart, and recent customer responses table.
+* **OpenAPI Documentation & Swagger UI**:
+  * Full schema definitions and endpoints registered under `Surveys` and `Public Surveys` tags.
+
+---
+
 ## [0.0.7] - 2026-09-20
 
 ### Added

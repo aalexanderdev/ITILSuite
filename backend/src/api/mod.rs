@@ -6,9 +6,11 @@ pub mod groups;
 pub mod health;
 pub mod inventory;
 pub mod notifications;
+pub mod public_surveys;
 pub mod receivers;
 pub mod rules;
 pub mod slas;
+pub mod surveys;
 pub mod templates;
 pub mod tickets;
 pub mod users;
@@ -103,6 +105,26 @@ impl Modify for SecurityAddon {
         slas::update_sla_level,
         slas::delete_sla_level,
         slas::simulate_sla,
+        surveys::list_presets,
+        surveys::get_dashboard_metrics,
+        surveys::list_surveys,
+        surveys::get_survey,
+        surveys::create_survey,
+        surveys::update_survey,
+        surveys::delete_survey,
+        surveys::clone_survey,
+        surveys::list_questions,
+        surveys::create_question,
+        surveys::update_question,
+        surveys::delete_question,
+        surveys::reorder_questions,
+        surveys::list_tokens,
+        surveys::generate_token,
+        surveys::generate_ticket_survey_token,
+        surveys::get_ticket_survey_token,
+        public_surveys::get_public_survey,
+        public_surveys::save_public_draft,
+        public_surveys::submit_public_survey,
     ),
     components(
         schemas(
@@ -181,6 +203,35 @@ impl Modify for SecurityAddon {
             crate::domain::sla::UpdateSlaLevelDto,
             crate::domain::sla::SlaSimulationRequest,
             crate::domain::sla::SlaSimulationResponse,
+            crate::domain::survey::Survey,
+            crate::domain::survey::SurveySummaryDto,
+            crate::domain::survey::SurveyDetailDto,
+            crate::domain::survey::CreateSurveyDto,
+            crate::domain::survey::UpdateSurveyDto,
+            crate::domain::survey::SurveyQuestion,
+            crate::domain::survey::SurveyQuestionDto,
+            crate::domain::survey::SurveyQuestionOption,
+            crate::domain::survey::SurveyQuestionOptionDto,
+            crate::domain::survey::CreateQuestionDto,
+            crate::domain::survey::UpdateQuestionDto,
+            crate::domain::survey::ReorderQuestionsDto,
+            crate::domain::survey::SurveyToken,
+            crate::domain::survey::SurveyTokenDto,
+            crate::domain::survey::GenerateTokenDto,
+            crate::domain::survey::SurveyAnswer,
+            crate::domain::survey::SurveyAnswerDto,
+            crate::domain::survey::PublicQuestionOptionDto,
+            crate::domain::survey::PublicQuestionDto,
+            crate::domain::survey::PublicSurveyDto,
+            crate::domain::survey::QuestionAnswerInput,
+            crate::domain::survey::SaveDraftDto,
+            crate::domain::survey::SubmitSurveyDto,
+            crate::domain::survey::CsatDistributionDto,
+            crate::domain::survey::NpsDistributionDto,
+            crate::domain::survey::RecentSurveyResponseDto,
+            crate::domain::survey::SurveyDashboardMetricsDto,
+            crate::domain::survey::PresetQuestionDef,
+            crate::domain::survey::SurveyPresetDef,
             crate::error::ErrorDetail,
             crate::error::ErrorResponse,
         )
@@ -193,6 +244,8 @@ impl Modify for SecurityAddon {
         (name = "Groups", description = "Transversal Groups and Teams inspired by GLPI"),
         (name = "Tickets", description = "ITIL Service Desk Incident/Request lifecycles and dispatch"),
         (name = "SLAs", description = "Service Level Agreements (SLA), Business Calendars and Escalation Matrices"),
+        (name = "Surveys", description = "Satisfaction surveys, question builders, and NPS/CSAT analytics"),
+        (name = "Public Surveys", description = "Zero-login public responder with draft autosave"),
         (name = "Templates", description = "ITIL Ticket Templates inspired by GLPI"),
         (name = "Assets", description = "ITAM / CMDB Hardware and Software Asset Inventory inspired by GLPI"),
         (name = "GLPI Agent Inventory", description = "Automated Hardware & Software Ingestion compatible with GLPI-Agent"),
@@ -201,7 +254,7 @@ impl Modify for SecurityAddon {
     ),
     info(
         title = "ITILSuite REST API",
-        version = "0.0.7",
+        version = "0.0.8",
         description = "High-performance Rust REST API for ITSM, ITAM, and CMDB.",
         license(name = "GPL-3.0-or-later", url = "https://www.gnu.org/licenses/gpl-3.0.html")
     )
@@ -261,9 +314,11 @@ pub fn create_router(state: AppState) -> Router {
         .route("/inventory/agent/simulate", post(inventory::simulate_agent_inventory))
         .nest("/chat", chat::chat_router())
         .merge(notifications::router())
+        .merge(public_surveys::router())
         .merge(receivers::router())
         .merge(rules::router())
-        .merge(slas::router());
+        .merge(slas::router())
+        .merge(surveys::router());
 
     Router::new()
         .nest("/api/v1", api_v1)

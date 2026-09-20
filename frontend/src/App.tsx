@@ -20,21 +20,19 @@ import { AssetsListView } from './components/assets/AssetsListView';
 import { ChatDashboardView } from './components/chat/ChatDashboardView';
 import { RuleManagementView } from './components/rules/RuleManagementView';
 import { SLAsManagementView } from './components/slas/SLAsManagementView';
+import { SurveysManagementView } from './components/surveys/SurveysManagementView';
+import { PublicSurveyView } from './components/surveys/PublicSurveyView';
 import { pingBackendDiagnostics, type PingResult } from './services/api';
 import {
-  PlusCircle,
+  Plus,
   Check,
   Cpu,
   Workflow,
   Building2,
-  FolderTree,
   Server,
   Globe,
   Monitor,
   MessageSquare,
-  LifeBuoy,
-  Mail,
-  Sliders,
   Clock,
 } from 'lucide-react';
 
@@ -95,6 +93,8 @@ function DashboardMain() {
             />
           ) : activeNav === 'slas' ? (
             <SLAsManagementView />
+          ) : activeNav === 'surveys' ? (
+            <SurveysManagementView />
           ) : activeNav === 'chat_dashboard' || activeNav === 'chat-analytics' || activeNav === 'chat' ? (
             <ChatDashboardView />
           ) : activeNav === 'mail_config' ? (
@@ -114,62 +114,21 @@ function DashboardMain() {
                     <strong>{activeEntity.name}</strong>
                   </p>
                 </div>
-                <div className="welcome-actions">
+                <div className="welcome-badges-row">
+                  <div className="welcome-badge-pill">
+                    <span className="welcome-pulse-dot" />
+                    <span>ITIL Core v0.0.8 Activo</span>
+                  </div>
+                  <div className="welcome-badge-pill">
+                    <Clock size={14} color="#f59e0b" />
+                    <span>Motor SLA & Reglas Activo</span>
+                  </div>
                   <button
-                    onClick={() => setActiveNav('tickets')}
+                    onClick={() => setIsCreateTicketOpen(true)}
                     className="btn-welcome-primary"
                   >
-                    <LifeBuoy size={16} />
-                    <span>Mesa de Tickets</span>
-                  </button>
-                  <button
-                    onClick={() => setActiveNav('slas')}
-                    className="btn-welcome-secondary"
-                  >
-                    <Clock size={16} />
-                    <span>Gestión de SLAs</span>
-                  </button>
-                  <button
-                    onClick={() => setActiveNav('chat_dashboard')}
-                    className="btn-welcome-secondary"
-                  >
-                    <MessageSquare size={16} />
-                    <span>Chat Analytics</span>
-                  </button>
-                  <button
-                    onClick={() => setActiveNav('computers')}
-                    className="btn-welcome-secondary"
-                  >
-                    <Server size={16} />
-                    <span>Activos & CMDB</span>
-                  </button>
-                  <button
-                    onClick={() => setActiveNav('mail_config')}
-                    className="btn-welcome-secondary"
-                  >
-                    <Mail size={16} />
-                    <span>Correo & Notificaciones</span>
-                  </button>
-                  <button
-                    onClick={() => setActiveNav('rules')}
-                    className="btn-welcome-secondary"
-                  >
-                    <Sliders size={16} />
-                    <span>Motor de Reglas</span>
-                  </button>
-                  <button
-                    onClick={() => setActiveNav('entities')}
-                    className="btn-welcome-secondary"
-                  >
-                    <FolderTree size={16} />
-                    <span>Jerarquía de Entidades</span>
-                  </button>
-                  <button
-                    onClick={() => setActiveNav('users')}
-                    className="btn-welcome-secondary"
-                  >
-                    <PlusCircle size={16} />
-                    <span>Directorio Usuarios</span>
+                    <Plus size={16} />
+                    <span>Nuevo Ticket</span>
                   </button>
                 </div>
               </div>
@@ -385,6 +344,23 @@ function DashboardMain() {
 }
 
 export function App() {
+  const isPublicSurvey = (() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.get('survey_token')) return true;
+    return window.location.pathname.startsWith('/survey/');
+  })();
+
+  if (isPublicSurvey) {
+    return (
+      <ThemeProvider>
+        <ToastProvider>
+          <PublicSurveyView />
+          <ToastContainer />
+        </ToastProvider>
+      </ThemeProvider>
+    );
+  }
+
   return (
     <ThemeProvider>
       <AuthProvider>

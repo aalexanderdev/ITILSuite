@@ -1127,3 +1127,263 @@ export interface BatchUserImportResponse {
   results: BatchUserImportRowResult[];
 }
 
+// ============================================================================
+// Native Survey & Satisfaction Management (v0.0.8)
+// ============================================================================
+
+export type SurveyQuestionType =
+  | 'rating5'
+  | 'nps'
+  | 'yesno'
+  | 'choice_single'
+  | 'choice_multiple'
+  | 'dropdown'
+  | 'text'
+  | 'textarea'
+  | 'date';
+
+export interface SurveyQuestionOption {
+  id: string;
+  question_id: string;
+  value: string;
+  ranking: number;
+}
+
+export interface SurveyQuestion {
+  id: string;
+  survey_id: string;
+  name: string;
+  question_type: SurveyQuestionType;
+  is_mandatory: boolean;
+  ranking: number;
+  condition_question_id: string | null;
+  condition_value: string | null;
+  options: SurveyQuestionOption[];
+  created_at: string;
+  updated_at: string;
+}
+
+export interface SurveySummary {
+  id: string;
+  entity_id: string | null;
+  entity_name: string | null;
+  is_recursive: boolean;
+  name: string;
+  comment: string | null;
+  is_active: boolean;
+  is_default: boolean;
+  ttl_days_override: number;
+  allow_reentry_override: number;
+  questions_count: number;
+  completed_tokens_count: number;
+  average_rating: number | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface SurveyDetail {
+  id: string;
+  entity_id: string | null;
+  entity_name: string | null;
+  is_recursive: boolean;
+  name: string;
+  comment: string | null;
+  header_content: string | null;
+  footer_content: string | null;
+  success_content: string | null;
+  is_active: boolean;
+  is_default: boolean;
+  ttl_days_override: number;
+  allow_reentry_override: number;
+  questions: SurveyQuestion[];
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CreateSurveyPayload {
+  name: string;
+  entity_id?: string | null;
+  is_recursive?: boolean;
+  comment?: string | null;
+  header_content?: string | null;
+  footer_content?: string | null;
+  success_content?: string | null;
+  is_active?: boolean;
+  is_default?: boolean;
+  ttl_days_override?: number;
+  allow_reentry_override?: number;
+  template_preset?: string;
+}
+
+export interface UpdateSurveyPayload {
+  name?: string;
+  entity_id?: string | null;
+  is_recursive?: boolean;
+  comment?: string | null;
+  header_content?: string | null;
+  footer_content?: string | null;
+  success_content?: string | null;
+  is_active?: boolean;
+  is_default?: boolean;
+  ttl_days_override?: number;
+  allow_reentry_override?: number;
+}
+
+export interface CreateQuestionPayload {
+  name: string;
+  question_type: SurveyQuestionType;
+  is_mandatory?: boolean;
+  ranking?: number;
+  condition_question_id?: string | null;
+  condition_value?: string | null;
+  options?: string[];
+}
+
+export interface UpdateQuestionPayload {
+  name?: string;
+  question_type?: SurveyQuestionType;
+  is_mandatory?: boolean;
+  ranking?: number;
+  condition_question_id?: string | null;
+  condition_value?: string | null;
+  options?: string[];
+}
+
+export interface SurveyToken {
+  id: string;
+  entity_id: string | null;
+  entity_name: string | null;
+  ticket_id: string | null;
+  ticket_number: string | null;
+  ticket_name: string | null;
+  survey_id: string;
+  survey_name: string;
+  token: string;
+  status: 'pending' | 'in_progress' | 'completed' | 'expired';
+  requester_email: string | null;
+  public_url: string;
+  created_at: string;
+  expires_at: string;
+  answered_at: string | null;
+  last_accessed_at: string | null;
+}
+
+export interface GenerateTokenPayload {
+  survey_id?: string;
+  ticket_id?: string;
+  requester_email?: string;
+}
+
+export interface SurveyAnswerSummary {
+  question_id: string;
+  question_name: string;
+  question_type: SurveyQuestionType;
+  answer: string | null;
+  status: string;
+}
+
+export interface PublicQuestionOption {
+  value: string;
+  ranking: number;
+}
+
+export interface PublicQuestion {
+  id: string;
+  name: string;
+  question_type: SurveyQuestionType;
+  is_mandatory: boolean;
+  ranking: number;
+  condition_question_id: string | null;
+  condition_value: string | null;
+  options: PublicQuestionOption[];
+}
+
+export interface PublicSurvey {
+  token: string;
+  status: string;
+  survey_name: string;
+  header_content: string | null;
+  footer_content: string | null;
+  success_content: string | null;
+  allow_reentry: boolean;
+  ticket_number: string | null;
+  ticket_title: string | null;
+  technician_name: string | null;
+  requester_name: string | null;
+  questions: PublicQuestion[];
+  draft_answers: Record<string, string>;
+}
+
+export interface QuestionAnswerInput {
+  question_id: string;
+  value: string;
+}
+
+export interface SaveDraftPayload {
+  answers: QuestionAnswerInput[];
+}
+
+export interface SubmitSurveyPayload {
+  answers: QuestionAnswerInput[];
+}
+
+export interface CsatDistribution {
+  star: number;
+  count: number;
+  percentage: number;
+}
+
+export interface NpsDistribution {
+  promoters: number;
+  passives: number;
+  detractors: number;
+  score: number;
+  total: number;
+}
+
+export interface RecentSurveyResponse {
+  token_id: string;
+  ticket_number: string | null;
+  ticket_title: string | null;
+  survey_name: string;
+  requester_email: string | null;
+  answered_at: string;
+  csat_rating: number | null;
+  nps_score: number | null;
+  answers_summary: SurveyAnswerSummary[];
+}
+
+export interface SurveyDashboardMetrics {
+  total_surveys: number;
+  active_surveys: number;
+  total_links_issued: number;
+  completed_surveys: number;
+  pending_surveys: number;
+  expired_surveys: number;
+  response_rate: number;
+  average_csat: number;
+  csat_distribution: CsatDistribution[];
+  nps: NpsDistribution;
+  recent_responses: RecentSurveyResponse[];
+}
+
+export interface PresetQuestionDef {
+  name: string;
+  question_type: SurveyQuestionType;
+  is_mandatory: boolean;
+  ranking: number;
+  condition_on_prev_index: number | null;
+  condition_value: string | null;
+  options: string[] | null;
+}
+
+export interface SurveyPresetDef {
+  key: string;
+  name: string;
+  badge: string;
+  description: string;
+  header: string;
+  success: string;
+  questions: PresetQuestionDef[];
+}
+
