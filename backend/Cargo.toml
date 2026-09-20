@@ -3,7 +3,7 @@ name = "itilsuite-backend"
 version = "0.0.6"
 edition = "2021"
 authors = ["ITILSuite Contributors"]
-description = "High-performance Rust backend for ITILSuite, inspired by GLPI 11"
+description = "High-performance Rust backend for ITILSuite"
 license = "GPL-3.0-or-later"
 
 [dependencies]

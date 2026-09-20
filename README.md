@@ -115,7 +115,7 @@ GLPI is an industry standard for IT service and asset management across enterpri
   * Schema validation, credential hashing (Argon2id), entity pre-assignment, and group joining.
   * Interactive import wizard with downloadable CSV template and syntax validation.
 * **Transversal Groups Architecture (`groups` & `group_users`)**:
-  * Centralized group directory with GLPI 11 capabilities (`is_task`, `is_requester`, `is_user_group`, `is_recursive`).
+  * Centralized group directory with transversal capabilities (`is_task`, `is_requester`, `is_user_group`, `is_recursive`).
   * Flexible scoping: Global transversal teams or entity-scoped with recursive inheritance.
   * Hierarchical leadership roles (`is_manager`) distinguishing supervisors from regular members.
 * **Cross-Cutting Transversal Integrations**:
@@ -170,7 +170,7 @@ ITILSuite/
 
 For deeper architectural context, see:
 * [ADR 0001: Architecture and Tech Stack Selection](docs/adr/0001_initial_tech_stack.md)
-* [Domain Mapping: From GLPI 11 to ITILSuite in Rust](docs/architecture/01_glpi_to_rust_domain.md)
+* [Domain Mapping: From Legacy ITSM to ITILSuite in Rust](docs/architecture/01_glpi_to_rust_domain.md)
 
 ---
 

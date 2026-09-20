@@ -1,5 +1,5 @@
 -- 20260921000001_transversal_groups_and_user_ingestion.sql
--- Subsystem: Transversal Groups Architecture & User Batch Ingestion (Inspired by GLPI 11)
+-- Subsystem: Transversal Groups Architecture & User Batch Ingestion
 
 -- 1. Transversal Groups Table
 CREATE TABLE IF NOT EXISTS groups (

@@ -218,7 +218,7 @@ export const EntityTreeView: React.FC = () => {
               Organizational Entity Hierarchy
             </h2>
             <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-              Multi-tenant recursive boundary tree inherited from GLPI 11 architecture
+              Multi-tenant recursive boundary tree inherited from enterprise multi-tenant architecture
             </p>
           </div>
         </div>

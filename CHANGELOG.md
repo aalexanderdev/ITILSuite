@@ -17,7 +17,7 @@ All notable changes to this project will be documented in this file in accordanc
 
 ### Added
 * **Transversal Groups Architecture (`groups` & `group_users`)**:
-  * Centralized, multi-tenant transversal group management inspired by GLPI 11 (`is_task`, `is_requester`, `is_user_group`, `is_recursive`).
+  * Centralized, multi-tenant transversal group management (`is_task`, `is_requester`, `is_user_group`, `is_recursive`).
   * Scoping flexibility: Global transversal groups (`entity_id IS NULL`) accessible across all entities, or entity-specific groups with optional recursive inheritance.
   * Hierarchical group roles with supervisor/leader designation (`is_manager`).
   * Dedicated backend domain (`Group`, `GroupUser`, DTOs) and REST endpoints (`/api/v1/groups`, `/api/v1/groups/:id`, `/api/v1/groups/:id/members`, `/api/v1/groups/:id/members/:user_id/role`).
@@ -178,7 +178,7 @@ All notable changes to this project will be documented in this file in accordanc
 * **Documentation**:
   * Exhaustive `README.md` with architectural vision, local setup instructions, and release roadmap.
   * ADR 0001: Architecture Decision Record on technology stack selection (Rust + Axum + Tokio + SQLx + React/TS).
-  * Architecture Guide: Conceptual domain mapping from GLPI 11 to Rust.
+  * Architecture Guide: Conceptual domain mapping from Legacy ITSM to Rust.
 * **Backend (Rust + Axum)**:
   * Asynchronous web server built on Tokio, Axum, and Tower.
   * Extensible environment configuration system via `dotenvy`.
@@ -192,7 +192,7 @@ All notable changes to this project will be documented in this file in accordanc
   * Automated integration and health tests passing in `cargo test`.
 * **Frontend (TypeScript + React + Vite)**:
   * SPA project scaffolded with Vite and TypeScript in strict mode.
-  * Enterprise-grade IT management layout inspired by GLPI 11 density:
+  * Enterprise-grade IT management layout with high-density workspace:
     * Sidebar navigation featuring core ITIL modules (Service Desk, Assets & CMDB, Management, Administration).
     * Topbar navigation with multi-tenant hierarchical Entity selector (Root Entity).
     * Real-time connectivity pill monitoring the live Rust backend API.

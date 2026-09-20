@@ -1,6 +1,6 @@
-# Domain Mapping: From GLPI 11 to ITILSuite in Rust
+# Domain Mapping: From Legacy ITSM to ITILSuite in Rust
 
-This document defines the conceptual mapping between GLPI 11 core modules and the Rust domain architecture for **ITILSuite**.
+This document defines the conceptual mapping between legacy ITSM core modules and the Rust domain architecture for **ITILSuite**.
 
 ---
 
@@ -110,7 +110,7 @@ In Rust:
 
 ## 5. Transversal Groups & Directory Ingestion
 
-GLPI 11 features transversal groups (`glpi_groups`, `glpi_groups_users`) that span multiple departments, entities, and functional workflows. In ITILSuite, transversal groups provide a single source of truth across all modules:
+Transversal groups (`groups`, `group_users`) span multiple departments, entities, and functional workflows. In ITILSuite, transversal groups provide a single source of truth across all modules:
 
 ### Rust Domain Representation
 ```rust

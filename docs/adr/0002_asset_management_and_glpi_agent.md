@@ -2,7 +2,7 @@
 
 ## Context & Problem Statement
 
-GLPI 11 and its predecessor versions track IT hardware assets (Computers, Servers, Switches, Routers, Monitors, Peripherals, and Software) across dozens of highly granular, flat relational database tables (e.g. `glpi_computers`, `glpi_items_devicemotherboards`, `glpi_items_devicecpus`, `glpi_items_devicememories`, `glpi_items_devicenetworkcards`, `glpi_networkports`, etc.).
+Traditional ITSM and CMDB platforms track IT hardware assets (Computers, Servers, Switches, Routers, Monitors, Peripherals, and Software) across dozens of highly granular, flat relational database tables (e.g. `glpi_computers`, `glpi_items_devicemotherboards`, `glpi_items_devicecpus`, `glpi_items_devicememories`, `glpi_items_devicenetworkcards`, `glpi_networkports`, etc.).
 
 While this traditional schema allows normalized relational joins, it introduces severe bottlenecks:
 1. **Extreme schema migration fragility**: Adding a new hardware sensor or peripheral specification requires running complex multi-table DDL migrations.

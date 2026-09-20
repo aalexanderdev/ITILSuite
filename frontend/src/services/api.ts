@@ -563,7 +563,7 @@ export async function createTicketTemplate(
 }
 
 // ==========================================
-// Mail & Notification API Service (GLPI 11 Inspired)
+// Mail & Notification API Service
 // ==========================================
 
 export async function fetchMailSettings(): Promise<MailSettings> {

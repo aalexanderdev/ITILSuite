@@ -201,7 +201,7 @@ export interface CreateTicketTemplatePayload {
   hidden_fields?: string[];
 }
 
-// Mail & Notification System (Inspired by GLPI 11)
+// Mail & Notification System
 export interface MailSettings {
   id: string;
   entity_id: string | null;

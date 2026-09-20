@@ -462,7 +462,7 @@ export const MailConfigView: React.FC = () => {
               Notificaciones y Colectores de Correo
             </h2>
             <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)', margin: '0.2rem 0 0 0' }}>
-              Motor de correo estilo GLPI 11: Servidor SMTP, Ingestión IMAP/POP3, Plantillas y Cola de Envíos
+              Motor de correo empresarial ITIL: Servidor SMTP, Ingestión IMAP/POP3, Plantillas y Cola de Envíos
             </p>
           </div>
         </div>
@@ -757,11 +757,11 @@ export const MailConfigView: React.FC = () => {
               </div>
             </div>
 
-            {/* GLPI Compatibility Notice */}
+            {/* Notifications Notice */}
             <div className="card" style={{ borderLeft: '4px solid #3b82f6' }}>
               <h4 style={{ fontSize: '0.9rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.4rem', marginBottom: '0.5rem' }}>
                 <Info size={16} color="#3b82f6" />
-                Paridad Funcional con GLPI 11
+                Paridad Funcional ITSM / ITIL
               </h4>
               <p style={{ fontSize: '0.76rem', color: 'var(--text-muted)', lineHeight: 1.6 }}>
                 En <strong>ITILSuite</strong>, los correos se envían de forma asíncrona mediante una cola persistente con reintentos automáticos gestionados por un proceso en segundo plano de Tokio, garantizando cero retrasos en la respuesta HTTP de la mesa de tickets.

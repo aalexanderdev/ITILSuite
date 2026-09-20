@@ -32,7 +32,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let addr_str = format!("{}:{}", config.server_host, config.server_port);
     let socket_addr: SocketAddr = addr_str.parse()?;
 
-    info!("🚀 Starting ITILSuite Backend v0.0.2 (Inspired by GLPI 11)...");
+    info!("🚀 Starting ITILSuite Backend v0.0.6...");
 
     // 1. Initialize PostgreSQL Connection Pool
     let pool = db::create_pool(&config).await?;

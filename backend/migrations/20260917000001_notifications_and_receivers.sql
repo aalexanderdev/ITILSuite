@@ -1,5 +1,5 @@
 -- 20260917000001_notifications_and_receivers.sql
--- Subsystem: Mail Receivers (Collectors), Notifications Engine, and Queued Delivery (Inspired by GLPI 11)
+-- Subsystem: Mail Receivers (Collectors), Notifications Engine, and Queued Delivery
 
 -- 1. Create Mail Settings (Global and Per-Entity Overrides)
 CREATE TABLE IF NOT EXISTS mail_settings (

@@ -1,6 +1,6 @@
 # ITILSuite Frontend
 
-Modern, high-performance web interface for **ITILSuite**, inspired by GLPI 11.
+Modern, high-performance web interface for **ITILSuite**.
 
 ## Tech Stack
 * **React 19**

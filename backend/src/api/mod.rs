@@ -164,7 +164,7 @@ impl Modify for SecurityAddon {
     info(
         title = "ITILSuite REST API",
         version = "0.0.6",
-        description = "High-performance Rust REST API inspired by GLPI 11 for ITSM, ITAM, and CMDB.",
+        description = "High-performance Rust REST API for ITSM, ITAM, and CMDB.",
         license(name = "GPL-3.0-or-later", url = "https://www.gnu.org/licenses/gpl-3.0.html")
     )
 )]

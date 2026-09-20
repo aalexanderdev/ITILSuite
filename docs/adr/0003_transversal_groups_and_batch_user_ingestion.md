@@ -2,7 +2,7 @@
 
 ## Context & Problem Statement
 
-In enterprise IT service management (ITSM) and GLPI 11 environments, user identity and group management are central to all operational workflows. However, legacy implementations face structural limitations:
+In enterprise IT service management (ITSM) environments, user identity and group management are central to all operational workflows. However, legacy implementations face structural limitations:
 
 1. **Siloed Group Scopes**: In many legacy systems, user groups are strictly tied to a single organizational unit or silo, preventing cross-functional teams (e.g., Ciberseguridad & SOC, Infraestructura Cloud, Soporte Nivel 1) from operating seamlessly across multiple entities, sites, and departments.
 2. **Manual & Fragmented Onboarding**: User onboarding often requires manual GUI entry per user or external script dependencies, lacking an integrated, validated batch ingestion pipeline with deterministic conflict resolution (`skip` vs `overwrite`).
@@ -17,7 +17,7 @@ We implement a **Transversal Groups Architecture** coupled with a **Validated Ba
 * **Entity Scoping**:
   - `entity_id IS NULL`: Global transversal groups accessible across the entire multi-tenant entity hierarchy.
   - `entity_id = <UUID>` with `is_recursive = true`: Groups scoped to a specific parent entity and automatically inherited by all sub-entities.
-* **GLPI 11 Functional Capabilities**:
+* **Transversal Functional Capabilities**:
   - `is_task` (`is_assign`): Defines whether tickets and tasks can be assigned directly to the group in Service Desk.
   - `is_requester`: Enables end users to submit incidents and service requests on behalf of the group.
   - `is_user_group`: Enables general categorization and organizational directory grouping.
@@ -55,7 +55,7 @@ We implement a **Transversal Groups Architecture** coupled with a **Validated Ba
 ### Positive
 * **Zero Duplication**: A single group definition governs Service Desk ticket queues, HelpdeskChat team rooms, notification fan-out, and CMDB ownership.
 * **High Efficiency Onboarding**: Organizations can ingest hundreds of employee accounts in a single batch API call or CSV upload with deterministic feedback.
-* **GLPI 11 Feature Parity**: Retains all essential GLPI group flags (`is_task`, `is_requester`, `is_manager`, `is_recursive`) with native multi-tenant entity inheritance.
+* **Transversal Feature Parity**: Retains all essential group flags (`is_task`, `is_requester`, `is_manager`, `is_recursive`) with native multi-tenant entity inheritance.
 
 ### Trade-offs
 * Multi-recipient notification fan-out for large groups requires asynchronous background processing (handled cleanly by the Tokio outbox worker).
