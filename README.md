@@ -8,7 +8,7 @@
 <div align="center">
 
 [![License: GPL-3.0-or-later](https://img.shields.io/badge/License-GPL--3.0--or--later-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
-[![Version](https://img.shields.io/badge/version-0.0.5-informational.svg)](https://github.com/aalexanderdev/ITILSuite/releases)
+[![Version](https://img.shields.io/badge/version-0.0.6-informational.svg)](https://github.com/aalexanderdev/ITILSuite/releases)
 [![Downloads](https://img.shields.io/github/downloads/aalexanderdev/ITILSuite/total.svg?color=blue)](https://github.com/aalexanderdev/ITILSuite/releases)
 [![Mastodon](https://img.shields.io/badge/Mastodon-@aalexander-6364FF.svg?logo=mastodon&logoColor=white)](https://mastodon.social/@aalexander)
 [![Rust](https://img.shields.io/badge/rust-1.75%2B-orange.svg)](https://www.rust-lang.org/)
@@ -76,41 +76,55 @@ GLPI is an industry standard for IT service and asset management across enterpri
   * Collapsible sections: Live online agents, pinned channels, group rooms, and direct/system notices.
   * Shortcut buttons bar for instant navigation to self-service portals and knowledge bases.
   * Atomic emoji reactions (👍, ❤️, 🚀, 👀) with live counts.
-  * Inline autocomplete for `:shortcode` emojis and `@mentions` in team rooms.
-  * Multi-format attachments (drag & drop, clipboard paste `Ctrl+V`, and click-to-zoom Lightbox modal).
-  * Global hotkeys: `Ctrl+Alt+.` to toggle the dock, `Esc` to dismiss overlays, and `Ctrl+Alt+?` for shortcuts guide.
-* **Chat Analytics & Session Telemetry Dashboard (`ChatDashboardView`)**:
-  * Real-time KPI telemetry (messages, daily averages, online sessions, group volume, average session time).
-  * 24-Hour Session Gantt Timeline illustrating daily work intervals recorded via presence heartbeats.
-  * Audit-grade CSV export (`/api/v1/chat/export.csv`).
+* Incident and Service Request lifecycles.
+* GLPI-style Urgency x Impact priority matrix (5x5).
+* Ticket templates with predefined, mandatory, and hidden fields.
+* Technician dispatch, group assignments (`assigned_group_id`), and requester group attribution (`requester_group_id`).
+
+### 3. Asynchronous Notification Engine
+* Mail Receivers (IMAP/POP3 collectors) with ticket thread matching and spam filtering.
+* Dynamic notification templates with macro tag replacement.
+* Asynchronous outbox delivery worker powered by Tokio, resolving individual and group recipients.
+
+### 4. Asset Management (ITAM / CMDB)
+* Hardware inventory (computers, servers, monitors, networking gear).
+* GLPI-Agent compatible HTTP ingestion endpoint with a 4-level reconciliation pipeline.
+* Field lock mechanism protecting technician-defined fields from automated overwrite.
+* Group asset custody and maintenance responsibility (`group_id`).
+
+### 5. Real-Time HelpdeskChat
+* Native WebSocket endpoint (`/api/v1/chat/ws`) with typing indicators, presence, and reactions.
+* Direct conversion of chat conversations into ITIL tickets.
+* Automated synchronization with transversal group channels.
 
 ### 6. Business Rules & Dictionaries Normalization Engine (Inspired by GLPI)
 * **High-Throughput Rust Rule Engine (`RuleEngine`)**:
   * 11 conditional evaluation operators (`equals`, `not_equals`, `contains`, `not_contains`, `starts_with`, `ends_with`, `regex_match` with capture interpolation `$1..$N`, `in_subnet` for CIDR blocks like `192.168.10.0/24`, `is_empty`, and `is_not_empty`).
   * Pipeline execution with configurable match logic (`AND` / `OR`), priority rankings, fallback catch-all rules, and `stop_on_first_match` short-circuiting.
 * **4 Comprehensive Business Rule Domains**:
-  * **Helpdesk Rules**:
-    * Business rules for tickets (incidents & requests): automatic mutation of urgency, impact, calculated priority, category, status, and technician/group dispatch based on subject keywords, content, and sender email.
-    * Entity assignment rules for tickets: automatic routing of new tickets (API and IMAP/POP3 email collectors) to corporate entities by sender domain, email, or IP address.
-    * Problem and Change management rules for lifecycle governance.
-  * **Assets & Inventory Rules**:
-    * Equipment entity assignment: automatic multi-tenant entity routing for GLPI-Agent discovered hardware based on CIDR subnet, inventory tag, or domain.
-    * Equipment import and reconciliation: configurable decision engine replacing hardcoded matching with Link by UUID/Serial/MAC/Hostname, Create New, Reject import, or Send to Trash.
-  * **Authorization & Authentication Rules**:
-    * Automatic profile and entity assignments upon first login or LDAP/AD/SAML authentication.
-    * Automatic membership assignment to transversal groups.
-  * **Dictionaries & Normalization Engines (10 Specialized Subtypes)**:
-    * Hardware Manufacturers (e.g. `Hewlett-Packard`, `HP Inc.` -> `HP`).
-    * Operating Systems, OS Versions, and OS Architectures (e.g. `amd64`, `x86_64` -> `64-bit`).
-    * Software & Applications (grouping disparate package strings into standardized licenses).
-    * Hardware Models: Computers, Monitors, Printers, Peripherals, and Phones.
-* **Interactive Frontend Workspace (`RuleManagementView`)**:
-  * Domain tabs and subtype pills for intuitive navigation across all rule types.
-  * Visual rule cards with inline priority reordering (`#10`, `#20` up/down), active/inactive switches, and live tag summaries.
-  * Modal rule editor with dynamic criteria and action builders.
-  * **Sandbox Simulator Modal (`RuleSimulatorModal`)**: Zero-side-effect test bench with real-world presets, execution microsecond benchmarking, criterion-by-criterion visual checklists, and output payload JSON diffs.
+  * **Helpdesk Rules**: Ticket mutation, entity assignment, and problem/change rules.
+  * **Assets & Inventory Rules**: Hardware entity routing (CIDR, tags) and equipment reconciliation.
+  * **Authorization & Authentication Rules**: Dynamic profile, entity, and transversal group assignment.
+  * **Dictionaries & Normalization Engines (10 Specialized Subtypes)**: Manufacturers, OS, Architectures, Software, Hardware Models.
+* **Interactive Frontend Workspace (`RuleManagementView`)**: Rule cards, inline priority reordering, Criteria/Action builders, and zero-side-effect Sandbox Simulator.
 
-### 7. User Experience & Design
+### 7. User Ingestion & Transversal Groups Architecture
+* **High-Throughput Batch User Ingestion Engine**:
+  * Multi-format bulk user onboarding via CSV and JSON (`/api/v1/users/batch-import`).
+  * Conflict resolution policies (`skip` vs `overwrite`).
+  * Schema validation, credential hashing (Argon2id), entity pre-assignment, and group joining.
+  * Interactive import wizard with downloadable CSV template and syntax validation.
+* **Transversal Groups Architecture (`groups` & `group_users`)**:
+  * Centralized group directory with GLPI 11 capabilities (`is_task`, `is_requester`, `is_user_group`, `is_recursive`).
+  * Flexible scoping: Global transversal teams or entity-scoped with recursive inheritance.
+  * Hierarchical leadership roles (`is_manager`) distinguishing supervisors from regular members.
+* **Cross-Cutting Transversal Integrations**:
+  * **Service Desk**: Team queues, group assignment picker, and requester group attribution.
+  * **HelpdeskChat**: Dynamic team rooms synchronized with group rosters (e.g. `#soporte-nivel-1`).
+  * **Notifications**: Asynchronous fan-out resolving all active group members in the Tokio outbox worker.
+  * **CMDB**: Asset responsible team ownership (`group_id`).
+
+### 8. User Experience & Design
 * **Dual-theme support**:
   * **Warm Tones Dark Mode**: Built on the official Material Design 2 Dark Theme specification with elevation overlay levels (`00dp` to `24dp`), deep espresso charcoal surface (`#141210`), warm parchment typography (`#F6F0EA`), desaturated accents, and cozy atmospheric ambient glow.
   * **Clean Light Mode**: Crisp corporate OpenITIL layout with high-contrast slate surfaces.
@@ -125,8 +139,8 @@ GLPI is an industry standard for IT service and asset management across enterpri
 ITILSuite/
 ├── backend/                # REST & WebSocket backend in Rust (Axum + Tokio + SQLx)
 │   ├── src/
-│   │   ├── api/            # HTTP & WS routes (/health, /tickets, /entities, /users, /mail, /inventory, /chat, /rules)
-│   │   ├── domain/         # ITIL domain models (Tickets, Templates, Assets, Chat, Notifications, Rules)
+│   │   ├── api/            # HTTP & WS routes (/health, /tickets, /entities, /users, /groups, /mail, /inventory, /chat, /rules)
+│   │   ├── domain/         # ITIL domain models (Tickets, Templates, Assets, Chat, Notifications, Rules, Groups)
 │   │   ├── services/       # Business logic (TicketService, AssetService, ChatService, MailService, RuleEngine)
 │   │   ├── config.rs       # Environment variable parsing and defaults
 │   │   ├── error.rs        # Typed application errors and JSON responses
@@ -136,7 +150,7 @@ ITILSuite/
 │
 ├── frontend/               # Web client in React 19 + TypeScript + Vite
 │   ├── src/
-│   │   ├── components/     # High-density UI modules (tickets, assets, chat, rules, notifications, layout)
+│   │   ├── components/     # High-density UI modules (tickets, assets, chat, rules, users, notifications, layout)
 │   │   ├── context/        # React context providers (AuthContext, ThemeContext, ToastContext)
 │   │   ├── services/       # Typed HTTP & WebSocket API clients
 │   │   ├── types.ts        # TypeScript interfaces and DTOs
@@ -225,7 +239,7 @@ The web dashboard will be available at [http://localhost:5173](http://localhost:
   - 4 Business Rule domains: Helpdesk, Assets & ITAM, Authorization, and 10 Normalization Dictionaries.
   - In-flight pipeline integrations across Agent Ingestion, Mail Receivers, and Service Desk.
   - Interactive visual Rule Management console, dynamic Criteria/Action editor modal, and zero-side-effect Sandbox Simulator with microsecond benchmarks.
-- [ ] **v0.0.6 - User Ingestion & Transversal Groups Management**:
+- [x] **v0.0.6 - User Ingestion & Transversal Groups Management**:
   - **Batch User Ingestion**: Bulk CSV/JSON import parser with field mapping, schema validation, and role/entity pre-assignment.
   - **Transversal Groups Architecture**: Centralized group directory (`groups`, `group_users`, `group_entities`) supporting cross-cutting team structures, leader roles, and entity scoping.
   - **Cross-Platform Transversal Integrations**:

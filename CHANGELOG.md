@@ -6,19 +6,45 @@ All notable changes to this project will be documented in this file in accordanc
 
 ## [Unreleased]
 
-### Planned (v0.0.6 - User Ingestion & Transversal Groups Management)
-* **Batch User Ingestion & Directory Management**:
-  * Bulk CSV/JSON user import engine with schema validation, conflict resolution (skip/overwrite), and role/entity pre-assignment.
-  * Dedicated User Directory administration interface with search, status filters, and credential management.
+### Planned (v0.0.7 - Advanced SLAs & Automated Escalation Matrices)
+* **Real-Time SLA Engine**: Dynamic TTO (Time to Own) and TTR (Time to Resolve) targets with working calendar hours.
+* **Escalation Rules & Actions**: Automatic re-assignment, priority elevation, and supervisory alerts on impending SLA breaches.
+* **SLA Dashboard & Breach Indicators**: Visual SLA progress bars and risk badges across Service Desk ticket views.
+
+---
+
+## [0.0.6] - 2026-09-20
+
+### Added
 * **Transversal Groups Architecture (`groups` & `group_users`)**:
-  * Centralized group creation, hierarchy, and assignment engine usable across all ITILSuite modules.
-  * Entity scoping: global groups vs. entity-specific group restrictions.
-  * Leader/supervisor roles within groups.
-* **Cross-Cutting (Transversal) Group Integrations**:
-  * **HelpdeskChat**: Dynamic team rooms synchronized with group rosters, group-level `@mention` auto-completion (`@redes`, `@infra`), and group broadcast channels.
-  * **ITIL Service Desk**: Ticket assignment to groups, group technician queues, requester group attribution, and SLA routing.
-  * **IT Asset Management (CMDB)**: Custodial and maintenance responsibility assigned to organizational groups (`group_in_charge`).
-  * **Notifications Engine**: Multi-recipient dispatch resolving all active users of an assigned group in the background outbox.
+  * Centralized, multi-tenant transversal group management inspired by GLPI 11 (`is_task`, `is_requester`, `is_user_group`, `is_recursive`).
+  * Scoping flexibility: Global transversal groups (`entity_id IS NULL`) accessible across all entities, or entity-specific groups with optional recursive inheritance.
+  * Hierarchical group roles with supervisor/leader designation (`is_manager`).
+  * Dedicated backend domain (`Group`, `GroupUser`, DTOs) and REST endpoints (`/api/v1/groups`, `/api/v1/groups/:id`, `/api/v1/groups/:id/members`, `/api/v1/groups/:id/members/:user_id/role`).
+* **High-Throughput Batch User Ingestion Engine**:
+  * Dual-format ingestion endpoint (`POST /api/v1/users/batch-import`) supporting both structured JSON and raw CSV with field auto-detection.
+  * Deterministic conflict resolution modes (`skip` to preserve existing records or `overwrite` for mass updates).
+  * Automated credential handling with secure Argon2id default hashes and profile ID resolution with fallback to `Self-Service`.
+  * Pre-assignment to target entities and transversal groups during ingestion.
+  * Single-user creation modal with profile selection and instant activation.
+  * Interactive user status toggling (`is_active`) and group filtering in the User Directory.
+* **Cross-Cutting Transversal Integrations**:
+  * **ITIL Service Desk**:
+    * Direct ticket assignment to transversal groups (`assigned_group_id`) and requester group tracking (`requester_group_id`).
+    * Group technician queue filtering and assignment picker in ticket creation and detail views.
+    * Visual badges for assigned and requester groups in ticket lists.
+  * **HelpdeskChat Synchronization**:
+    * Automated provisioning of group team rooms (`chat_conversations.group_id`, e.g., `#soporte-nivel-1`, `#ciberseguridad-soc`).
+    * Dynamic roster synchronization upon member addition or removal.
+  * **Notification Outbox Dispatch**:
+    * Asynchronous Tokio outbox worker resolves all active members of an assigned group to fan out multi-recipient email notifications.
+  * **IT Asset Management (CMDB)**:
+    * Custodial and maintenance team responsibility linked directly to transversal groups (`assets.group_id`).
+* **Interactive Frontend Workspace (`UsersListView.tsx`)**:
+  * Three-tab administrative console:
+    1. *Directorio de Usuarios*: User metrics, live search, status filtering (`all`/`active`/`inactive`), transversal group filtering, and active toggle.
+    2. *Grupos Transversales*: Card grid with global/entity badges, member counts, leader indicators, interactive drawer for roster management, and group creation modal.
+    3. *Ingesta Masiva (CSV / JSON)*: Ingestion wizard with CSV template generator, JSON sample loader, syntax validation, conflict mode selector, and real-time execution report.
 
 ---
 

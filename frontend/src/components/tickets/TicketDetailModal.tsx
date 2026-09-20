@@ -14,13 +14,15 @@ import {
   Calendar,
   Layers,
   Info,
+  Users,
 } from 'lucide-react';
-import type { TicketDetail, TicketStatus, UserSummary } from '../../types';
+import type { TicketDetail, TicketStatus, UserSummary, GroupSummary } from '../../types';
 import {
   fetchTicketById,
   updateTicket,
   addTicketFollowup,
   fetchUsers,
+  fetchGroups,
 } from '../../services/api';
 import { getPriorityMeta } from './PriorityMatrixPicker';
 import { TicketDetailSkeleton, Tooltip } from '../ui';
@@ -54,7 +56,9 @@ export const TicketDetailModal: React.FC<TicketDetailModalProps> = ({
   const [updatingStatus, setUpdatingStatus] = useState(false);
   const [updatingDispatch, setUpdatingDispatch] = useState(false);
   const [technicians, setTechnicians] = useState<UserSummary[]>([]);
+  const [groups, setGroups] = useState<GroupSummary[]>([]);
   const [selectedTechId, setSelectedTechId] = useState<string>('');
+  const [selectedGroupId, setSelectedGroupId] = useState<string>('');
 
   // Follow-up form state
   const [followupContent, setFollowupContent] = useState('');
@@ -80,7 +84,16 @@ export const TicketDetailModal: React.FC<TicketDetailModalProps> = ({
     try {
       const data = await fetchTicketById(ticketId);
       setTicket(data);
-      setSelectedTechId(data.assigned_technician_id || '');
+      if (data.assigned_technician_id) {
+        setSelectedTechId(data.assigned_technician_id);
+      } else {
+        setSelectedTechId('');
+      }
+      if (data.assigned_group_id) {
+        setSelectedGroupId(data.assigned_group_id);
+      } else {
+        setSelectedGroupId('');
+      }
     } catch (err) {
       setFeedbackMsg({
         type: 'error',
@@ -98,6 +111,9 @@ export const TicketDetailModal: React.FC<TicketDetailModalProps> = ({
         (u) => u.profile_name === 'Technician' || u.profile_name === 'Super-Admin'
       );
       setTechnicians(techs);
+
+      const grps = await fetchGroups();
+      setGroups(grps.filter((g) => g.is_task));
     } catch {
       // Graceful fallback
     }
@@ -166,6 +182,35 @@ export const TicketDetailModal: React.FC<TicketDetailModalProps> = ({
         type: 'error',
         text: errMsg,
       });
+    } finally {
+      setUpdatingDispatch(false);
+    }
+  };
+
+  const handleGroupDispatchChange = async (newGroupId: string) => {
+    if (!ticket) return;
+    setSelectedGroupId(newGroupId);
+    setUpdatingDispatch(true);
+    setFeedbackMsg(null);
+    try {
+      await updateTicket(ticket.id, {
+        assigned_group_id: newGroupId ? newGroupId : null,
+        ...(ticket.status === 'new' && newGroupId ? { status: 'assigned' } : {}),
+      });
+      await loadTicket();
+      onTicketUpdated();
+      const grp = groups.find((g) => g.id === newGroupId);
+      if (newGroupId) {
+        toast.success(
+          'Grupo Asignado',
+          `${ticket.ticket_number} asignado al grupo "${grp?.name || 'transversal'}".`
+        );
+      } else {
+        toast.info('Asignación Removida', `Ticket ${ticket.ticket_number} sin grupo asignado.`);
+      }
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Error al actualizar grupo';
+      toast.error('Error', msg);
     } finally {
       setUpdatingDispatch(false);
     }
@@ -509,15 +554,39 @@ export const TicketDetailModal: React.FC<TicketDetailModalProps> = ({
 
             {/* Right Column: Metadata, Technician Dispatch & SLA */}
             <div className="ticket-modal-sidebar">
-              {/* Technician Dispatch Card */}
+              {/* Technician & Group Dispatch Card */}
               <div className="sidebar-card dispatch-card">
                 <div className="sidebar-card-header">
                   <UserCheck size={18} className="sidebar-icon" />
-                  <h4>Despacho de Técnico</h4>
+                  <h4>Despacho & Asignación</h4>
                 </div>
+
+                {/* Group Assignment Selector */}
+                <div className="dispatch-selector-wrapper" style={{ marginBottom: '0.75rem' }}>
+                  <label htmlFor="group-dispatch-select" className="sidebar-label" style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                    <Users size={12} color="#38bdf8" />
+                    <span>Grupo Transversal</span>
+                  </label>
+                  <select
+                    id="group-dispatch-select"
+                    className="ticket-select-input"
+                    value={selectedGroupId}
+                    onChange={(e) => handleGroupDispatchChange(e.target.value)}
+                    disabled={updatingDispatch}
+                  >
+                    <option value="">-- Sin Grupo Asignado --</option>
+                    {groups.map((g) => (
+                      <option key={g.id} value={g.id}>
+                        {g.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Technician Selector */}
                 <div className="dispatch-selector-wrapper">
                   <label htmlFor="tech-dispatch-select" className="sidebar-label">
-                    Técnico Asignado
+                    Técnico Especialista
                   </label>
                   <select
                     id="tech-dispatch-select"
@@ -534,21 +603,45 @@ export const TicketDetailModal: React.FC<TicketDetailModalProps> = ({
                     ))}
                   </select>
                 </div>
-                {ticket.assigned_technician_name ? (
-                  <div className="dispatch-status-badge">
-                    <div className="assigned-avatar">
-                      {ticket.assigned_technician_name.charAt(0).toUpperCase()}
+
+                {/* Badges Display */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.45rem', marginTop: '0.75rem' }}>
+                  {ticket.assigned_group_name && (
+                    <div
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '0.5rem',
+                        padding: '0.45rem 0.65rem',
+                        borderRadius: 'var(--radius-sm)',
+                        background: 'rgba(56, 189, 248, 0.12)',
+                        border: '1px solid rgba(56, 189, 248, 0.25)',
+                      }}
+                    >
+                      <Users size={15} color="#38bdf8" />
+                      <div>
+                        <div style={{ fontSize: '0.65rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Grupo a Cargo</div>
+                        <strong style={{ fontSize: '0.8rem', color: '#38bdf8' }}>{ticket.assigned_group_name}</strong>
+                      </div>
                     </div>
-                    <div className="assigned-info">
-                      <span className="assigned-label">Especialista a cargo</span>
-                      <span className="assigned-name">{ticket.assigned_technician_name}</span>
+                  )}
+
+                  {ticket.assigned_technician_name ? (
+                    <div className="dispatch-status-badge">
+                      <div className="assigned-avatar">
+                        {ticket.assigned_technician_name.charAt(0).toUpperCase()}
+                      </div>
+                      <div className="assigned-info">
+                        <span className="assigned-label">Especialista a cargo</span>
+                        <span className="assigned-name">{ticket.assigned_technician_name}</span>
+                      </div>
                     </div>
-                  </div>
-                ) : (
-                  <div className="dispatch-unassigned-notice">
-                    <Info size={14} /> Ticket en cola no asignada
-                  </div>
-                )}
+                  ) : !ticket.assigned_group_name ? (
+                    <div className="dispatch-unassigned-notice">
+                      <Info size={14} /> Ticket en cola no asignada
+                    </div>
+                  ) : null}
+                </div>
               </div>
 
               {/* ITIL Ticket Properties Card */}

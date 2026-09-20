@@ -28,6 +28,8 @@ pub struct TicketFilterParams {
     pub priority: Option<i32>,
     /// Filter by assigned technician user ID
     pub assigned_to: Option<Uuid>,
+    /// Filter by assigned transversal group ID
+    pub assigned_group_id: Option<Uuid>,
     /// Search term across title, content, or ticket number
     pub search: Option<String>,
 }
@@ -57,18 +59,25 @@ pub async fn list_tickets(
             COALESCE(NULLIF(TRIM(r.firstname || ' ' || r.realname), ''), r.username) AS requester_name,
             t.assigned_technician_id,
             COALESCE(NULLIF(TRIM(tech.firstname || ' ' || tech.realname), ''), tech.username) AS assigned_technician_name,
+            t.assigned_group_id,
+            ag.name AS assigned_group_name,
+            t.requester_group_id,
+            rg.name AS requester_group_name,
             t.category, t.time_to_resolve, t.solved_at, t.closed_at,
             t.created_at, t.updated_at
         FROM tickets t
         JOIN entities e ON e.id = t.entity_id
         LEFT JOIN users r ON r.id = t.requester_id
         LEFT JOIN users tech ON tech.id = t.assigned_technician_id
+        LEFT JOIN groups ag ON ag.id = t.assigned_group_id
+        LEFT JOIN groups rg ON rg.id = t.requester_group_id
         WHERE ($1::uuid IS NULL OR t.entity_id = $1)
           AND ($2::varchar IS NULL OR t.status = $2)
           AND ($3::varchar IS NULL OR t.ticket_type = $3)
           AND ($4::int IS NULL OR t.priority = $4)
           AND ($5::uuid IS NULL OR t.assigned_technician_id = $5)
           AND ($6::varchar IS NULL OR (t.name ILIKE '%' || $6 || '%' OR t.ticket_number ILIKE '%' || $6 || '%' OR t.content ILIKE '%' || $6 || '%'))
+          AND ($7::uuid IS NULL OR t.assigned_group_id = $7)
         ORDER BY t.priority DESC, t.created_at DESC
         "#
     )
@@ -78,6 +87,7 @@ pub async fn list_tickets(
     .bind(params.priority)
     .bind(params.assigned_to)
     .bind(search_clean)
+    .bind(params.assigned_group_id)
     .fetch_all(&state.pool)
     .await
     .map_err(|e| AppError::InternalServerError(format!("Failed to retrieve tickets: {}", e)))?;
@@ -111,12 +121,18 @@ pub async fn get_ticket(
             COALESCE(NULLIF(TRIM(r.firstname || ' ' || r.realname), ''), r.username) AS requester_name,
             t.assigned_technician_id,
             COALESCE(NULLIF(TRIM(tech.firstname || ' ' || tech.realname), ''), tech.username) AS assigned_technician_name,
+            t.assigned_group_id,
+            ag.name AS assigned_group_name,
+            t.requester_group_id,
+            rg.name AS requester_group_name,
             t.category, t.time_to_resolve, t.solved_at, t.closed_at,
             t.created_at, t.updated_at
         FROM tickets t
         JOIN entities e ON e.id = t.entity_id
         LEFT JOIN users r ON r.id = t.requester_id
         LEFT JOIN users tech ON tech.id = t.assigned_technician_id
+        LEFT JOIN groups ag ON ag.id = t.assigned_group_id
+        LEFT JOIN groups rg ON rg.id = t.requester_group_id
         WHERE t.id = $1
         "#
     )
@@ -217,6 +233,8 @@ pub async fn create_ticket(
     let mut impact = payload.impact.unwrap_or(3).clamp(1, 5);
     let mut category = payload.category.clone();
     let mut assigned_technician_id = payload.assigned_technician_id;
+    let assigned_group_id = payload.assigned_group_id;
+    let requester_group_id = payload.requester_group_id;
 
     // Evaluate Ticket Business Rules (urgency/impact escalation, category routing, technician assignment)
     let rule_mutations = crate::services::rules::helpdesk::HelpdeskRulesService::evaluate_ticket_business_rules(
@@ -248,8 +266,8 @@ pub async fn create_ticket(
 
     let priority = calculate_priority(urgency, impact);
 
-    // Initial status: if technician is dispatched, status is 'assigned', otherwise 'new'
-    let status = if assigned_technician_id.is_some() {
+    // Initial status: if technician or group is dispatched, status is 'assigned', otherwise 'new'
+    let status = if assigned_technician_id.is_some() || assigned_group_id.is_some() {
         "assigned".to_string()
     } else {
         "new".to_string()
@@ -280,9 +298,10 @@ pub async fn create_ticket(
         INSERT INTO tickets (
             id, ticket_number, entity_id, name, content, ticket_type, status,
             urgency, impact, priority, requester_id, assigned_technician_id,
+            assigned_group_id, requester_group_id,
             category, time_to_resolve, created_at, updated_at
         )
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, NOW(), NOW())
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, NOW(), NOW())
         "#
     )
     .bind(new_id)
@@ -297,6 +316,8 @@ pub async fn create_ticket(
     .bind(priority)
     .bind(requester_id)
     .bind(assigned_technician_id)
+    .bind(assigned_group_id)
+    .bind(requester_group_id)
     .bind(category)
     .bind(time_to_resolve)
     .execute(&state.pool)
@@ -314,12 +335,18 @@ pub async fn create_ticket(
             COALESCE(NULLIF(TRIM(r.firstname || ' ' || r.realname), ''), r.username) AS requester_name,
             t.assigned_technician_id,
             COALESCE(NULLIF(TRIM(tech.firstname || ' ' || tech.realname), ''), tech.username) AS assigned_technician_name,
+            t.assigned_group_id,
+            ag.name AS assigned_group_name,
+            t.requester_group_id,
+            rg.name AS requester_group_name,
             t.category, t.time_to_resolve, t.solved_at, t.closed_at,
             t.created_at, t.updated_at
         FROM tickets t
         JOIN entities e ON e.id = t.entity_id
         LEFT JOIN users r ON r.id = t.requester_id
         LEFT JOIN users tech ON tech.id = t.assigned_technician_id
+        LEFT JOIN groups ag ON ag.id = t.assigned_group_id
+        LEFT JOIN groups rg ON rg.id = t.requester_group_id
         WHERE t.id = $1
         "#
     )
@@ -418,7 +445,9 @@ pub async fn update_ticket(
             impact = $6,
             priority = $7,
             assigned_technician_id = COALESCE($8, assigned_technician_id),
-            category = COALESCE($9, category),
+            assigned_group_id = COALESCE($9, assigned_group_id),
+            requester_group_id = COALESCE($10, requester_group_id),
+            category = COALESCE($11, category),
             updated_at = NOW()
             {}
             {}
@@ -436,6 +465,8 @@ pub async fn update_ticket(
         .bind(new_impact)
         .bind(new_priority)
         .bind(payload.assigned_technician_id)
+        .bind(payload.assigned_group_id)
+        .bind(payload.requester_group_id)
         .bind(payload.category)
         .execute(&state.pool)
         .await
@@ -452,12 +483,18 @@ pub async fn update_ticket(
             COALESCE(NULLIF(TRIM(r.firstname || ' ' || r.realname), ''), r.username) AS requester_name,
             t.assigned_technician_id,
             COALESCE(NULLIF(TRIM(tech.firstname || ' ' || tech.realname), ''), tech.username) AS assigned_technician_name,
+            t.assigned_group_id,
+            ag.name AS assigned_group_name,
+            t.requester_group_id,
+            rg.name AS requester_group_name,
             t.category, t.time_to_resolve, t.solved_at, t.closed_at,
             t.created_at, t.updated_at
         FROM tickets t
         JOIN entities e ON e.id = t.entity_id
         LEFT JOIN users r ON r.id = t.requester_id
         LEFT JOIN users tech ON tech.id = t.assigned_technician_id
+        LEFT JOIN groups ag ON ag.id = t.assigned_group_id
+        LEFT JOIN groups rg ON rg.id = t.requester_group_id
         WHERE t.id = $1
         "#
     )
@@ -467,7 +504,7 @@ pub async fn update_ticket(
     .map_err(|e| AppError::InternalServerError(format!("Failed to fetch updated ticket: {}", e)))?;
 
     // Dispatch lifecycle notification events
-    if payload.assigned_technician_id.is_some() {
+    if payload.assigned_technician_id.is_some() || payload.assigned_group_id.is_some() {
         let _ = crate::services::mail_service::MailService::dispatch_event(&state.pool, "ticket_assigned", id, None).await;
     }
     if new_status == "solved" {

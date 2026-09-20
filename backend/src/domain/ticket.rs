@@ -36,6 +36,8 @@ pub struct Ticket {
     pub priority: i32,
     pub requester_id: Option<Uuid>,
     pub assigned_technician_id: Option<Uuid>,
+    pub assigned_group_id: Option<Uuid>,
+    pub requester_group_id: Option<Uuid>,
     pub category: Option<String>,
     pub time_to_resolve: Option<DateTime<Utc>>,
     pub solved_at: Option<DateTime<Utc>>,
@@ -61,6 +63,10 @@ pub struct TicketSummaryDto {
     pub requester_name: Option<String>,
     pub assigned_technician_id: Option<Uuid>,
     pub assigned_technician_name: Option<String>,
+    pub assigned_group_id: Option<Uuid>,
+    pub assigned_group_name: Option<String>,
+    pub requester_group_id: Option<Uuid>,
+    pub requester_group_name: Option<String>,
     pub category: Option<String>,
     pub time_to_resolve: Option<DateTime<Utc>>,
     pub solved_at: Option<DateTime<Utc>>,
@@ -116,6 +122,10 @@ pub struct CreateTicketDto {
     pub entity_id: Option<Uuid>,
     /// Assigned technician user ID for dispatch
     pub assigned_technician_id: Option<Uuid>,
+    /// Assigned transversal group ID for dispatch
+    pub assigned_group_id: Option<Uuid>,
+    /// Requester transversal group ID
+    pub requester_group_id: Option<Uuid>,
     /// Category (e.g. Hardware, Software, Redes, Accesos)
     pub category: Option<String>,
 }
@@ -129,6 +139,8 @@ pub struct UpdateTicketDto {
     pub urgency: Option<i32>,
     pub impact: Option<i32>,
     pub assigned_technician_id: Option<Uuid>,
+    pub assigned_group_id: Option<Uuid>,
+    pub requester_group_id: Option<Uuid>,
     pub category: Option<String>,
 }
 

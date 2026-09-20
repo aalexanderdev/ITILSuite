@@ -5,6 +5,7 @@ import {
   fetchUsers,
   fetchEntities,
   fetchTicketTemplates,
+  fetchGroups,
 } from '../../services/api';
 import type {
   TicketSummary,
@@ -12,6 +13,7 @@ import type {
   EntityTreeNode,
   TicketType,
   TicketTemplate,
+  GroupSummary,
 } from '../../types';
 import { PriorityMatrixPicker } from './PriorityMatrixPicker';
 import { TemplateSelectorCard } from './TemplateSelectorCard';
@@ -26,6 +28,7 @@ import {
   Tag,
   FileText,
   Info,
+  Users,
 } from 'lucide-react';
 
 interface CreateTicketModalProps {
@@ -50,12 +53,14 @@ export const CreateTicketModal: React.FC<CreateTicketModalProps> = ({
   const [impact, setImpact] = useState(3);
   const [category, setCategory] = useState('Hardware / Equipos');
   const [assignedTechnicianId, setAssignedTechnicianId] = useState<string>('');
+  const [assignedGroupId, setAssignedGroupId] = useState<string>('');
   const [entityId, setEntityId] = useState<string>(activeEntity.id);
 
   const [templates, setTemplates] = useState<TicketTemplate[]>([]);
   const [selectedTemplate, setSelectedTemplate] = useState<TicketTemplate | null>(null);
 
   const [technicians, setTechnicians] = useState<UserSummary[]>([]);
+  const [transversalGroups, setTransversalGroups] = useState<GroupSummary[]>([]);
   const [entities, setEntities] = useState<EntityTreeNode[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -72,6 +77,13 @@ export const CreateTicketModal: React.FC<CreateTicketModalProps> = ({
             (u) => u.profile_name === 'Technician' || u.profile_name === 'Super-Admin'
           );
           setTechnicians(techs);
+        })
+        .catch(() => {});
+
+      // Load Transversal Groups for Dispatch
+      fetchGroups()
+        .then((grps) => {
+          setTransversalGroups(grps.filter((g) => g.is_task));
         })
         .catch(() => {});
 
@@ -213,6 +225,7 @@ export const CreateTicketModal: React.FC<CreateTicketModalProps> = ({
         impact,
         entity_id: entityId || activeEntity.id,
         assigned_technician_id: assignedTechnicianId || undefined,
+        assigned_group_id: assignedGroupId || undefined,
         category,
       });
 
@@ -404,7 +417,7 @@ export const CreateTicketModal: React.FC<CreateTicketModalProps> = ({
           </div>
 
           {/* Scopes & Dispatch Grid */}
-          <div style={{ display: 'grid', gridTemplateColumns: isTechnicianHidden ? '1fr' : '1fr 1fr', gap: '1rem' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
             {/* Entity Scope */}
             <div>
               <label style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', fontSize: '0.78rem', fontWeight: 700, marginBottom: '0.4rem', color: 'var(--text-primary)' }}>
@@ -429,12 +442,33 @@ export const CreateTicketModal: React.FC<CreateTicketModalProps> = ({
               </select>
             </div>
 
+            {/* Transversal Group Dispatch */}
+            <div>
+              <label style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', fontSize: '0.78rem', fontWeight: 700, marginBottom: '0.4rem', color: 'var(--text-primary)' }}>
+                <Users size={13} color="#38bdf8" />
+                <span>Grupo Transversal Asignado</span>
+              </label>
+              <select
+                value={assignedGroupId}
+                onChange={(e) => setAssignedGroupId(e.target.value)}
+                className="input-control"
+                style={{ fontSize: '0.8rem' }}
+              >
+                <option value="">Sin grupo asignado</option>
+                {transversalGroups.map((g) => (
+                  <option key={g.id} value={g.id}>
+                    {g.name} ({g.member_count} miembros)
+                  </option>
+                ))}
+              </select>
+            </div>
+
             {/* Technician Dispatch (Conditional if not hidden) */}
             {!isTechnicianHidden && (
-              <div>
+              <div style={{ gridColumn: 'span 2' }}>
                 <label style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', fontSize: '0.78rem', fontWeight: 700, marginBottom: '0.4rem', color: 'var(--text-primary)' }}>
                   <UserCheck size={13} color="#34d399" />
-                  <span>Despachar a Técnico</span>
+                  <span>Técnico Individual Asignado</span>
                 </label>
                 <select
                   value={assignedTechnicianId}
@@ -442,7 +476,7 @@ export const CreateTicketModal: React.FC<CreateTicketModalProps> = ({
                   className="input-control"
                   style={{ fontSize: '0.8rem' }}
                 >
-                  <option value="">Sin asignar (Bolsa común de la mesa)</option>
+                  <option value="">Sin asignar (Bolsa común de la mesa / Asignado al grupo)</option>
                   {technicians.map((t) => (
                     <option key={t.id} value={t.id}>
                       {t.display_name} ({t.profile_name})

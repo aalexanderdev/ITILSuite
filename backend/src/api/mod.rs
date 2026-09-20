@@ -2,6 +2,7 @@ pub mod assets;
 pub mod auth;
 pub mod chat;
 pub mod entities;
+pub mod groups;
 pub mod health;
 pub mod inventory;
 pub mod notifications;
@@ -13,7 +14,7 @@ pub mod users;
 pub mod version;
 
 use axum::{
-    routing::{get, post},
+    routing::{delete, get, post},
     Router,
 };
 use utoipa::{
@@ -51,6 +52,19 @@ impl Modify for SecurityAddon {
         entities::list_entities,
         entities::create_entity,
         users::list_users,
+        users::create_user,
+        users::get_user,
+        users::update_user,
+        users::delete_user,
+        users::batch_import_users,
+        groups::list_groups,
+        groups::create_group,
+        groups::get_group,
+        groups::update_group,
+        groups::delete_group,
+        groups::add_group_member,
+        groups::remove_group_member,
+        groups::update_group_member,
         tickets::list_tickets,
         tickets::get_ticket,
         tickets::create_ticket,
@@ -82,6 +96,22 @@ impl Modify for SecurityAddon {
             crate::domain::entity::EntityTreeNode,
             crate::domain::entity::CreateEntityDto,
             crate::domain::user::UserSummaryDto,
+            crate::domain::user::UserDetailDto,
+            crate::domain::user::CreateUserDto,
+            crate::domain::user::UpdateUserDto,
+            crate::domain::user::BatchUserImportRequest,
+            crate::domain::user::BatchUserImportItem,
+            crate::domain::user::BatchUserImportResponse,
+            crate::domain::user::BatchUserImportRowResult,
+            crate::domain::user::ConflictResolutionMode,
+            crate::domain::user::UserGroupMembershipDto,
+            crate::domain::group::GroupSummaryDto,
+            crate::domain::group::GroupDetailDto,
+            crate::domain::group::GroupMemberDto,
+            crate::domain::group::CreateGroupDto,
+            crate::domain::group::UpdateGroupDto,
+            crate::domain::group::AddGroupMemberDto,
+            crate::domain::group::UpdateGroupMemberDto,
             crate::domain::ticket::Ticket,
             crate::domain::ticket::TicketSummaryDto,
             crate::domain::ticket::TicketDetailDto,
@@ -122,7 +152,8 @@ impl Modify for SecurityAddon {
     tags(
         (name = "Authentication", description = "User authentication and JWT token lifecycle"),
         (name = "Entities", description = "Hierarchical Multi-Tenancy Entity management"),
-        (name = "Users", description = "User profiles and identity"),
+        (name = "Users", description = "User profiles, identity, and batch ingestion"),
+        (name = "Groups", description = "Transversal Groups and Teams inspired by GLPI"),
         (name = "Tickets", description = "ITIL Service Desk Incident/Request lifecycles and dispatch"),
         (name = "Templates", description = "ITIL Ticket Templates inspired by GLPI"),
         (name = "Assets", description = "ITAM / CMDB Hardware and Software Asset Inventory inspired by GLPI"),
@@ -132,7 +163,7 @@ impl Modify for SecurityAddon {
     ),
     info(
         title = "ITILSuite REST API",
-        version = "0.0.5",
+        version = "0.0.6",
         description = "High-performance Rust REST API inspired by GLPI 11 for ITSM, ITAM, and CMDB.",
         license(name = "GPL-3.0-or-later", url = "https://www.gnu.org/licenses/gpl-3.0.html")
     )
@@ -146,7 +177,26 @@ pub fn create_router(state: AppState) -> Router {
         .route("/auth/login", post(auth::login))
         .route("/auth/me", get(auth::me))
         .route("/entities", get(entities::list_entities).post(entities::create_entity))
-        .route("/users", get(users::list_users))
+        .route("/users", get(users::list_users).post(users::create_user))
+        .route("/users/batch-import", post(users::batch_import_users))
+        .route(
+            "/users/:id",
+            get(users::get_user)
+                .patch(users::update_user)
+                .delete(users::delete_user),
+        )
+        .route("/groups", get(groups::list_groups).post(groups::create_group))
+        .route(
+            "/groups/:id",
+            get(groups::get_group)
+                .patch(groups::update_group)
+                .delete(groups::delete_group),
+        )
+        .route("/groups/:id/members", post(groups::add_group_member))
+        .route(
+            "/groups/:id/members/:user_id",
+            delete(groups::remove_group_member).patch(groups::update_group_member),
+        )
         .route("/tickets", get(tickets::list_tickets).post(tickets::create_ticket))
         .route("/tickets/metrics", get(tickets::get_ticket_metrics))
         .route("/tickets/:id", get(tickets::get_ticket).patch(tickets::update_ticket))

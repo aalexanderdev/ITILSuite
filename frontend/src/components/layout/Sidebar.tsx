@@ -80,7 +80,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeNav, onSelectNav }) => {
           <span className="brand-name">ITILSuite</span>
           <span className="brand-version">
             <span style={{ display: 'inline-block', width: 6, height: 6, borderRadius: '50%', backgroundColor: '#10b981' }}></span>
-            GLPI 11 Core • v0.0.5
+            GLPI 11 Core • v0.0.6
           </span>
         </div>
       </div>

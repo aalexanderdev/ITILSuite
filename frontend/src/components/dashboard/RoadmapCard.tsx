@@ -37,6 +37,12 @@ export const RoadmapCard: React.FC = () => {
       version: 'v0.0.6',
       title: 'User Ingestion & Transversal Groups',
       desc: 'Bulk user directory ingestion, transversal groups architecture, and cross-platform integrations.',
+      status: 'completed',
+    },
+    {
+      version: 'v0.0.7',
+      title: 'Advanced SLAs & Escalation Matrices',
+      desc: 'Real-time SLA breach monitors, TTO/TTR targets, and automated escalation pipelines.',
       status: 'planned',
     },
   ];

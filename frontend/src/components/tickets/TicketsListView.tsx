@@ -12,6 +12,7 @@ import {
   Calendar,
   Eye,
   Sparkles,
+  Users,
 } from 'lucide-react';
 import type { TicketSummary, TicketMetrics, TicketStatus } from '../../types';
 import { fetchTickets, fetchTicketMetrics } from '../../services/api';
@@ -98,7 +99,8 @@ export const TicketsListView: React.FC<TicketsListViewProps> = ({
         t.name.toLowerCase().includes(q) ||
         (t.category && t.category.toLowerCase().includes(q)) ||
         (t.requester_name && t.requester_name.toLowerCase().includes(q)) ||
-        (t.assigned_technician_name && t.assigned_technician_name.toLowerCase().includes(q))
+        (t.assigned_technician_name && t.assigned_technician_name.toLowerCase().includes(q)) ||
+        (t.assigned_group_name && t.assigned_group_name.toLowerCase().includes(q))
     );
   }, [tickets, searchQuery]);
 
@@ -455,16 +457,37 @@ export const TicketsListView: React.FC<TicketsListViewProps> = ({
                     </td>
                     <td>{getStatusPill(t.status)}</td>
                     <td>
-                      {t.assigned_technician_name ? (
-                        <div className="table-tech-badge">
-                          <div className="tech-avatar-mini">
-                            {t.assigned_technician_name.charAt(0).toUpperCase()}
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+                        {t.assigned_group_name && (
+                          <span
+                            className="badge"
+                            style={{
+                              fontSize: '0.68rem',
+                              padding: '0.1rem 0.4rem',
+                              background: 'rgba(56, 189, 248, 0.12)',
+                              color: '#38bdf8',
+                              border: '1px solid rgba(56, 189, 248, 0.25)',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '0.25rem',
+                              width: 'fit-content',
+                            }}
+                          >
+                            <Users size={10} />
+                            <span>{t.assigned_group_name}</span>
+                          </span>
+                        )}
+                        {t.assigned_technician_name ? (
+                          <div className="table-tech-badge">
+                            <div className="tech-avatar-mini">
+                              {t.assigned_technician_name.charAt(0).toUpperCase()}
+                            </div>
+                            <span className="tech-name-text">{t.assigned_technician_name}</span>
                           </div>
-                          <span className="tech-name-text">{t.assigned_technician_name}</span>
-                        </div>
-                      ) : (
-                        <span className="table-unassigned-text">Sin Asignar</span>
-                      )}
+                        ) : !t.assigned_group_name ? (
+                          <span className="table-unassigned-text">Sin Asignar</span>
+                        ) : null}
+                      </div>
                     </td>
                     <td>
                       <div className="table-sla-cell">

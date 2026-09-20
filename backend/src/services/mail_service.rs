@@ -76,7 +76,7 @@ impl MailService {
             }
         };
 
-        // 4. Fetch Ticket Details
+        // 4. Fetch Ticket Details with Assigned Group
         let ticket_row = sqlx::query!(
             r#"
             SELECT 
@@ -87,13 +87,16 @@ impl MailService {
                 t.priority,
                 t.status,
                 t.category,
+                t.assigned_group_id,
                 req.email as "requester_email?",
                 COALESCE(NULLIF(TRIM(req.firstname || ' ' || req.realname), ''), req.username) as "requester_name?",
                 tech.email as "technician_email?",
-                COALESCE(NULLIF(TRIM(tech.firstname || ' ' || tech.realname), ''), tech.username) as "technician_name?"
+                COALESCE(NULLIF(TRIM(tech.firstname || ' ' || tech.realname), ''), tech.username) as "technician_name?",
+                ag.name as "assigned_group_name?"
             FROM tickets t
             LEFT JOIN users req ON t.requester_id = req.id
             LEFT JOIN users tech ON t.assigned_technician_id = tech.id
+            LEFT JOIN groups ag ON t.assigned_group_id = ag.id
             WHERE t.id = $1
             "#,
             ticket_id
@@ -135,6 +138,7 @@ impl MailService {
         let cat_str = ticket.category.unwrap_or_else(|| "General".to_string());
         let req_name = ticket.requester_name.unwrap_or_else(|| "Usuario".to_string());
         let tech_name = ticket.technician_name.unwrap_or_else(|| "Sin Asignar".to_string());
+        let group_name = ticket.assigned_group_name.unwrap_or_else(|| "Sin Grupo".to_string());
 
         let vars = [
             ("ticket.number", ticket.ticket_number.as_str()),
@@ -146,6 +150,7 @@ impl MailService {
             ("ticket.category", cat_str.as_str()),
             ("ticket.requester_name", req_name.as_str()),
             ("ticket.technician_name", tech_name.as_str()),
+            ("ticket.group_name", group_name.as_str()),
             ("followup.content", followup_content.as_str()),
             ("author.name", author_name.as_str()),
         ];
@@ -166,7 +171,7 @@ impl MailService {
             body_text.push_str(&format!("\n\n{}", settings.email_signature));
         }
 
-        // 8. Resolve Recipients from JSON definition
+        // 8. Resolve Recipients from JSON definition + Transversal Group Roster
         let recipients_array = event.recipients.as_array();
         let mut targets: Vec<(String, Option<String>)> = Vec::new();
 
@@ -188,7 +193,51 @@ impl MailService {
                             }
                         }
                     }
+                    "group" | "assigned_group" => {
+                        if let Some(gid) = ticket.assigned_group_id {
+                            let g_members = sqlx::query!(
+                                r#"
+                                SELECT u.email, COALESCE(NULLIF(TRIM(u.firstname || ' ' || u.realname), ''), u.username) as "name!"
+                                FROM group_users gu
+                                JOIN users u ON gu.user_id = u.id
+                                WHERE gu.group_id = $1 AND u.is_active = TRUE
+                                "#,
+                                gid
+                            )
+                            .fetch_all(pool)
+                            .await?;
+
+                            for gm in g_members {
+                                if !gm.email.trim().is_empty() && !targets.iter().any(|(e, _)| e == &gm.email) {
+                                    targets.push((gm.email, Some(gm.name)));
+                                }
+                            }
+                        }
+                    }
                     _ => {}
+                }
+            }
+        }
+
+        // Also if ticket has an assigned group and the event is ticket_created or ticket_assigned, notify group members
+        if (event_key == "ticket_created" || event_key == "ticket_assigned") && targets.is_empty() {
+            if let Some(gid) = ticket.assigned_group_id {
+                let g_members = sqlx::query!(
+                    r#"
+                    SELECT u.email, COALESCE(NULLIF(TRIM(u.firstname || ' ' || u.realname), ''), u.username) as "name!"
+                    FROM group_users gu
+                    JOIN users u ON gu.user_id = u.id
+                    WHERE gu.group_id = $1 AND u.is_active = TRUE
+                    "#,
+                    gid
+                )
+                .fetch_all(pool)
+                .await?;
+
+                for gm in g_members {
+                    if !gm.email.trim().is_empty() && !targets.iter().any(|(e, _)| e == &gm.email) {
+                        targets.push((gm.email, Some(gm.name)));
+                    }
                 }
             }
         }
@@ -222,10 +271,8 @@ impl MailService {
         }
 
         tracing::info!(
-            "Enqueued {} notifications for event '{}' on ticket {}",
-            inserted_count,
-            event_key,
-            ticket.ticket_number
+            "Dispatched notification event '{}' for ticket {} (queued {} messages)",
+            event_key, ticket.ticket_number, inserted_count
         );
 
         Ok(inserted_count)
@@ -235,31 +282,28 @@ impl MailService {
     pub async fn process_queue_batch(pool: &PgPool) -> Result<usize, AppError> {
         let pending = sqlx::query!(
             r#"
-            SELECT id, recipient_email, subject
+            SELECT id, recipient_email, subject, body_html, body_text, attempts
             FROM notification_queue
             WHERE status = 'pending'
             ORDER BY created_at ASC
-            LIMIT 25
+            LIMIT 20
             "#
         )
         .fetch_all(pool)
         .await?;
 
-        let count = pending.len();
-        if count == 0 {
+        if pending.is_empty() {
             return Ok(0);
         }
 
+        let count = pending.len();
+
         for item in pending {
-            // In development or when external SMTP is not reachable, simulate immediate successful delivery
-            // and update status to 'sent'
+            // Simulated local SMTP delivery
             sqlx::query!(
                 r#"
                 UPDATE notification_queue
-                SET status = 'sent',
-                    attempts = attempts + 1,
-                    last_attempt_at = NOW(),
-                    last_error = NULL
+                SET status = 'sent', last_attempt_at = NOW(), attempts = attempts + 1
                 WHERE id = $1
                 "#,
                 item.id
@@ -267,7 +311,10 @@ impl MailService {
             .execute(pool)
             .await?;
 
-            tracing::debug!("Dispatched queued email to: {} with subject: {}", item.recipient_email, item.subject);
+            tracing::debug!(
+                "Processed notification id={} to={}",
+                item.id, item.recipient_email
+            );
         }
 
         Ok(count)

@@ -54,6 +54,7 @@ export interface UserSummary {
   email: string;
   profile_name: string;
   is_active: boolean;
+  groups?: string[];
 }
 
 export interface MetricCardData {
@@ -85,6 +86,10 @@ export interface TicketSummary {
   requester_name: string | null;
   assigned_technician_id: string | null;
   assigned_technician_name: string | null;
+  assigned_group_id?: string | null;
+  assigned_group_name?: string | null;
+  requester_group_id?: string | null;
+  requester_group_name?: string | null;
   category: string | null;
   time_to_resolve: string | null;
   solved_at: string | null;
@@ -116,6 +121,8 @@ export interface CreateTicketPayload {
   impact?: number;
   entity_id?: string;
   assigned_technician_id?: string;
+  assigned_group_id?: string;
+  requester_group_id?: string;
   category?: string;
 }
 
@@ -126,6 +133,8 @@ export interface UpdateTicketPayload {
   urgency?: number;
   impact?: number;
   assigned_technician_id?: string | null;
+  assigned_group_id?: string | null;
+  requester_group_id?: string | null;
   category?: string;
 }
 
@@ -151,6 +160,7 @@ export interface TicketFilterOptions {
   ticket_type?: string;
   priority?: number;
   assigned_to?: string;
+  assigned_group_id?: string;
   search?: string;
 }
 
@@ -821,3 +831,158 @@ export interface DryRunResult {
   steps: EvaluatedRuleStep[];
   execution_time_us: number;
 }
+
+// Transversal Groups Architecture (v0.0.6)
+export interface GroupSummary {
+  id: string;
+  entity_id: string | null;
+  entity_name: string | null;
+  name: string;
+  comment: string | null;
+  is_recursive: boolean;
+  is_task: boolean;
+  is_requester: boolean;
+  is_user_group: boolean;
+  member_count: number;
+  manager_count: number;
+  created_at: string;
+}
+
+export interface GroupMember {
+  user_id: string;
+  username: string;
+  display_name: string;
+  email: string;
+  profile_name: string;
+  is_manager: boolean;
+  is_user: boolean;
+  joined_at: string;
+}
+
+export interface GroupDetail {
+  id: string;
+  entity_id: string | null;
+  entity_name: string | null;
+  name: string;
+  comment: string | null;
+  is_recursive: boolean;
+  is_task: boolean;
+  is_requester: boolean;
+  is_user_group: boolean;
+  members: GroupMember[];
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CreateGroupPayload {
+  name: string;
+  entity_id?: string | null;
+  comment?: string;
+  is_recursive?: boolean;
+  is_task?: boolean;
+  is_requester?: boolean;
+  is_user_group?: boolean;
+  initial_member_ids?: string[];
+}
+
+export interface UpdateGroupPayload {
+  name?: string;
+  entity_id?: string | null;
+  comment?: string;
+  is_recursive?: boolean;
+  is_task?: boolean;
+  is_requester?: boolean;
+  is_user_group?: boolean;
+}
+
+export interface AddGroupMemberPayload {
+  user_id: string;
+  is_manager?: boolean;
+  is_user?: boolean;
+}
+
+// User Ingestion & Directory Management (v0.0.6)
+export interface UserGroupMembership {
+  group_id: string;
+  group_name: string;
+  is_manager: boolean;
+}
+
+export interface UserDetail {
+  id: string;
+  username: string;
+  email: string;
+  realname: string;
+  firstname: string;
+  display_name: string;
+  is_active: boolean;
+  profile_name: string;
+  profile_id?: string | null;
+  entity_name: string;
+  entity_id?: string | null;
+  groups: UserGroupMembership[];
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CreateUserPayload {
+  username: string;
+  email: string;
+  password?: string;
+  firstname?: string;
+  realname?: string;
+  is_active?: boolean;
+  profile_id?: string;
+  entity_id?: string;
+  initial_group_ids?: string[];
+}
+
+export interface UpdateUserPayload {
+  email?: string;
+  password?: string;
+  firstname?: string;
+  realname?: string;
+  is_active?: boolean;
+  profile_id?: string;
+  entity_id?: string;
+}
+
+export type ConflictResolution = 'skip' | 'overwrite';
+
+export interface BatchUserImportItem {
+  username: string;
+  email: string;
+  firstname?: string;
+  realname?: string;
+  password?: string;
+  profile_name?: string;
+  entity_name?: string;
+  group_name?: string;
+  is_active?: boolean;
+}
+
+export interface BatchUserImportPayload {
+  users: BatchUserImportItem[];
+  conflict_resolution: ConflictResolution;
+  default_entity_id?: string;
+  default_profile_id?: string;
+  default_group_id?: string;
+  default_password?: string;
+}
+
+export interface BatchUserImportRowResult {
+  username: string;
+  email: string;
+  status: 'created' | 'updated' | 'skipped' | 'failed';
+  message?: string;
+}
+
+export interface BatchUserImportResponse {
+  total_processed: number;
+  created_count: number;
+  updated_count: number;
+  skipped_count: number;
+  failed_count: number;
+  results: BatchUserImportRowResult[];
+}
+

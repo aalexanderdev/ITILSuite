@@ -108,10 +108,40 @@ In Rust:
 
 ---
 
-## 5. Semantic Release Roadmap
+## 5. Transversal Groups & Directory Ingestion
+
+GLPI 11 features transversal groups (`glpi_groups`, `glpi_groups_users`) that span multiple departments, entities, and functional workflows. In ITILSuite, transversal groups provide a single source of truth across all modules:
+
+### Rust Domain Representation
+```rust
+pub struct Group {
+    pub id: Uuid,
+    pub entity_id: Option<Uuid>, // None = Global Transversal, Some = Entity-Scoped
+    pub name: String,
+    pub comment: Option<String>,
+    pub is_task: bool,          // Ticket / task assignable (is_assign)
+    pub is_requester: bool,     // Incident requester group
+    pub is_user_group: bool,    // Directory classification
+    pub is_recursive: bool,     // Sub-entity inheritance
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
+}
+```
+
+### Cross-Module Transversal Synchronization
+* **Service Desk**: Tickets link directly to `assigned_group_id` for technician team queues and `requester_group_id` for organizational requester groups.
+* **HelpdeskChat**: Creation or mutation of a transversal group automatically provisions and synchronizes a team room channel (`chat_conversations.group_id`).
+* **Notification Outbox**: Notification workers resolve group assignments to all active member email addresses in Tokio background tasks.
+* **Batch Ingestion Engine**: High-throughput CSV/JSON ingestion (`/api/v1/users/batch-import`) supports automatic group pre-assignment and conflict resolution modes (`skip` or `overwrite`).
+
+---
+
+## 6. Semantic Release Roadmap
 * **v0.0.1**: Architectural foundation, Axum API skeleton, React shell, and Docker Compose.
 * **v0.0.2**: Database schema for Hierarchical Entities, Users, RBAC Profiles, and JWT + Argon2 authentication.
-* **v0.0.3**: ITIL Service Desk with Ticket lifecycles, SLA timers, and Priority calculation.
-* **v0.0.4**: Asset Management & CMDB with GLPI-Agent inventory ingestion endpoint and HelpdeskChat.
-* **v0.0.5**: User Ingestion & Transversal Groups Architecture (Service Desk, CMDB, and Chat room synchronization).
-* **v0.0.6**: Business Rules Engine & Advanced SLAs.
+* **v0.0.3**: ITIL Service Desk with Ticket lifecycles, Urgency x Impact matrix, templates, and notification engine.
+* **v0.0.4**: Asset Management & CMDB with GLPI-Agent inventory ingestion endpoint and real-time HelpdeskChat.
+* **v0.0.5**: Business Rules & Normalization Dictionaries suite (Helpdesk, CMDB, Auth, and 10 normalization engines).
+* **v0.0.6**: User Ingestion & Transversal Groups Architecture (Service Desk queues, CMDB custody, chat rooms, and notification outbox).
+* **v0.0.7**: Advanced SLAs & Automated Escalation Matrices.
+

@@ -3,6 +3,7 @@ pub mod asset;
 pub mod auth;
 pub mod chat;
 pub mod entity;
+pub mod group;
 pub mod notification;
 pub mod rule;
 pub mod template;

@@ -169,4 +169,59 @@ mod tests {
         assert_eq!(tree[0].children[0].children.len(), 1);
         assert_eq!(tree[0].children[0].children[0].name, "IT Support");
     }
+
+    #[test]
+    fn test_batch_user_import_models() {
+        use domain::user::{BatchUserImportItem, ConflictResolutionMode};
+
+        let item = BatchUserImportItem {
+            username: "carlos_admin".to_string(),
+            email: "carlos@company.com".to_string(),
+            firstname: Some("Carlos".to_string()),
+            realname: Some("Gómez".to_string()),
+            password: None,
+            profile_name: Some("Technician".to_string()),
+            entity_name: None,
+            group_name: Some("Infraestructura & Redes".to_string()),
+            is_active: Some(true),
+        };
+
+        let json = serde_json::to_string(&item).expect("Should serialize item");
+        assert!(json.contains("carlos_admin"));
+        assert!(json.contains("Infraestructura & Redes"));
+
+        let mode = ConflictResolutionMode::Skip;
+        let mode_json = serde_json::to_string(&mode).unwrap();
+        assert_eq!(mode_json, "\"skip\"");
+
+        let overwrite_mode = ConflictResolutionMode::Overwrite;
+        let overwrite_json = serde_json::to_string(&overwrite_mode).unwrap();
+        assert_eq!(overwrite_json, "\"overwrite\"");
+    }
+
+    #[test]
+    fn test_group_summary_dto_creation() {
+        use domain::group::GroupSummaryDto;
+
+        let dto = GroupSummaryDto {
+            id: Uuid::new_v4(),
+            entity_id: None,
+            entity_name: None,
+            name: "Soporte Nivel 1".to_string(),
+            comment: Some("Helpdesk L1".to_string()),
+            is_recursive: true,
+            is_task: true,
+            is_requester: false,
+            is_user_group: true,
+            member_count: 5,
+            manager_count: 1,
+            created_at: Utc::now(),
+        };
+
+        assert_eq!(dto.name, "Soporte Nivel 1");
+        assert!(dto.is_task);
+        assert!(!dto.is_requester);
+        assert_eq!(dto.member_count, 5);
+        assert_eq!(dto.manager_count, 1);
+    }
 }

@@ -6,6 +6,16 @@ import type {
   EntityTreeNode,
   CreateEntityPayload,
   UserSummary,
+  UserDetail,
+  CreateUserPayload,
+  UpdateUserPayload,
+  BatchUserImportPayload,
+  BatchUserImportResponse,
+  GroupSummary,
+  GroupDetail,
+  CreateGroupPayload,
+  UpdateGroupPayload,
+  AddGroupMemberPayload,
   TicketSummary,
   TicketDetail,
   CreateTicketPayload,
@@ -215,8 +225,20 @@ export async function createEntity(payload: CreateEntityPayload): Promise<Entity
 }
 
 // Users Endpoints
-export async function fetchUsers(): Promise<UserSummary[]> {
-  const response = await fetch(`${API_BASE_URL}/api/v1/users`, {
+export async function fetchUsers(filters?: {
+  is_active?: boolean;
+  group_id?: string;
+  profile_id?: string;
+  search?: string;
+}): Promise<UserSummary[]> {
+  const params = new URLSearchParams();
+  if (filters?.is_active !== undefined) params.append('is_active', String(filters.is_active));
+  if (filters?.group_id) params.append('group_id', filters.group_id);
+  if (filters?.profile_id) params.append('profile_id', filters.profile_id);
+  if (filters?.search) params.append('search', filters.search);
+
+  const url = `${API_BASE_URL}/api/v1/users${params.toString() ? `?${params.toString()}` : ''}`;
+  const response = await fetch(url, {
     method: 'GET',
     headers: getAuthHeaders(),
   });
@@ -228,6 +250,162 @@ export async function fetchUsers(): Promise<UserSummary[]> {
   return response.json();
 }
 
+export async function fetchUserById(id: string): Promise<UserDetail> {
+  const response = await fetch(`${API_BASE_URL}/api/v1/users/${id}`, {
+    method: 'GET',
+    headers: getAuthHeaders(),
+  });
+  if (!response.ok) {
+    throw new Error(`Failed to fetch user (${response.status})`);
+  }
+  return response.json();
+}
+
+export async function createUser(payload: CreateUserPayload): Promise<UserDetail> {
+  const response = await fetch(`${API_BASE_URL}/api/v1/users`, {
+    method: 'POST',
+    headers: getAuthHeaders(),
+    body: JSON.stringify(payload),
+  });
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({ message: 'Error al crear usuario' }));
+    throw new Error(err.message || `Error al crear usuario (${response.status})`);
+  }
+  return response.json();
+}
+
+export async function updateUser(id: string, payload: UpdateUserPayload): Promise<void> {
+  const response = await fetch(`${API_BASE_URL}/api/v1/users/${id}`, {
+    method: 'PATCH',
+    headers: getAuthHeaders(),
+    body: JSON.stringify(payload),
+  });
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({ message: 'Error al actualizar usuario' }));
+    throw new Error(err.message || `Error al actualizar usuario (${response.status})`);
+  }
+}
+
+export async function deleteUser(id: string): Promise<void> {
+  const response = await fetch(`${API_BASE_URL}/api/v1/users/${id}`, {
+    method: 'DELETE',
+    headers: getAuthHeaders(),
+  });
+  if (!response.ok) {
+    throw new Error(`Error al eliminar usuario (${response.status})`);
+  }
+}
+
+export async function batchImportUsers(payload: BatchUserImportPayload): Promise<BatchUserImportResponse> {
+  const response = await fetch(`${API_BASE_URL}/api/v1/users/batch-import`, {
+    method: 'POST',
+    headers: getAuthHeaders(),
+    body: JSON.stringify(payload),
+  });
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({ message: 'Error en importación masiva' }));
+    throw new Error(err.message || `Error en importación masiva (${response.status})`);
+  }
+  return response.json();
+}
+
+// Transversal Groups Endpoints (v0.0.6)
+export async function fetchGroups(params?: { entity_id?: string; search?: string }): Promise<GroupSummary[]> {
+  const q = new URLSearchParams();
+  if (params?.entity_id) q.append('entity_id', params.entity_id);
+  if (params?.search) q.append('search', params.search);
+
+  const url = `${API_BASE_URL}/api/v1/groups${q.toString() ? `?${q.toString()}` : ''}`;
+  const response = await fetch(url, {
+    method: 'GET',
+    headers: getAuthHeaders(),
+  });
+  if (!response.ok) {
+    throw new Error(`Failed to fetch groups (${response.status})`);
+  }
+  return response.json();
+}
+
+export async function fetchGroupById(id: string): Promise<GroupDetail> {
+  const response = await fetch(`${API_BASE_URL}/api/v1/groups/${id}`, {
+    method: 'GET',
+    headers: getAuthHeaders(),
+  });
+  if (!response.ok) {
+    throw new Error(`Failed to fetch group details (${response.status})`);
+  }
+  return response.json();
+}
+
+export async function createGroup(payload: CreateGroupPayload): Promise<GroupSummary> {
+  const response = await fetch(`${API_BASE_URL}/api/v1/groups`, {
+    method: 'POST',
+    headers: getAuthHeaders(),
+    body: JSON.stringify(payload),
+  });
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({ message: 'Error al crear grupo' }));
+    throw new Error(err.message || `Error al crear grupo (${response.status})`);
+  }
+  return response.json();
+}
+
+export async function updateGroup(id: string, payload: UpdateGroupPayload): Promise<GroupSummary> {
+  const response = await fetch(`${API_BASE_URL}/api/v1/groups/${id}`, {
+    method: 'PATCH',
+    headers: getAuthHeaders(),
+    body: JSON.stringify(payload),
+  });
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({ message: 'Error al actualizar grupo' }));
+    throw new Error(err.message || `Error al actualizar grupo (${response.status})`);
+  }
+  return response.json();
+}
+
+export async function deleteGroup(id: string): Promise<void> {
+  const response = await fetch(`${API_BASE_URL}/api/v1/groups/${id}`, {
+    method: 'DELETE',
+    headers: getAuthHeaders(),
+  });
+  if (!response.ok) {
+    throw new Error(`Error al eliminar grupo (${response.status})`);
+  }
+}
+
+export async function addGroupMember(groupId: string, payload: AddGroupMemberPayload): Promise<void> {
+  const response = await fetch(`${API_BASE_URL}/api/v1/groups/${groupId}/members`, {
+    method: 'POST',
+    headers: getAuthHeaders(),
+    body: JSON.stringify(payload),
+  });
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({ message: 'Error al agregar miembro' }));
+    throw new Error(err.message || `Error al agregar miembro (${response.status})`);
+  }
+}
+
+export async function removeGroupMember(groupId: string, userId: string): Promise<void> {
+  const response = await fetch(`${API_BASE_URL}/api/v1/groups/${groupId}/members/${userId}`, {
+    method: 'DELETE',
+    headers: getAuthHeaders(),
+  });
+  if (!response.ok) {
+    throw new Error(`Error al remover miembro (${response.status})`);
+  }
+}
+
+export async function updateGroupMemberRole(groupId: string, userId: string, is_manager: boolean): Promise<void> {
+  const response = await fetch(`${API_BASE_URL}/api/v1/groups/${groupId}/members/${userId}`, {
+    method: 'PATCH',
+    headers: getAuthHeaders(),
+    body: JSON.stringify({ is_manager }),
+  });
+  if (!response.ok) {
+    throw new Error(`Error al actualizar rol de miembro (${response.status})`);
+  }
+}
+
 // ITIL Service Desk (v0.0.3 Tickets)
 export async function fetchTickets(filters?: TicketFilterOptions): Promise<TicketSummary[]> {
   const params = new URLSearchParams();
@@ -236,6 +414,7 @@ export async function fetchTickets(filters?: TicketFilterOptions): Promise<Ticke
   if (filters?.ticket_type) params.append('ticket_type', filters.ticket_type);
   if (filters?.priority) params.append('priority', filters.priority.toString());
   if (filters?.assigned_to) params.append('assigned_to', filters.assigned_to);
+  if (filters?.assigned_group_id) params.append('assigned_group_id', filters.assigned_group_id);
   if (filters?.search) params.append('search', filters.search);
 
   const url = `${API_BASE_URL}/api/v1/tickets${params.toString() ? `?${params.toString()}` : ''}`;
