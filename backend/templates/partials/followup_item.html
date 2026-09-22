@@ -1,0 +1,70 @@
+<div class="timeline-item timeline-{{ followup.item_type }}" id="followup-{{ followup.id }}" style="margin-bottom: 1.25rem; display: flex; gap: 1rem; position: relative;">
+  <!-- Avatar / Icon badge -->
+  <div style="flex-shrink: 0; width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 1rem;
+    {% if followup.item_type == "solution" %}
+      background: rgba(16, 185, 129, 0.2); color: #10b981; border: 2px solid #10b981;
+    {% else if followup.item_type == "task" %}
+      background: rgba(245, 158, 11, 0.2); color: #f59e0b; border: 2px solid #f59e0b;
+    {% else %}
+      background: rgba(59, 130, 246, 0.2); color: #3b82f6; border: 2px solid #3b82f6;
+    {% endif %}">
+    {% if followup.item_type == "solution" %}
+      ✓
+    {% else if followup.item_type == "task" %}
+      📝
+    {% else %}
+      💬
+    {% endif %}
+  </div>
+
+  <!-- Content Bubble -->
+  <div style="flex: 1; background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: var(--radius-md); padding: 1rem 1.25rem; box-shadow: var(--shadow-sm);
+    {% if followup.item_type == "solution" %}
+      border-left: 4px solid #10b981;
+    {% else if followup.item_type == "task" %}
+      border-left: 4px solid #f59e0b;
+    {% else %}
+      border-left: 4px solid #3b82f6;
+    {% endif %}">
+    
+    <!-- Header of item -->
+    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.5rem; flex-wrap: wrap; gap: 0.5rem;">
+      <div style="display: flex; align-items: center; gap: 0.5rem;">
+        <span style="font-weight: 700; font-size: 0.88rem; color: var(--text-primary);">
+          {% if let Some(author) = followup.author_name %}
+            {{ author }}
+          {% else %}
+            Sistema / Operador
+          {% endif %}
+        </span>
+
+        {% if followup.item_type == "solution" %}
+          <span style="font-size: 0.7rem; font-weight: 700; padding: 0.15rem 0.5rem; border-radius: 9999px; background: rgba(16, 185, 129, 0.15); color: #10b981;">
+            Solución Oficial
+          </span>
+        {% else if followup.item_type == "task" %}
+          <span style="font-size: 0.7rem; font-weight: 700; padding: 0.15rem 0.5rem; border-radius: 9999px; background: rgba(245, 158, 11, 0.15); color: #f59e0b;">
+            Tarea Técnica
+          </span>
+        {% else %}
+          <span style="font-size: 0.7rem; font-weight: 700; padding: 0.15rem 0.5rem; border-radius: 9999px; background: rgba(59, 130, 246, 0.15); color: #3b82f6;">
+            Seguimiento
+          </span>
+        {% endif %}
+
+        {% if followup.is_private %}
+          <span style="font-size: 0.7rem; color: var(--text-muted); background: var(--card-subtle-bg); padding: 0.1rem 0.4rem; border-radius: 4px;" title="Visible solo para técnicos">
+            🔒 Privado
+          </span>
+        {% endif %}
+      </div>
+
+      <span style="font-size: 0.75rem; color: var(--text-muted); font-family: var(--font-mono);">
+        {{ followup.created_at.format("%d/%m/%Y %H:%M") }}
+      </span>
+    </div>
+
+    <!-- Body content -->
+    <div style="font-size: 0.88rem; line-height: 1.5; color: var(--text-secondary); white-space: pre-wrap;">{{ followup.content }}</div>
+  </div>
+</div>

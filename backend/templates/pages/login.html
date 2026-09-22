@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="es" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Iniciar Sesión | ITILSuite</title>
+  
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  
+  <link rel="stylesheet" href="/static/css/main.css">
+  
+  <style>
+    body.login-page {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: var(--bg-primary);
+      padding: 1.5rem;
+      margin: 0;
+      font-family: var(--font-sans, 'Plus Jakarta Sans', sans-serif);
+    }
+    .login-card {
+      width: 100%;
+      max-width: 420px;
+      background: var(--bg-card);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-lg, 16px);
+      box-shadow: var(--shadow-xl, 0 20px 48px rgba(0,0,0,0.4));
+      padding: 2.5rem;
+      backdrop-filter: blur(20px);
+    }
+  </style>
+</head>
+<body class="login-page">
+  <div class="login-card">
+    <!-- Header -->
+    <div style="text-align: center; margin-bottom: 2rem;">
+      <div style="width: 48px; height: 48px; border-radius: 12px; background: linear-gradient(135deg, var(--btn-primary-from, #eb4d3d), #f59e0b); display: inline-flex; align-items: center; justify-content: center; font-size: 1.5rem; color: white; margin-bottom: 0.85rem; box-shadow: 0 4px 14px var(--btn-primary-shadow, rgba(235, 77, 61, 0.4));">
+        ⚡
+      </div>
+      <h1 style="font-size: 1.5rem; font-weight: 800; color: var(--text-primary); margin: 0 0 0.4rem; letter-spacing: -0.02em;">ITILSuite Core</h1>
+      <p style="font-size: 0.82rem; color: var(--text-muted); margin: 0;">Plataforma ITSM y CMDB nativa en Rust v0.0.8</p>
+    </div>
+
+    <!-- Error Alert -->
+    {% if let Some(err) = error_message %}
+    <div style="margin-bottom: 1.25rem; padding: 0.75rem 1rem; border-radius: var(--radius-sm, 8px); background: rgba(239, 68, 68, 0.12); border: 1px solid rgba(239, 68, 68, 0.3); color: #ef4444; font-size: 0.8rem; display: flex; align-items: center; gap: 0.5rem;">
+      <span>⚠️</span>
+      <span>{{ err }}</span>
+    </div>
+    {% endif %}
+
+    <!-- Login Form -->
+    <form action="/login" method="POST" style="display: flex; flex-direction: column; gap: 1.15rem;">
+      <div>
+        <label for="username" style="display: block; font-size: 0.78rem; font-weight: 600; color: var(--text-secondary); margin-bottom: 0.4rem;">
+          Usuario o Correo
+        </label>
+        <input
+          type="text"
+          id="username"
+          name="username"
+          required
+          autofocus
+          placeholder="admin"
+          style="width: 100%; box-sizing: border-box; padding: 0.65rem 0.85rem; border-radius: var(--radius-sm, 8px); background: var(--card-subtle-bg); border: 1px solid var(--border-subtle); color: var(--text-primary); font-size: 0.85rem;"
+        />
+      </div>
+
+      <div>
+        <label for="password" style="display: block; font-size: 0.78rem; font-weight: 600; color: var(--text-secondary); margin-bottom: 0.4rem;">
+          Contraseña
+        </label>
+        <input
+          type="password"
+          id="password"
+          name="password"
+          required
+          placeholder="••••••••"
+          style="width: 100%; box-sizing: border-box; padding: 0.65rem 0.85rem; border-radius: var(--radius-sm, 8px); background: var(--card-subtle-bg); border: 1px solid var(--border-subtle); color: var(--text-primary); font-size: 0.85rem;"
+        />
+      </div>
+
+      <button
+        type="submit"
+        style="margin-top: 0.5rem; width: 100%; padding: 0.75rem; border-radius: var(--radius-sm, 8px); background: linear-gradient(135deg, var(--btn-primary-from, #eb4d3d), var(--btn-primary-to, #cf3a2b)); border: none; color: white; font-weight: 700; font-size: 0.88rem; cursor: pointer; box-shadow: 0 4px 14px var(--btn-primary-shadow, rgba(235, 77, 61, 0.4)); transition: all 0.15s ease;"
+      >
+        Iniciar Sesión
+      </button>
+    </form>
+
+    <div style="margin-top: 1.75rem; text-align: center; border-top: 1px solid var(--border-subtle); padding-top: 1rem;">
+      <span style="font-size: 0.75rem; color: var(--text-muted);">
+        Credenciales por defecto: <strong style="color: var(--text-primary);">admin</strong> / <strong style="color: var(--text-primary);">admin</strong>
+      </span>
+    </div>
+  </div>
+</body>
+</html>

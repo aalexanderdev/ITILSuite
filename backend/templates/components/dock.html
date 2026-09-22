@@ -1,0 +1,372 @@
+<div class="bottom-dock-wrapper">
+  <!-- Toggle Handle 'Menú' -->
+  <button
+    type="button"
+    class="bottom-dock-toggle"
+    aria-label="Alternar menú de navegación"
+  >
+    <span>Menú</span>
+  </button>
+
+  <!-- Floating Pill Dock Bar -->
+  <nav class="bottom-dock-bar" aria-label="Navegación Integrada ITILSuite">
+    <!-- 1. Panel / Inicio -->
+    <div class="dock-item-wrapper align-left">
+      <button
+        type="button"
+        id="dock-btn-dashboard"
+        onclick="toggleDockMenu('dashboard')"
+        class="dock-item {% if active_nav == "dashboard" %}active{% endif %}"
+        title="Panel de Control y Diagnóstico"
+      >
+        <span>📊</span>
+        <span>Panel</span>
+        <span class="dock-item-chevron">▲</span>
+      </button>
+
+      <div id="dropup-dashboard" class="dock-dropup" role="menu">
+        <div class="dock-dropup-header">
+          <div class="dock-dropup-header-left">
+            <span>📊</span>
+            <span>Panel de Control</span>
+          </div>
+        </div>
+        <div class="dock-dropup-items">
+          <a href="/dashboard" class="dock-dropup-item {% if active_nav == "dashboard" %}active{% endif %}">
+            <div class="dock-dropup-item-icon">📊</div>
+            <div class="dock-dropup-item-content">
+              <div class="dock-dropup-item-title-row">
+                <span class="dock-dropup-item-title">Panel General</span>
+              </div>
+              <span class="dock-dropup-item-desc">Métricas clave, volumen de incidentes y estado ITSM</span>
+            </div>
+          </a>
+          <a href="/dashboard#diagnostics" class="dock-dropup-item">
+            <div class="dock-dropup-item-icon">🩺</div>
+            <div class="dock-dropup-item-content">
+              <div class="dock-dropup-item-title-row">
+                <span class="dock-dropup-item-title">Diagnóstico del Sistema</span>
+              </div>
+              <span class="dock-dropup-item-desc">Estado de API en Rust, latencia y verificación de base de datos</span>
+            </div>
+          </a>
+          <a href="/dashboard#roadmap" class="dock-dropup-item">
+            <div class="dock-dropup-item-icon">🚀</div>
+            <div class="dock-dropup-item-content">
+              <div class="dock-dropup-item-title-row">
+                <span class="dock-dropup-item-title">Hoja de Ruta v0.0.8</span>
+                <span class="dock-dropup-badge">v0.0.8</span>
+              </div>
+              <span class="dock-dropup-item-desc">Módulos nativos completados y evolución del core</span>
+            </div>
+          </a>
+        </div>
+      </div>
+    </div>
+
+    <!-- 2. Service Desk (Tickets, SLAs, CSAT, Chat) -->
+    <div class="dock-item-wrapper">
+      <button
+        type="button"
+        id="dock-btn-servicedesk"
+        onclick="toggleDockMenu('servicedesk')"
+        class="dock-item {% if active_nav == "tickets" || active_nav == "slas" || active_nav == "surveys" %}active{% endif %}"
+        title="Mesa de Servicio ITIL: Tickets, SLAs y Satisfacción"
+      >
+        <span>🎧</span>
+        <span>Service Desk</span>
+        <span class="dock-badge">12</span>
+        <span class="dock-item-chevron">▲</span>
+      </button>
+
+      <div id="dropup-servicedesk" class="dock-dropup" role="menu">
+        <div class="dock-dropup-header">
+          <div class="dock-dropup-header-left">
+            <span>🎧</span>
+            <span>ITIL Service Desk</span>
+          </div>
+          <span class="dock-dropup-badge">Core</span>
+        </div>
+        <div class="dock-dropup-items">
+          <a href="/tickets" class="dock-dropup-item {% if active_nav == "tickets" %}active{% endif %}">
+            <div class="dock-dropup-item-icon">🎫</div>
+            <div class="dock-dropup-item-content">
+              <div class="dock-dropup-item-title-row">
+                <span class="dock-dropup-item-title">Mesa de Tickets</span>
+                <span class="dock-dropup-badge">12</span>
+              </div>
+              <span class="dock-dropup-item-desc">Gestión de incidentes, solicitudes y catálogo de servicios</span>
+            </div>
+          </a>
+          <a href="/slas" class="dock-dropup-item {% if active_nav == "slas" %}active{% endif %}">
+            <div class="dock-dropup-item-icon">⏱️</div>
+            <div class="dock-dropup-item-content">
+              <div class="dock-dropup-item-title-row">
+                <span class="dock-dropup-item-title">Gestión de SLAs</span>
+                <span class="dock-dropup-badge">SLAs</span>
+              </div>
+              <span class="dock-dropup-item-desc">Acuerdos de nivel, tiempos TTR/TTO y matriz de escalamiento</span>
+            </div>
+          </a>
+          <a href="/surveys" class="dock-dropup-item {% if active_nav == "surveys" %}active{% endif %}">
+            <div class="dock-dropup-item-icon">⭐</div>
+            <div class="dock-dropup-item-content">
+              <div class="dock-dropup-item-title-row">
+                <span class="dock-dropup-item-title">Encuestas & CSAT</span>
+                <span class="dock-dropup-badge">v0.0.8</span>
+              </div>
+              <span class="dock-dropup-item-desc">Satisfacción del usuario, encuestas dinámicas y métricas NPS</span>
+            </div>
+          </a>
+          <a href="/chat-analytics" class="dock-dropup-item">
+            <div class="dock-dropup-item-icon">💬</div>
+            <div class="dock-dropup-item-content">
+              <div class="dock-dropup-item-title-row">
+                <span class="dock-dropup-item-title">Helpdesk Chat & Analytics</span>
+                <span class="dock-dropup-badge">Live</span>
+              </div>
+              <span class="dock-dropup-item-desc">Monitoreo de conversaciones en tiempo real y asistencia técnica</span>
+            </div>
+          </a>
+        </div>
+      </div>
+    </div>
+
+    <!-- 3. Botón de Creación Rápida (+ Crear) -->
+    <div class="dock-item-wrapper">
+      <button
+        type="button"
+        id="dock-btn-create"
+        onclick="toggleDockMenu('create')"
+        class="dock-item-create"
+        title="Crear nuevo ticket, encuesta, activo o regla"
+      >
+        <span>➕</span>
+        <span>Crear</span>
+        <span class="dock-item-chevron">▲</span>
+      </button>
+
+      <div id="dropup-create" class="dock-dropup" role="menu">
+        <div class="dock-dropup-header">
+          <div class="dock-dropup-header-left">
+            <span>➕</span>
+            <span>Acciones de Creación Rápida</span>
+          </div>
+        </div>
+        <div class="dock-dropup-items">
+          <a href="/tickets/new" class="dock-dropup-item">
+            <div class="dock-dropup-item-icon">🎫</div>
+            <div class="dock-dropup-item-content">
+              <span class="dock-dropup-item-title">Nuevo Incidente / Ticket</span>
+              <span class="dock-dropup-item-desc">Abrir formulario con selección de plantilla ITIL y prioridad</span>
+            </div>
+          </a>
+          <a href="/surveys/new" class="dock-dropup-item">
+            <div class="dock-dropup-item-icon">⭐</div>
+            <div class="dock-dropup-item-content">
+              <span class="dock-dropup-item-title">Crear Encuesta de Satisfacción</span>
+              <span class="dock-dropup-item-desc">Diseñar nueva encuesta CSAT / NPS con preguntas condicionales</span>
+            </div>
+          </a>
+          <a href="/computers/new" class="dock-dropup-item">
+            <div class="dock-dropup-item-icon">🖥️</div>
+            <div class="dock-dropup-item-content">
+              <span class="dock-dropup-item-title">Registrar Activo TI en CMDB</span>
+              <span class="dock-dropup-item-desc">Añadir servidor, computador o equipo de red al inventario</span>
+            </div>
+          </a>
+          <a href="/rules/new" class="dock-dropup-item">
+            <div class="dock-dropup-item-icon">⚡</div>
+            <div class="dock-dropup-item-content">
+              <span class="dock-dropup-item-title">Nueva Regla de Negocio</span>
+              <span class="dock-dropup-item-desc">Automatizar enrutamiento, asignación de técnicos o SLAs</span>
+            </div>
+          </a>
+        </div>
+      </div>
+    </div>
+
+    <!-- 4. Inventario & CMDB -->
+    <div class="dock-item-wrapper">
+      <button
+        type="button"
+        id="dock-btn-inventory"
+        onclick="toggleDockMenu('inventory')"
+        class="dock-item {% if active_nav == "computers" || active_nav == "assets" %}active{% endif %}"
+        title="Gestión de Activos, Hardware, Redes y CMDB"
+      >
+        <span>🖥️</span>
+        <span>Inventario</span>
+        <span class="dock-badge">180</span>
+        <span class="dock-item-chevron">▲</span>
+      </button>
+
+      <div id="dropup-inventory" class="dock-dropup" role="menu">
+        <div class="dock-dropup-header">
+          <div class="dock-dropup-header-left">
+            <span>🖥️</span>
+            <span>Activos & CMDB</span>
+          </div>
+          <span class="dock-dropup-badge">ITAM</span>
+        </div>
+        <div class="dock-dropup-items">
+          <a href="/computers" class="dock-dropup-item {% if active_nav == "computers" %}active{% endif %}">
+            <div class="dock-dropup-item-icon">💻</div>
+            <div class="dock-dropup-item-content">
+              <div class="dock-dropup-item-title-row">
+                <span class="dock-dropup-item-title">Activos & Computadores</span>
+                <span class="dock-dropup-badge">180</span>
+              </div>
+              <span class="dock-dropup-item-desc">Inventario de hardware, servidores y agentes automáticos</span>
+            </div>
+          </a>
+          <a href="/network" class="dock-dropup-item">
+            <div class="dock-dropup-item-icon">🌐</div>
+            <div class="dock-dropup-item-content">
+              <div class="dock-dropup-item-title-row">
+                <span class="dock-dropup-item-title">Redes & Conectividad</span>
+                <span class="dock-dropup-badge">ITAM</span>
+              </div>
+              <span class="dock-dropup-item-desc">Switches, routers, firewalls, racks y cableado de red</span>
+            </div>
+          </a>
+          <a href="/contracts" class="dock-dropup-item">
+            <div class="dock-dropup-item-icon">📑</div>
+            <div class="dock-dropup-item-content">
+              <div class="dock-dropup-item-title-row">
+                <span class="dock-dropup-item-title">Contratos & Proveedores</span>
+              </div>
+              <span class="dock-dropup-item-desc">Acuerdos comerciales, licencias de software y garantías</span>
+            </div>
+          </a>
+        </div>
+      </div>
+    </div>
+
+    <!-- 5. Administración (Entidades, Usuarios, Reglas, Correo) -->
+    <div class="dock-item-wrapper">
+      <button
+        type="button"
+        id="dock-btn-admin"
+        onclick="toggleDockMenu('admin')"
+        class="dock-item {% if active_nav == "entities" || active_nav == "users" || active_nav == "rules" || active_nav == "mail" %}active{% endif %}"
+        title="Configuración de Sistema, Entidades, Usuarios y Reglas"
+      >
+        <span>⚙️</span>
+        <span>Administración</span>
+        <span class="dock-item-chevron">▲</span>
+      </button>
+
+      <div id="dropup-admin" class="dock-dropup" role="menu">
+        <div class="dock-dropup-header">
+          <div class="dock-dropup-header-left">
+            <span>⚙️</span>
+            <span>Administración & Gobierno</span>
+          </div>
+        </div>
+        <div class="dock-dropup-items">
+          <a href="/entities" class="dock-dropup-item {% if active_nav == "entities" %}active{% endif %}">
+            <div class="dock-dropup-item-icon">🏢</div>
+            <div class="dock-dropup-item-content">
+              <div class="dock-dropup-item-title-row">
+                <span class="dock-dropup-item-title">Jerarquía de Entidades</span>
+              </div>
+              <span class="dock-dropup-item-desc">Árbol multi-inquilino de sedes, filiales y departamentos</span>
+            </div>
+          </a>
+          <a href="/users" class="dock-dropup-item {% if active_nav == "users" %}active{% endif %}">
+            <div class="dock-dropup-item-icon">👥</div>
+            <div class="dock-dropup-item-content">
+              <div class="dock-dropup-item-title-row">
+                <span class="dock-dropup-item-title">Directorio de Usuarios & RBAC</span>
+              </div>
+              <span class="dock-dropup-item-desc">Cuentas de usuario, perfiles de permiso ITIL y grupos</span>
+            </div>
+          </a>
+          <a href="/rules" class="dock-dropup-item {% if active_nav == "rules" %}active{% endif %}">
+            <div class="dock-dropup-item-icon">⚡</div>
+            <div class="dock-dropup-item-content">
+              <div class="dock-dropup-item-title-row">
+                <span class="dock-dropup-item-title">Motor de Reglas & Acciones</span>
+                <span class="dock-dropup-badge">Motor</span>
+              </div>
+              <span class="dock-dropup-item-desc">Diccionarios de software, asignación y automatización</span>
+            </div>
+          </a>
+          <a href="/mail-config" class="dock-dropup-item {% if active_nav == "mail" %}active{% endif %}">
+            <div class="dock-dropup-item-icon">✉️</div>
+            <div class="dock-dropup-item-content">
+              <div class="dock-dropup-item-title-row">
+                <span class="dock-dropup-item-title">Correo & Notificaciones</span>
+              </div>
+              <span class="dock-dropup-item-desc">Servidor SMTP, eventos por correo y colectores IMAP/POP3</span>
+            </div>
+          </a>
+        </div>
+      </div>
+    </div>
+
+    <!-- 6. Perfil / Cuenta (Alineado a la derecha) -->
+    <div class="dock-item-wrapper align-right">
+      <button
+        type="button"
+        id="dock-btn-profile"
+        onclick="toggleDockMenu('profile')"
+        class="dock-item"
+        title="Sesión de usuario y preferencias"
+      >
+        <span>👤</span>
+        <span>{{ current_username }}</span>
+        <span class="dock-item-chevron">▲</span>
+      </button>
+
+      <div id="dropup-profile" class="dock-dropup" role="menu">
+        <div class="dock-dropup-header">
+          <div class="dock-dropup-header-left">
+            <span>👤</span>
+            <span>Cuenta & Sesión</span>
+          </div>
+        </div>
+
+        <!-- User Info Header Card -->
+        <div class="dock-user-profile-card">
+          <div class="dock-user-avatar">
+            {{ user_initials }}
+          </div>
+          <div class="dock-user-info">
+            <span class="dock-user-name">{{ current_display_name }}</span>
+            <span class="dock-user-role">{{ current_profile_name }}</span>
+          </div>
+        </div>
+
+        <!-- Active Entity Scope -->
+        <div class="dock-user-entity-pill">
+          <span>🏢</span>
+          <span>Ámbito: <strong>{{ active_entity_name }}</strong></span>
+        </div>
+
+        <!-- Theme Switcher Button -->
+        <button
+          type="button"
+          class="dock-theme-toggle-btn"
+          onclick="toggleTheme()"
+          title="Cambiar tema de la interfaz"
+        >
+          <div style="display: flex; align-items: center; gap: 0.5rem;">
+            <span>🌓</span>
+            <span>Tema visual</span>
+          </div>
+          <span id="current-theme-label" style="font-size: 0.72rem; color: var(--text-muted);">Oscuro</span>
+        </button>
+
+        <!-- Logout Form -->
+        <form action="/logout" method="POST" style="margin: 0; padding: 0;">
+          <button type="submit" class="dock-logout-btn">
+            <span>🚪</span>
+            <span>Cerrar Sesión</span>
+          </button>
+        </form>
+      </div>
+    </div>
+  </nav>
+</div>

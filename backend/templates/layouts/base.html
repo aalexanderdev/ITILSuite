@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="es" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}ITILSuite - ITSM & ITAM High-Performance Suite{% endblock %}</title>
+  <meta name="description" content="ITILSuite - Plataforma ITSM y CMDB de alto rendimiento nativa en Rust">
+  
+  <!-- Modern Typography & Icons -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+  
+  <!-- Core Design System (Vanilla CSS) -->
+  <link rel="stylesheet" href="/static/css/main.css">
+  
+  <!-- HTMX & Vanilla JS -->
+  <script src="/static/js/htmx.min.js"></script>
+  <script src="/static/js/main.js" defer></script>
+  
+  <style>
+    /* CSS additions for Askama / HTMX interactions */
+    .dock-dropup {
+      display: none;
+    }
+    .dock-dropup.active {
+      display: flex;
+    }
+    .bottom-dock-bar.hidden {
+      display: none;
+    }
+    .htmx-indicator {
+      display: none;
+    }
+    .htmx-request .htmx-indicator {
+      display: inline-block;
+    }
+    .htmx-request.htmx-indicator {
+      display: inline-block;
+    }
+  </style>
+  {% block head %}{% endblock %}
+</head>
+<body class="app-layout">
+  <!-- Top Navbar -->
+  {% include "components/navbar.html" %}
+
+  <div class="openitil-main-container">
+    <!-- Main Content Workspace -->
+    <main class="openitil-content-workspace">
+      {% block content %}{% endblock %}
+    </main>
+  </div>
+
+  <!-- Integrated Floating Bottom Dock with Vertical Dropups -->
+  {% include "components/dock.html" %}
+
+  <!-- Modals & Dynamic Containers -->
+  {% block modals %}{% endblock %}
+</body>
+</html>

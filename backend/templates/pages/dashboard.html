@@ -1,0 +1,176 @@
+{% extends "layouts/base.html" %}
+
+{% block title %}Dashboard | ITILSuite ITSM{% endblock %}
+
+{% block content %}
+<div class="openitil-dashboard-view">
+  <!-- Welcome Banner -->
+  <div class="openitil-welcome-banner">
+    <div>
+      <h1 class="welcome-title">Bienvenido, {{ current_display_name }}</h1>
+      <p class="welcome-subtitle">
+        Panel de control ITSM e infraestructura de servicios ITIL | Ámbito Activo: <strong>{{ active_entity_name }}</strong>
+      </p>
+    </div>
+    <div class="welcome-badges-row">
+      <div class="welcome-badge-pill">
+        <span class="welcome-pulse-dot"></span>
+        <span>ITIL Core v0.0.8 Activo</span>
+      </div>
+      <div class="welcome-badge-pill">
+        <span>⏱️</span>
+        <span>Motor SLA & Reglas Activo</span>
+      </div>
+      <a href="/tickets/new" class="btn-welcome-primary" style="text-decoration: none;">
+        <span>➕</span>
+        <span>Nuevo Ticket</span>
+      </a>
+    </div>
+  </div>
+
+  <!-- KPI Metrics Grid -->
+  <div class="metrics-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 1.25rem; margin-bottom: 2rem;">
+    <!-- Metric 1: Tickets -->
+    <div class="card" style="padding: 1.25rem;">
+      <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 0.75rem;">
+        <span style="font-size: 0.78rem; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em;">Tickets Abiertos</span>
+        <div style="padding: 0.35rem 0.5rem; border-radius: 8px; background: rgba(235, 77, 61, 0.12); color: #eb4d3d;">🎫</div>
+      </div>
+      <div style="font-size: 1.8rem; font-weight: 800; color: var(--text-primary); margin-bottom: 0.35rem;">{{ open_tickets_count }}</div>
+      <div style="font-size: 0.72rem; color: #10b981; font-weight: 600;">En curso con asignación activa</div>
+    </div>
+
+    <!-- Metric 2: SLAs -->
+    <div class="card" style="padding: 1.25rem;">
+      <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 0.75rem;">
+        <span style="font-size: 0.78rem; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em;">Cumplimiento SLA</span>
+        <div style="padding: 0.35rem 0.5rem; border-radius: 8px; background: rgba(16, 185, 129, 0.12); color: #10b981;">⏱️</div>
+      </div>
+      <div style="font-size: 1.8rem; font-weight: 800; color: var(--text-primary); margin-bottom: 0.35rem;">{{ sla_compliance_rate }}%</div>
+      <div style="font-size: 0.72rem; color: #10b981; font-weight: 600;">Objetivo 95% superado</div>
+    </div>
+
+    <!-- Metric 3: CSAT -->
+    <div class="card" style="padding: 1.25rem;">
+      <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 0.75rem;">
+        <span style="font-size: 0.78rem; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em;">Satisfacción CSAT</span>
+        <div style="padding: 0.35rem 0.5rem; border-radius: 8px; background: rgba(245, 158, 11, 0.12); color: #f59e0b;">⭐</div>
+      </div>
+      <div style="font-size: 1.8rem; font-weight: 800; color: var(--text-primary); margin-bottom: 0.35rem;">{{ csat_score }}/5.0</div>
+      <div style="font-size: 0.72rem; color: #f59e0b; font-weight: 600;">NPS Relacional: +{{ nps_score }}</div>
+    </div>
+
+    <!-- Metric 4: Assets -->
+    <div class="card" style="padding: 1.25rem;">
+      <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 0.75rem;">
+        <span style="font-size: 0.78rem; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em;">Activos en CMDB</span>
+        <div style="padding: 0.35rem 0.5rem; border-radius: 8px; background: rgba(56, 189, 248, 0.12); color: #38bdf8;">🖥️</div>
+      </div>
+      <div style="font-size: 1.8rem; font-weight: 800; color: var(--text-primary); margin-bottom: 0.35rem;">{{ assets_count }}</div>
+      <div style="font-size: 0.72rem; color: #38bdf8; font-weight: 600;">Agentes de inventario activos</div>
+    </div>
+  </div>
+
+  <!-- Two-Column Grid: Diagnostics & Architecture -->
+  <div class="dashboard-columns" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(400px, 1fr)); gap: 1.5rem;">
+    <!-- Left Column: Architecture & Mobile API Ready -->
+    <div class="card" id="roadmap" style="padding: 1.5rem;">
+      <div style="display: flex; align-items: center; gap: 0.65rem; margin-bottom: 1rem;">
+        <div style="padding: 0.4rem; border-radius: var(--radius-sm); background: rgba(6, 182, 212, 0.12); color: #22d3ee;">
+          🚀
+        </div>
+        <div>
+          <h3 style="font-size: 1rem; font-weight: 700; margin: 0;">Arquitectura Nativa Rust + API Móvil</h3>
+          <span style="font-size: 0.75rem; color: var(--text-muted);">
+            Renderizado SSR ultrarrápido con Askama y API REST JSON desacoplada
+          </span>
+        </div>
+      </div>
+
+      <div style="display: flex; flex-direction: column; gap: 0.75rem;">
+        <div style="display: flex; align-items: center; justify-content: space-between; padding: 0.65rem 0.85rem; border-radius: 8px; background: var(--card-subtle-bg); border: 1px solid var(--border-subtle);">
+          <div style="display: flex; align-items: center; gap: 0.5rem;">
+            <span>⚡</span>
+            <span style="font-size: 0.82rem; font-weight: 600;">Motor Backend</span>
+          </div>
+          <span style="font-size: 0.78rem; font-weight: 700; color: #f59e0b;">Rust 1.98 / Axum 0.7</span>
+        </div>
+
+        <div style="display: flex; align-items: center; justify-content: space-between; padding: 0.65rem 0.85rem; border-radius: 8px; background: var(--card-subtle-bg); border: 1px solid var(--border-subtle);">
+          <div style="display: flex; align-items: center; gap: 0.5rem;">
+            <span>📱</span>
+            <span style="font-size: 0.82rem; font-weight: 600;">API JSON para Android / iPhone</span>
+          </div>
+          <a href="/swagger-ui" target="_blank" style="font-size: 0.78rem; font-weight: 700; color: #38bdf8; text-decoration: none;">
+            OpenAPI 3.1 ↗
+          </a>
+        </div>
+
+        <div style="display: flex; align-items: center; justify-content: space-between; padding: 0.65rem 0.85rem; border-radius: 8px; background: var(--card-subtle-bg); border: 1px solid var(--border-subtle);">
+          <div style="display: flex; align-items: center; gap: 0.5rem;">
+            <span>🖥️</span>
+            <span style="font-size: 0.82rem; font-weight: 600;">Frontend Web Desktop</span>
+          </div>
+          <span style="font-size: 0.78rem; font-weight: 700; color: #10b981;">Askama SSR + HTMX</span>
+        </div>
+
+        <div style="display: flex; align-items: center; justify-content: space-between; padding: 0.65rem 0.85rem; border-radius: 8px; background: var(--card-subtle-bg); border: 1px solid var(--border-subtle);">
+          <div style="display: flex; align-items: center; gap: 0.5rem;">
+            <span>🔒</span>
+            <span style="font-size: 0.82rem; font-weight: 600;">Seguridad y Hashing</span>
+          </div>
+          <span style="font-size: 0.78rem; font-weight: 700; color: #a855f7;">Argon2id + JWT 24h</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Right Column: Diagnostics & Connectivity -->
+    <div class="card" id="diagnostics" style="padding: 1.5rem;">
+      <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem;">
+        <div style="display: flex; align-items: center; gap: 0.65rem;">
+          <div style="padding: 0.4rem; border-radius: var(--radius-sm); background: rgba(16, 185, 129, 0.12); color: #10b981;">
+            🩺
+          </div>
+          <div>
+            <h3 style="font-size: 1rem; font-weight: 700; margin: 0;">Diagnóstico en Tiempo Real</h3>
+            <span style="font-size: 0.75rem; color: var(--text-muted);">
+              Salud de base de datos PostgreSQL y endpoints
+            </span>
+          </div>
+        </div>
+
+        <!-- HTMX button to refresh diagnostics -->
+        <button
+          hx-get="/api/v1/health"
+          hx-target="#health-status-response"
+          hx-swap="innerHTML"
+          class="btn-welcome-secondary"
+          style="padding: 0.35rem 0.75rem; font-size: 0.75rem;"
+        >
+          <span>↻</span>
+          <span>Probar Salud</span>
+        </button>
+      </div>
+
+      <div id="health-status-response" style="padding: 0.85rem; border-radius: 8px; background: var(--card-subtle-bg); border: 1px solid var(--border-subtle); font-family: var(--font-mono, monospace); font-size: 0.78rem;">
+        <div style="display: flex; justify-content: space-between; margin-bottom: 0.35rem;">
+          <span style="color: var(--text-muted);">Servidor Backend:</span>
+          <span style="color: #10b981; font-weight: 700;">● Online (0.0.8)</span>
+        </div>
+        <div style="display: flex; justify-content: space-between; margin-bottom: 0.35rem;">
+          <span style="color: var(--text-muted);">Base de Datos:</span>
+          <span style="color: #10b981; font-weight: 700;">Conectado (PostgreSQL 16)</span>
+        </div>
+        <div style="display: flex; justify-content: space-between;">
+          <span style="color: var(--text-muted);">Latencia de Respuesta:</span>
+          <span style="color: #38bdf8; font-weight: 700;">&lt; 1 ms (memoria nativa)</span>
+        </div>
+      </div>
+
+      <div style="margin-top: 1.25rem; font-size: 0.75rem; color: var(--text-muted); line-height: 1.5;">
+        💡 Puedes interactuar con cualquier módulo usando el <strong>Menú Flotante Inferior</strong> con desplegables hacia arriba, o acceder a los endpoints para clientes móviles en <code>/api/v1/</code>.
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

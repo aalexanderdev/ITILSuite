@@ -320,7 +320,15 @@ pub fn create_router(state: AppState) -> Router {
         .merge(slas::router())
         .merge(surveys::router());
 
+    let static_dir = if std::path::Path::new("backend/static").exists() {
+        "backend/static"
+    } else {
+        "static"
+    };
+
     Router::new()
+        .merge(crate::web::router())
+        .nest_service("/static", tower_http::services::ServeDir::new(static_dir))
         .nest("/api/v1", api_v1)
         .merge(SwaggerUi::new("/swagger-ui").url("/api-docs/openapi.json", ApiDoc::openapi()))
         .with_state(state)

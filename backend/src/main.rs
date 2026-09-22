@@ -13,6 +13,7 @@ mod domain;
 mod error;
 pub mod services;
 mod state;
+pub mod web;
 
 use config::Config;
 use state::AppState;

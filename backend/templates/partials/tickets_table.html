@@ -1,0 +1,124 @@
+{% if tickets.is_empty() %}
+<tr>
+  <td colspan="8">
+    <div class="tickets-empty-state">
+      <div class="empty-icon" style="font-size: 2.5rem; margin-bottom: 0.5rem;">🎫</div>
+      <h3>No se encontraron incidentes o solicitudes</h3>
+      <p>No hay tickets que coincidan con los criterios de búsqueda o filtros seleccionados.</p>
+      <div class="empty-actions">
+        <a href="/tickets" class="btn-clear-filters">Limpiar Filtros</a>
+        <button type="button" class="btn btn-primary" onclick="openCreateTicketModal()">
+          <span>➕</span>
+          <span>Crear Primer Ticket</span>
+        </button>
+      </div>
+    </div>
+  </td>
+</tr>
+{% else %}
+  {% for ticket in tickets %}
+  <tr class="ticket-row" onclick="window.location.href='/tickets/{{ ticket.id }}'">
+    <td>
+      <span class="table-ticket-code">{{ ticket.ticket_number }}</span>
+    </td>
+    <td>
+      {% if ticket.ticket_type == "request" %}
+        <span class="table-type-pill pill-request">Solicitud</span>
+      {% else %}
+        <span class="table-type-pill pill-incident">Incidente</span>
+      {% endif %}
+    </td>
+    <td>
+      <div class="ticket-title-cell">
+        <a href="/tickets/{{ ticket.id }}" class="table-ticket-name" onclick="event.stopPropagation()">
+          {{ ticket.name }}
+        </a>
+        <div class="table-ticket-meta">
+          {% if let Some(cat) = ticket.category %}
+            <span class="meta-category-badge">🏷️ {{ cat }}</span>
+          {% endif %}
+          <span class="meta-entity-badge">🏢 {{ ticket.entity_name }}</span>
+        </div>
+      </div>
+    </td>
+    <td>
+      {% if ticket.status == "new" %}
+        <span class="status-pill status-new">Nuevo</span>
+      {% else if ticket.status == "assigned" %}
+        <span class="status-pill status-assigned">Asignado</span>
+      {% else if ticket.status == "planned" %}
+        <span class="status-pill status-planned">Planificado</span>
+      {% else if ticket.status == "pending" %}
+        <span class="status-pill status-pending">En Espera</span>
+      {% else if ticket.status == "solved" %}
+        <span class="status-pill status-solved">Resuelto</span>
+      {% else if ticket.status == "closed" %}
+        <span class="status-pill status-closed">Cerrado</span>
+      {% else %}
+        <span class="status-pill">{{ ticket.status }}</span>
+      {% endif %}
+    </td>
+    <td>
+      {% if ticket.priority == 5 %}
+        <span class="table-priority-badge" style="background: rgba(239, 68, 68, 0.15); color: #ef4444; border-color: rgba(239, 68, 68, 0.3);">
+          ⚡ P5 Crítica
+        </span>
+      {% else if ticket.priority == 4 %}
+        <span class="table-priority-badge" style="background: rgba(249, 115, 22, 0.15); color: #f97316; border-color: rgba(249, 115, 22, 0.3);">
+          🔥 P4 Alta
+        </span>
+      {% else if ticket.priority == 3 %}
+        <span class="table-priority-badge" style="background: rgba(245, 158, 11, 0.15); color: #f59e0b; border-color: rgba(245, 158, 11, 0.3);">
+          🟡 P3 Media
+        </span>
+      {% else if ticket.priority == 2 %}
+        <span class="table-priority-badge" style="background: rgba(59, 130, 246, 0.15); color: #3b82f6; border-color: rgba(59, 130, 246, 0.3);">
+          🟢 P2 Baja
+        </span>
+      {% else %}
+        <span class="table-priority-badge" style="background: rgba(148, 163, 184, 0.15); color: #94a3b8; border-color: rgba(148, 163, 184, 0.3);">
+          ⚪ P1 Muy Baja
+        </span>
+      {% endif %}
+    </td>
+    <td>
+      {% if let Some(tech_name) = ticket.assigned_technician_name %}
+        <div class="table-tech-badge">
+          <span class="tech-avatar-mini">{{ tech_name.chars().next().unwrap_or('T') }}</span>
+          <span class="tech-name-text">{{ tech_name }}</span>
+        </div>
+      {% else if let Some(grp_name) = ticket.assigned_group_name %}
+        <div class="table-tech-badge">
+          <span class="tech-avatar-mini" style="background: var(--accent-indigo);">👥</span>
+          <span class="tech-name-text">{{ grp_name }}</span>
+        </div>
+      {% else %}
+        <span class="table-unassigned-text">Sin Asignar</span>
+      {% endif %}
+    </td>
+    <td>
+      <div class="table-sla-cell">
+        {% if ticket.sla_ttr_status == "breached" %}
+          <span style="color: #ef4444; font-weight: 600;">⚠️ Vencido</span>
+        {% else if ticket.sla_ttr_status == "at_risk" %}
+          <span style="color: #f59e0b; font-weight: 600;">⏳ En Riesgo</span>
+        {% else if ticket.sla_ttr_status == "solved_in_sla" %}
+          <span style="color: #10b981; font-weight: 600;">✓ Cumplido</span>
+        {% else %}
+          <span style="color: #10b981;">✓ En Tiempo</span>
+        {% endif %}
+      </div>
+    </td>
+    <td>
+      <div style="display: flex; align-items: center; justify-content: space-between; gap: 0.5rem;">
+        <span style="font-size: 0.75rem; color: var(--text-muted); font-family: var(--font-mono);">
+          {{ ticket.created_at.format("%d/%m %H:%M") }}
+        </span>
+        <a href="/tickets/{{ ticket.id }}" class="btn-view-ticket-detail" title="Ver Detalle" onclick="event.stopPropagation()">
+          👁️
+        </a>
+      </div>
+    </td>
+  </tr>
+  {% endfor %}
+{% endif %}

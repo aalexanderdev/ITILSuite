@@ -1,0 +1,1065 @@
+use axum::{
+    body::Bytes,
+    extract::{Form, Path, Query, State},
+    http::{header, HeaderMap, StatusCode},
+    response::{IntoResponse, Redirect, Response},
+    routing::{get, post},
+    Router,
+};
+use chrono::Utc;
+use serde::Deserialize;
+use uuid::Uuid;
+
+use crate::domain::auth::{create_jwt, verify_jwt, verify_password, Claims};
+use crate::domain::survey::{
+    CreateSurveyDto, QuestionAnswerInput, SubmitSurveyDto, SurveyPresetDef,
+};
+use crate::domain::ticket::{
+    calculate_priority, TicketDetailDto, TicketFollowupDto, TicketMetricsDto, TicketSummaryDto,
+};
+use crate::services::sla_service::SlaService;
+use crate::services::survey_service::SurveyService;
+use crate::state::AppState;
+use crate::web::templates::{
+    DashboardTemplate, FollowupPartialTemplate, HtmlTemplate, LoginTemplate, SurveyPublicTemplate,
+    SurveysAdminTemplate, TicketDetailTemplate, TicketsTablePartialTemplate, TicketsTemplate,
+};
+
+pub fn router() -> Router<AppState> {
+    Router::new()
+        // Auth & Dashboard
+        .route("/", get(handle_root))
+        .route("/login", get(show_login).post(handle_login))
+        .route("/logout", post(handle_logout))
+        .route("/dashboard", get(show_dashboard))
+        // Phase 2: Service Desk & Tickets
+        .route("/tickets", get(show_tickets).post(handle_create_ticket))
+        .route("/tickets/table", get(filter_tickets_table))
+        .route("/tickets/:id", get(show_ticket_detail))
+        .route("/tickets/:id/followups", post(handle_add_followup))
+        .route("/tickets/:id/status", post(handle_update_status))
+        // Phase 3: Surveys Admin & Public Responder
+        .route("/surveys", get(show_surveys_admin))
+        .route("/surveys/from-preset", post(handle_instantiate_preset))
+        .route("/surveys/:id/toggle", post(handle_toggle_survey))
+        .route("/survey/:token", get(show_public_survey))
+        .route("/survey/:token/submit", post(handle_submit_public_survey))
+}
+
+// --- Form & Query Models ---
+
+#[derive(Deserialize)]
+pub struct LoginForm {
+    pub username: String,
+    pub password: String,
+}
+
+#[derive(Deserialize, Default)]
+pub struct FilterTicketsWebQuery {
+    pub search: Option<String>,
+    pub status: Option<String>,
+    pub ticket_type: Option<String>,
+    pub priority: Option<i32>,
+    pub sla_status: Option<String>,
+}
+
+#[derive(Deserialize)]
+pub struct CreateTicketWebForm {
+    pub ticket_type: Option<String>,
+    pub name: String,
+    pub content: String,
+    pub category: Option<String>,
+    pub urgency: Option<i32>,
+    pub impact: Option<i32>,
+}
+
+#[derive(Deserialize)]
+pub struct CreateFollowupWebForm {
+    pub content: String,
+    pub item_type: Option<String>,
+    pub is_private: Option<String>,
+}
+
+#[derive(Deserialize)]
+pub struct UpdateStatusWebForm {
+    pub status: String,
+}
+
+#[derive(Deserialize)]
+pub struct InstantiatePresetForm {
+    pub preset_key: String,
+}
+
+#[derive(sqlx::FromRow)]
+struct UserAuthRow {
+    id: Uuid,
+    username: String,
+    password_hash: String,
+    realname: String,
+    firstname: String,
+    is_active: bool,
+}
+
+#[derive(sqlx::FromRow)]
+struct UserRoleRow {
+    profile_id: Uuid,
+    profile_name: String,
+    entity_id: Uuid,
+    entity_name: String,
+}
+
+#[derive(sqlx::FromRow)]
+struct MetricsRow {
+    total_open: Option<i64>,
+    incidents_count: Option<i64>,
+    requests_count: Option<i64>,
+    sla_at_risk_count: Option<i64>,
+    sla_breached_count: Option<i64>,
+    solved_count: Option<i64>,
+    closed_count: Option<i64>,
+    average_priority: Option<f64>,
+}
+
+// --- Helpers ---
+
+pub fn extract_claims_from_cookie(headers: &HeaderMap, secret: &str) -> Option<Claims> {
+    let cookie_header = headers.get(header::COOKIE)?.to_str().ok()?;
+    for part in cookie_header.split(';') {
+        let mut kv = part.trim().splitn(2, '=');
+        if let (Some(key), Some(val)) = (kv.next(), kv.next()) {
+            if key == "itilsuite_session" {
+                if let Ok(claims) = verify_jwt(val, secret) {
+                    return Some(claims);
+                }
+            }
+        }
+    }
+    None
+}
+
+async fn get_entity_name(pool: &sqlx::PgPool, entity_id_str: &str) -> String {
+    let entity_uuid = Uuid::parse_str(entity_id_str).unwrap_or(Uuid::nil());
+    sqlx::query_scalar("SELECT name FROM entities WHERE id = $1")
+        .bind(entity_uuid)
+        .fetch_one(pool)
+        .await
+        .unwrap_or_else(|_| "Root Entity".to_string())
+}
+
+fn get_user_initials(display_name: &str) -> String {
+    let inits: String = display_name
+        .split_whitespace()
+        .take(2)
+        .filter_map(|s| s.chars().next())
+        .collect();
+    if inits.is_empty() {
+        "AD".to_string()
+    } else {
+        inits.to_uppercase()
+    }
+}
+
+fn url_decode(s: &str) -> String {
+    let mut result = String::with_capacity(s.len());
+    let mut bytes = s.bytes();
+    while let Some(b) = bytes.next() {
+        match b {
+            b'+' => result.push(' '),
+            b'%' => {
+                let h1 = bytes.next().unwrap_or(b'0');
+                let h2 = bytes.next().unwrap_or(b'0');
+                if let Ok(hex_str) = std::str::from_utf8(&[h1, h2]) {
+                    if let Ok(code) = u8::from_str_radix(hex_str, 16) {
+                        result.push(code as char);
+                        continue;
+                    }
+                }
+                result.push('%');
+                result.push(h1 as char);
+                result.push(h2 as char);
+            }
+            _ => result.push(b as char),
+        }
+    }
+    result
+}
+
+// --- Handlers: Core Auth & Root ---
+
+async fn handle_root(State(state): State<AppState>, headers: HeaderMap) -> Response {
+    if let Some(_) = extract_claims_from_cookie(&headers, &state.config.jwt_secret) {
+        Redirect::to("/dashboard").into_response()
+    } else {
+        Redirect::to("/login").into_response()
+    }
+}
+
+async fn show_login(State(state): State<AppState>, headers: HeaderMap) -> Response {
+    if let Some(_) = extract_claims_from_cookie(&headers, &state.config.jwt_secret) {
+        return Redirect::to("/dashboard").into_response();
+    }
+    HtmlTemplate(LoginTemplate { error_message: None }).into_response()
+}
+
+async fn handle_login(
+    State(state): State<AppState>,
+    Form(payload): Form<LoginForm>,
+) -> Response {
+    let user_opt: Option<UserAuthRow> = sqlx::query_as(
+        "SELECT id, username, password_hash, realname, firstname, is_active FROM users WHERE username = $1"
+    )
+    .bind(&payload.username)
+    .fetch_optional(&state.pool)
+    .await
+    .unwrap_or(None);
+
+    let Some(user) = user_opt else {
+        return (
+            StatusCode::BAD_REQUEST,
+            HtmlTemplate(LoginTemplate {
+                error_message: Some("Usuario o contraseña incorrectos".into()),
+            }),
+        )
+            .into_response();
+    };
+
+    if !user.is_active {
+        return (
+            StatusCode::FORBIDDEN,
+            HtmlTemplate(LoginTemplate {
+                error_message: Some("La cuenta de usuario se encuentra deshabilitada".into()),
+            }),
+        )
+            .into_response();
+    }
+
+    if !verify_password(&user.password_hash, &payload.password) {
+        return (
+            StatusCode::BAD_REQUEST,
+            HtmlTemplate(LoginTemplate {
+                error_message: Some("Usuario o contraseña incorrectos".into()),
+            }),
+        )
+            .into_response();
+    }
+
+    let role_opt: Option<UserRoleRow> = sqlx::query_as(
+        r#"
+        SELECT 
+            p.id as profile_id,
+            p.name as profile_name,
+            e.id as entity_id,
+            e.name as entity_name
+        FROM user_profiles_entities upe
+        JOIN profiles p ON p.id = upe.profile_id
+        JOIN entities e ON e.id = upe.entity_id
+        WHERE upe.user_id = $1
+        ORDER BY p.name ASC
+        LIMIT 1
+        "#
+    )
+    .bind(user.id)
+    .fetch_optional(&state.pool)
+    .await
+    .unwrap_or(None);
+
+    let Some(role) = role_opt else {
+        return (
+            StatusCode::FORBIDDEN,
+            HtmlTemplate(LoginTemplate {
+                error_message: Some("El usuario no tiene asignado ningún perfil o entidad activa".into()),
+            }),
+        )
+            .into_response();
+    };
+
+    let display_name = if !user.firstname.is_empty() || !user.realname.is_empty() {
+        format!("{} {}", user.firstname, user.realname).trim().to_string()
+    } else {
+        user.username.clone()
+    };
+
+    let now = Utc::now().timestamp() as usize;
+    let exp = now + (state.config.jwt_expiration_hours as usize * 3600);
+
+    let claims = Claims {
+        sub: user.id.to_string(),
+        username: user.username,
+        display_name,
+        profile_id: role.profile_id.to_string(),
+        profile_name: role.profile_name,
+        entity_id: role.entity_id.to_string(),
+        exp,
+        iat: now,
+    };
+
+    let token = match create_jwt(&claims, &state.config.jwt_secret) {
+        Ok(t) => t,
+        Err(_) => {
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                HtmlTemplate(LoginTemplate {
+                    error_message: Some("Error al generar la sesión criptográfica".into()),
+                }),
+            )
+                .into_response();
+        }
+    };
+
+    let cookie_val = format!(
+        "itilsuite_session={}; Path=/; HttpOnly; SameSite=Lax; Max-Age={}",
+        token,
+        state.config.jwt_expiration_hours * 3600
+    );
+
+    let mut response = Redirect::to("/dashboard").into_response();
+    if let Ok(cookie_header) = cookie_val.parse() {
+        response.headers_mut().insert(header::SET_COOKIE, cookie_header);
+    }
+    response
+}
+
+async fn handle_logout() -> Response {
+    let mut response = Redirect::to("/login").into_response();
+    let cookie_header = "itilsuite_session=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0"
+        .parse()
+        .unwrap();
+    response.headers_mut().insert(header::SET_COOKIE, cookie_header);
+    response
+}
+
+async fn show_dashboard(State(state): State<AppState>, headers: HeaderMap) -> Response {
+    let claims = match extract_claims_from_cookie(&headers, &state.config.jwt_secret) {
+        Some(c) => c,
+        None => return Redirect::to("/login").into_response(),
+    };
+
+    let open_tickets_count: i64 = sqlx::query_scalar(
+        "SELECT COUNT(*)::BIGINT FROM tickets WHERE status NOT IN ('solved', 'closed')"
+    )
+    .fetch_one(&state.pool)
+    .await
+    .unwrap_or(0);
+
+    let assets_count: i64 = sqlx::query_scalar("SELECT COUNT(*)::BIGINT FROM assets")
+        .fetch_one(&state.pool)
+        .await
+        .unwrap_or(0);
+
+    let survey_metrics = SurveyService::calculate_metrics(&state.pool, None, None, None)
+        .await
+        .ok();
+
+    let csat_score = survey_metrics.as_ref().map(|m| m.average_csat).unwrap_or(5.0);
+    let nps_score = survey_metrics.as_ref().map(|m| m.nps.score).unwrap_or(100);
+
+    let entity_name = get_entity_name(&state.pool, &claims.entity_id).await;
+    let user_initials = get_user_initials(&claims.display_name);
+
+    HtmlTemplate(DashboardTemplate {
+        current_username: claims.username,
+        current_display_name: claims.display_name,
+        current_profile_name: claims.profile_name,
+        user_initials,
+        active_entity_name: entity_name,
+        active_nav: "dashboard".to_string(),
+        open_tickets_count,
+        sla_compliance_rate: 98.5,
+        csat_score,
+        nps_score,
+        assets_count,
+    })
+    .into_response()
+}
+
+// --- Handlers: Phase 2 Service Desk & Tickets ---
+
+async fn query_tickets_filtered(
+    pool: &sqlx::PgPool,
+    params: &FilterTicketsWebQuery,
+) -> Vec<TicketSummaryDto> {
+    let search_clean = params
+        .search
+        .as_ref()
+        .map(|s| s.trim())
+        .filter(|s| !s.is_empty());
+    let status_clean = params
+        .status
+        .as_ref()
+        .map(|s| s.trim())
+        .filter(|s| !s.is_empty());
+    let type_clean = params
+        .ticket_type
+        .as_ref()
+        .map(|s| s.trim())
+        .filter(|s| !s.is_empty());
+    let sla_clean = params
+        .sla_status
+        .as_ref()
+        .map(|s| s.trim())
+        .filter(|s| !s.is_empty());
+
+    sqlx::query_as(
+        r#"
+        SELECT 
+            t.id, t.ticket_number, t.entity_id, e.name AS entity_name,
+            t.name, t.content, t.ticket_type, t.status,
+            t.urgency, t.impact, t.priority,
+            t.requester_id,
+            COALESCE(NULLIF(TRIM(r.firstname || ' ' || r.realname), ''), r.username) AS requester_name,
+            t.assigned_technician_id,
+            COALESCE(NULLIF(TRIM(tech.firstname || ' ' || tech.realname), ''), tech.username) AS assigned_technician_name,
+            t.assigned_group_id,
+            ag.name AS assigned_group_name,
+            t.requester_group_id,
+            rg.name AS requester_group_name,
+            t.category,
+            t.sla_id,
+            sla.name AS sla_name,
+            t.time_to_own,
+            t.time_to_resolve,
+            t.acknowledged_at,
+            t.sla_tto_status,
+            t.sla_ttr_status,
+            t.solved_at, t.closed_at,
+            t.created_at, t.updated_at
+        FROM tickets t
+        JOIN entities e ON e.id = t.entity_id
+        LEFT JOIN users r ON r.id = t.requester_id
+        LEFT JOIN users tech ON tech.id = t.assigned_technician_id
+        LEFT JOIN groups ag ON ag.id = t.assigned_group_id
+        LEFT JOIN groups rg ON rg.id = t.requester_group_id
+        LEFT JOIN slas sla ON sla.id = t.sla_id
+        WHERE ($1::varchar IS NULL OR t.status = $1)
+          AND ($2::varchar IS NULL OR t.ticket_type = $2)
+          AND ($3::int IS NULL OR t.priority = $3)
+          AND ($4::varchar IS NULL OR (t.name ILIKE '%' || $4 || '%' OR t.ticket_number ILIKE '%' || $4 || '%' OR t.content ILIKE '%' || $4 || '%'))
+          AND ($5::varchar IS NULL OR 
+                ($5 = 'at_risk' AND t.sla_ttr_status = 'at_risk') OR 
+                ($5 = 'breached' AND (t.sla_ttr_status = 'breached' OR t.sla_tto_status = 'breached')) OR 
+                ($5 = 'within_sla' AND t.sla_ttr_status = 'within_sla'))
+        ORDER BY t.priority DESC, t.created_at DESC
+        LIMIT 100
+        "#,
+    )
+    .bind(status_clean)
+    .bind(type_clean)
+    .bind(params.priority)
+    .bind(search_clean)
+    .bind(sla_clean)
+    .fetch_all(pool)
+    .await
+    .unwrap_or_default()
+}
+
+async fn query_ticket_metrics(pool: &sqlx::PgPool) -> TicketMetricsDto {
+    let row: Option<MetricsRow> = sqlx::query_as(
+        r#"
+        SELECT 
+            COUNT(*) FILTER (WHERE status NOT IN ('solved', 'closed')) AS total_open,
+            COUNT(*) FILTER (WHERE ticket_type = 'incident' AND status NOT IN ('solved', 'closed')) AS incidents_count,
+            COUNT(*) FILTER (WHERE ticket_type = 'request' AND status NOT IN ('solved', 'closed')) AS requests_count,
+            COUNT(*) FILTER (WHERE (sla_ttr_status = 'at_risk' OR (time_to_resolve >= NOW() AND time_to_resolve <= NOW() + INTERVAL '1 hour')) AND status NOT IN ('solved', 'closed')) AS sla_at_risk_count,
+            COUNT(*) FILTER (WHERE (sla_ttr_status = 'breached' OR sla_tto_status = 'breached' OR (time_to_resolve IS NOT NULL AND time_to_resolve < NOW())) AND status NOT IN ('solved', 'closed')) AS sla_breached_count,
+            COUNT(*) FILTER (WHERE status = 'solved') AS solved_count,
+            COUNT(*) FILTER (WHERE status = 'closed') AS closed_count,
+            COALESCE(AVG(priority), 3.0)::float8 AS average_priority
+        FROM tickets
+        "#,
+    )
+    .fetch_optional(pool)
+    .await
+    .unwrap_or(None);
+
+    match row {
+        Some(r) => TicketMetricsDto {
+            total_open: r.total_open.unwrap_or(0),
+            incidents_count: r.incidents_count.unwrap_or(0),
+            requests_count: r.requests_count.unwrap_or(0),
+            sla_at_risk_count: r.sla_at_risk_count.unwrap_or(0),
+            sla_breached_count: r.sla_breached_count.unwrap_or(0),
+            solved_count: r.solved_count.unwrap_or(0),
+            closed_count: r.closed_count.unwrap_or(0),
+            average_priority: (r.average_priority.unwrap_or(3.0) * 10.0).round() / 10.0,
+        },
+        None => TicketMetricsDto {
+            total_open: 0,
+            incidents_count: 0,
+            requests_count: 0,
+            sla_at_risk_count: 0,
+            sla_breached_count: 0,
+            solved_count: 0,
+            closed_count: 0,
+            average_priority: 3.0,
+        },
+    }
+}
+
+async fn show_tickets(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Query(query): Query<FilterTicketsWebQuery>,
+) -> Response {
+    let claims = match extract_claims_from_cookie(&headers, &state.config.jwt_secret) {
+        Some(c) => c,
+        None => return Redirect::to("/login").into_response(),
+    };
+
+    let tickets = query_tickets_filtered(&state.pool, &query).await;
+    let metrics = query_ticket_metrics(&state.pool).await;
+    let entity_name = get_entity_name(&state.pool, &claims.entity_id).await;
+    let user_initials = get_user_initials(&claims.display_name);
+
+    HtmlTemplate(TicketsTemplate {
+        current_username: claims.username,
+        current_display_name: claims.display_name,
+        current_profile_name: claims.profile_name,
+        user_initials,
+        active_entity_name: entity_name,
+        active_nav: "tickets".to_string(),
+        tickets,
+        metrics,
+        current_search: query.search.unwrap_or_default(),
+        current_status: query.status.unwrap_or_default(),
+        current_ticket_type: query.ticket_type.unwrap_or_default(),
+        current_priority: query.priority.map(|p| p.to_string()).unwrap_or_default(),
+        current_sla_status: query.sla_status.unwrap_or_default(),
+    })
+    .into_response()
+}
+
+async fn filter_tickets_table(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Query(query): Query<FilterTicketsWebQuery>,
+) -> Response {
+    if extract_claims_from_cookie(&headers, &state.config.jwt_secret).is_none() {
+        return StatusCode::UNAUTHORIZED.into_response();
+    }
+    let tickets = query_tickets_filtered(&state.pool, &query).await;
+    HtmlTemplate(TicketsTablePartialTemplate { tickets }).into_response()
+}
+
+async fn show_ticket_detail(
+    State(state): State<AppState>,
+    Path(id): Path<Uuid>,
+    headers: HeaderMap,
+) -> Response {
+    let claims = match extract_claims_from_cookie(&headers, &state.config.jwt_secret) {
+        Some(c) => c,
+        None => return Redirect::to("/login").into_response(),
+    };
+
+    let summary_opt: Option<TicketSummaryDto> = sqlx::query_as(
+        r#"
+        SELECT 
+            t.id, t.ticket_number, t.entity_id, e.name AS entity_name,
+            t.name, t.content, t.ticket_type, t.status,
+            t.urgency, t.impact, t.priority,
+            t.requester_id,
+            COALESCE(NULLIF(TRIM(r.firstname || ' ' || r.realname), ''), r.username) AS requester_name,
+            t.assigned_technician_id,
+            COALESCE(NULLIF(TRIM(tech.firstname || ' ' || tech.realname), ''), tech.username) AS assigned_technician_name,
+            t.assigned_group_id,
+            ag.name AS assigned_group_name,
+            t.requester_group_id,
+            rg.name AS requester_group_name,
+            t.category,
+            t.sla_id,
+            sla.name AS sla_name,
+            t.time_to_own,
+            t.time_to_resolve,
+            t.acknowledged_at,
+            t.sla_tto_status,
+            t.sla_ttr_status,
+            t.solved_at, t.closed_at,
+            t.created_at, t.updated_at
+        FROM tickets t
+        JOIN entities e ON e.id = t.entity_id
+        LEFT JOIN users r ON r.id = t.requester_id
+        LEFT JOIN users tech ON tech.id = t.assigned_technician_id
+        LEFT JOIN groups ag ON ag.id = t.assigned_group_id
+        LEFT JOIN groups rg ON rg.id = t.requester_group_id
+        LEFT JOIN slas sla ON sla.id = t.sla_id
+        WHERE t.id = $1
+        "#,
+    )
+    .bind(id)
+    .fetch_optional(&state.pool)
+    .await
+    .unwrap_or(None);
+
+    let Some(summary) = summary_opt else {
+        return Redirect::to("/tickets").into_response();
+    };
+
+    let followups: Vec<TicketFollowupDto> = sqlx::query_as(
+        r#"
+        SELECT 
+            f.id, f.ticket_id, f.author_id,
+            COALESCE(NULLIF(TRIM(u.firstname || ' ' || u.realname), ''), u.username) AS author_name,
+            f.content, f.item_type, f.is_private, f.created_at
+        FROM ticket_followups f
+        LEFT JOIN users u ON u.id = f.author_id
+        WHERE f.ticket_id = $1
+        ORDER BY f.created_at ASC
+        "#,
+    )
+    .bind(id)
+    .fetch_all(&state.pool)
+    .await
+    .unwrap_or_default();
+
+    // Query active satisfaction survey token for this ticket
+    let survey_token: Option<String> = sqlx::query_scalar(
+        "SELECT token FROM survey_tokens WHERE ticket_id = $1 ORDER BY created_at DESC LIMIT 1"
+    )
+    .bind(id)
+    .fetch_optional(&state.pool)
+    .await
+    .unwrap_or(None);
+
+    let entity_name = get_entity_name(&state.pool, &claims.entity_id).await;
+    let user_initials = get_user_initials(&claims.display_name);
+
+    HtmlTemplate(TicketDetailTemplate {
+        current_username: claims.username,
+        current_display_name: claims.display_name,
+        current_profile_name: claims.profile_name,
+        user_initials,
+        active_entity_name: entity_name,
+        active_nav: "tickets".to_string(),
+        ticket: TicketDetailDto { summary, followups },
+        survey_token,
+    })
+    .into_response()
+}
+
+async fn handle_create_ticket(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Form(payload): Form<CreateTicketWebForm>,
+) -> Response {
+    let claims = match extract_claims_from_cookie(&headers, &state.config.jwt_secret) {
+        Some(c) => c,
+        None => return Redirect::to("/login").into_response(),
+    };
+
+    let name = payload.name.trim();
+    let content = payload.content.trim();
+    if name.is_empty() || content.is_empty() {
+        return Redirect::to("/tickets").into_response();
+    }
+
+    let entity_id = Uuid::parse_str(&claims.entity_id)
+        .unwrap_or_else(|_| Uuid::parse_str("00000000-0000-0000-0000-000000000001").unwrap());
+    let requester_id = Uuid::parse_str(&claims.sub).ok();
+
+    let ticket_type = match payload.ticket_type.as_deref() {
+        Some("request") => "request",
+        _ => "incident",
+    };
+
+    let urgency = payload.urgency.unwrap_or(3).clamp(1, 5);
+    let impact = payload.impact.unwrap_or(3).clamp(1, 5);
+    let priority = calculate_priority(urgency, impact);
+
+    let (sla_id, time_to_own, time_to_resolve) =
+        match SlaService::calculate_deadlines(&state.pool, None, priority, Utc::now()).await {
+            Ok(res) => (res.0, Some(res.1), Some(res.2)),
+            Err(_) => (None, None, None),
+        };
+
+    let prefix = if ticket_type == "request" { "REQ" } else { "INC" };
+    let count: (i64,) = sqlx::query_as("SELECT COUNT(*) FROM tickets")
+        .fetch_one(&state.pool)
+        .await
+        .unwrap_or((0,));
+    let ticket_number = format!("{}-{}-{:04}", prefix, Utc::now().format("%Y"), count.0 + 1);
+
+    let new_id = Uuid::new_v4();
+
+    let insert_res = sqlx::query(
+        r#"
+        INSERT INTO tickets (
+            id, ticket_number, entity_id, name, content, ticket_type, status,
+            urgency, impact, priority, requester_id, category, sla_id,
+            time_to_own, time_to_resolve, sla_tto_status, sla_ttr_status,
+            created_at, updated_at
+        )
+        VALUES ($1, $2, $3, $4, $5, $6, 'new', $7, $8, $9, $10, $11, $12, $13, $14, 'pending', 'within_sla', NOW(), NOW())
+        "#,
+    )
+    .bind(new_id)
+    .bind(&ticket_number)
+    .bind(entity_id)
+    .bind(name)
+    .bind(content)
+    .bind(ticket_type)
+    .bind(urgency)
+    .bind(impact)
+    .bind(priority)
+    .bind(requester_id)
+    .bind(payload.category)
+    .bind(sla_id)
+    .bind(time_to_own)
+    .bind(time_to_resolve)
+    .execute(&state.pool)
+    .await;
+
+    if insert_res.is_ok() {
+        let _ = crate::services::mail_service::MailService::dispatch_event(
+            &state.pool,
+            "ticket_created",
+            new_id,
+            None,
+        )
+        .await;
+        Redirect::to(&format!("/tickets/{}", new_id)).into_response()
+    } else {
+        Redirect::to("/tickets").into_response()
+    }
+}
+
+async fn handle_add_followup(
+    State(state): State<AppState>,
+    Path(id): Path<Uuid>,
+    headers: HeaderMap,
+    Form(payload): Form<CreateFollowupWebForm>,
+) -> Response {
+    let claims = match extract_claims_from_cookie(&headers, &state.config.jwt_secret) {
+        Some(c) => c,
+        None => return StatusCode::UNAUTHORIZED.into_response(),
+    };
+
+    let content = payload.content.trim();
+    if content.is_empty() {
+        return StatusCode::BAD_REQUEST.into_response();
+    }
+
+    let item_type = match payload.item_type.as_deref() {
+        Some("solution") => "solution",
+        Some("task") => "task",
+        _ => "followup",
+    };
+
+    let is_private = payload.is_private.as_deref() == Some("true")
+        || payload.is_private.as_deref() == Some("on");
+    let author_id = Uuid::parse_str(&claims.sub).ok();
+    let new_id = Uuid::new_v4();
+
+    let _ = sqlx::query(
+        r#"
+        INSERT INTO ticket_followups (id, ticket_id, author_id, content, item_type, is_private, created_at, updated_at)
+        VALUES ($1, $2, $3, $4, $5, $6, NOW(), NOW())
+        "#,
+    )
+    .bind(new_id)
+    .bind(id)
+    .bind(author_id)
+    .bind(content)
+    .bind(item_type)
+    .bind(is_private)
+    .execute(&state.pool)
+    .await;
+
+    if item_type == "solution" {
+        let _ = sqlx::query(
+            "UPDATE tickets SET status = 'solved', solved_at = COALESCE(solved_at, NOW()), updated_at = NOW() WHERE id = $1",
+        )
+        .bind(id)
+        .execute(&state.pool)
+        .await;
+
+        let _ = SurveyService::generate_token(&state.pool, None, Some(id), None, None).await;
+        let _ = crate::services::mail_service::MailService::dispatch_event(
+            &state.pool,
+            "ticket_solved",
+            id,
+            Some(new_id),
+        )
+        .await;
+    } else {
+        let _ = sqlx::query("UPDATE tickets SET updated_at = NOW() WHERE id = $1")
+            .bind(id)
+            .execute(&state.pool)
+            .await;
+
+        let _ = crate::services::mail_service::MailService::dispatch_event(
+            &state.pool,
+            "ticket_followup_added",
+            id,
+            Some(new_id),
+        )
+        .await;
+    }
+
+    let followup_opt: Option<TicketFollowupDto> = sqlx::query_as(
+        r#"
+        SELECT 
+            f.id, f.ticket_id, f.author_id,
+            COALESCE(NULLIF(TRIM(u.firstname || ' ' || u.realname), ''), u.username) AS author_name,
+            f.content, f.item_type, f.is_private, f.created_at
+        FROM ticket_followups f
+        LEFT JOIN users u ON u.id = f.author_id
+        WHERE f.id = $1
+        "#,
+    )
+    .bind(new_id)
+    .fetch_optional(&state.pool)
+    .await
+    .unwrap_or(None);
+
+    if let Some(followup) = followup_opt {
+        HtmlTemplate(FollowupPartialTemplate { followup }).into_response()
+    } else {
+        StatusCode::INTERNAL_SERVER_ERROR.into_response()
+    }
+}
+
+async fn handle_update_status(
+    State(state): State<AppState>,
+    Path(id): Path<Uuid>,
+    headers: HeaderMap,
+    Form(payload): Form<UpdateStatusWebForm>,
+) -> Response {
+    if extract_claims_from_cookie(&headers, &state.config.jwt_secret).is_none() {
+        return Redirect::to("/login").into_response();
+    }
+
+    let new_status = payload.status.trim();
+    if new_status == "solved" {
+        let _ = sqlx::query(
+            "UPDATE tickets SET status = 'solved', solved_at = COALESCE(solved_at, NOW()), updated_at = NOW() WHERE id = $1"
+        )
+        .bind(id)
+        .execute(&state.pool)
+        .await;
+
+        let _ = SurveyService::generate_token(&state.pool, None, Some(id), None, None).await;
+        let _ = crate::services::mail_service::MailService::dispatch_event(&state.pool, "ticket_solved", id, None).await;
+    } else if new_status == "closed" {
+        let _ = sqlx::query(
+            "UPDATE tickets SET status = 'closed', closed_at = COALESCE(closed_at, NOW()), solved_at = COALESCE(solved_at, NOW()), updated_at = NOW() WHERE id = $1"
+        )
+        .bind(id)
+        .execute(&state.pool)
+        .await;
+
+        let _ = crate::services::mail_service::MailService::dispatch_event(&state.pool, "ticket_closed", id, None).await;
+    } else {
+        let _ = sqlx::query("UPDATE tickets SET status = $2, updated_at = NOW() WHERE id = $1")
+            .bind(id)
+            .bind(new_status)
+            .execute(&state.pool)
+            .await;
+    }
+
+    Redirect::to(&format!("/tickets/{}", id)).into_response()
+}
+
+// --- Handlers: Phase 3 Surveys & CSAT ---
+
+async fn show_surveys_admin(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+) -> Response {
+    let claims = match extract_claims_from_cookie(&headers, &state.config.jwt_secret) {
+        Some(c) => c,
+        None => return Redirect::to("/login").into_response(),
+    };
+
+    let surveys = SurveyService::list_surveys(&state.pool, None, None)
+        .await
+        .unwrap_or_default();
+    let presets = SurveyPresetDef::get_all();
+    let tokens = SurveyService::list_tokens(&state.pool, None, None, None, 50, 0, None)
+        .await
+        .unwrap_or_default();
+    let metrics = SurveyService::calculate_metrics(&state.pool, None, None, None)
+        .await
+        .unwrap_or_else(|_| crate::domain::survey::SurveyDashboardMetricsDto {
+            total_surveys: 0,
+            active_surveys: 0,
+            total_links_issued: 0,
+            completed_surveys: 0,
+            pending_surveys: 0,
+            expired_surveys: 0,
+            response_rate: 0.0,
+            average_csat: 5.0,
+            csat_distribution: vec![],
+            nps: crate::domain::survey::NpsDistributionDto {
+                promoters: 0,
+                passives: 0,
+                detractors: 0,
+                score: 100,
+                total: 0,
+            },
+            recent_responses: vec![],
+        });
+
+    let entity_name = get_entity_name(&state.pool, &claims.entity_id).await;
+    let user_initials = get_user_initials(&claims.display_name);
+
+    HtmlTemplate(SurveysAdminTemplate {
+        current_username: claims.username,
+        current_display_name: claims.display_name,
+        current_profile_name: claims.profile_name,
+        user_initials,
+        active_entity_name: entity_name,
+        active_nav: "surveys".to_string(),
+        active_tab: "presets".to_string(),
+        surveys,
+        presets,
+        tokens,
+        metrics,
+    })
+    .into_response()
+}
+
+async fn handle_instantiate_preset(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Form(payload): Form<InstantiatePresetForm>,
+) -> Response {
+    if extract_claims_from_cookie(&headers, &state.config.jwt_secret).is_none() {
+        return Redirect::to("/login").into_response();
+    }
+
+    if let Some(preset) = SurveyPresetDef::get_by_key(&payload.preset_key) {
+        let dto = CreateSurveyDto {
+            entity_id: None,
+            is_recursive: Some(true),
+            name: preset.name,
+            comment: Some(preset.description),
+            header_content: Some(preset.header),
+            footer_content: None,
+            success_content: Some(preset.success),
+            is_active: Some(true),
+            is_default: Some(true),
+            ttl_days_override: Some(7),
+            allow_reentry_override: Some(0),
+            template_preset: Some(payload.preset_key),
+        };
+        let _ = SurveyService::create_survey(&state.pool, dto).await;
+    }
+
+    Redirect::to("/surveys").into_response()
+}
+
+async fn handle_toggle_survey(
+    State(state): State<AppState>,
+    Path(id): Path<Uuid>,
+    headers: HeaderMap,
+) -> Response {
+    if extract_claims_from_cookie(&headers, &state.config.jwt_secret).is_none() {
+        return Redirect::to("/login").into_response();
+    }
+
+    let _ = sqlx::query("UPDATE surveys SET is_active = NOT is_active, updated_at = NOW() WHERE id = $1")
+        .bind(id)
+        .execute(&state.pool)
+        .await;
+
+    Redirect::to("/surveys").into_response()
+}
+
+async fn show_public_survey(
+    State(state): State<AppState>,
+    Path(token): Path<String>,
+) -> Response {
+    match SurveyService::get_public_survey(&state.pool, &token).await {
+        Ok(survey) => {
+            let already_completed = survey.status == "completed";
+            HtmlTemplate(SurveyPublicTemplate {
+                survey,
+                already_completed,
+                is_expired: false,
+            })
+            .into_response()
+        }
+        Err(e) => {
+            let err_str = e.to_string();
+            let is_completed = err_str.contains("completada") || err_str.contains("completed");
+            let is_expired = err_str.contains("expirado") || err_str.contains("expired");
+
+            if is_completed || is_expired {
+                // Fetch minimum info to show friendly screen
+                let fallback = crate::domain::survey::PublicSurveyDto {
+                    token: token.clone(),
+                    status: if is_completed { "completed".into() } else { "expired".into() },
+                    survey_name: "Encuesta de Satisfacción".into(),
+                    header_content: None,
+                    footer_content: None,
+                    success_content: None,
+                    allow_reentry: false,
+                    ticket_number: None,
+                    ticket_title: None,
+                    technician_name: None,
+                    requester_name: None,
+                    questions: vec![],
+                    draft_answers: std::collections::HashMap::new(),
+                };
+                HtmlTemplate(SurveyPublicTemplate {
+                    survey: fallback,
+                    already_completed: is_completed,
+                    is_expired,
+                })
+                .into_response()
+            } else {
+                (StatusCode::NOT_FOUND, "Encuesta o token no encontrado").into_response()
+            }
+        }
+    }
+}
+
+async fn handle_submit_public_survey(
+    State(state): State<AppState>,
+    Path(token): Path<String>,
+    headers: HeaderMap,
+    body: Bytes,
+) -> Response {
+    let client_ip = headers
+        .get("x-forwarded-for")
+        .and_then(|h| h.to_str().ok())
+        .and_then(|s| s.split(',').next())
+        .map(|s| s.trim().to_string())
+        .or_else(|| {
+            headers
+                .get("x-real-ip")
+                .and_then(|h| h.to_str().ok())
+                .map(|s| s.trim().to_string())
+        });
+
+    let body_str = String::from_utf8_lossy(&body);
+    let mut answers: Vec<QuestionAnswerInput> = Vec::new();
+
+    for pair in body_str.split('&') {
+        let mut parts = pair.splitn(2, '=');
+        if let (Some(raw_k), Some(raw_v)) = (parts.next(), parts.next()) {
+            let k = url_decode(raw_k);
+            let v = url_decode(raw_v);
+            if k.starts_with("answer_") {
+                let q_str = k.trim_start_matches("answer_").trim_end_matches("[]");
+                if let Ok(q_id) = Uuid::parse_str(q_str) {
+                    if !v.trim().is_empty() {
+                        answers.push(QuestionAnswerInput {
+                            question_id: q_id,
+                            value: v.trim().to_string(),
+                        });
+                    }
+                }
+            }
+        }
+    }
+
+    let _ = SurveyService::submit_survey(
+        &state.pool,
+        &token,
+        SubmitSurveyDto { answers },
+        client_ip,
+    )
+    .await;
+
+    show_public_survey(State(state), Path(token)).await
+}

@@ -1,0 +1,387 @@
+<!DOCTYPE html>
+<html lang="es" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{{ survey.survey_name }} - ITILSuite Encuesta</title>
+  
+  <!-- Modern Typography -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+  
+  <link rel="stylesheet" href="/static/css/main.css">
+  <script src="/static/js/htmx.min.js"></script>
+
+  <style>
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background: var(--bg-primary);
+      color: var(--text-primary);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-start;
+      padding: 2rem 1rem;
+      font-family: var(--font-sans);
+    }
+
+    .survey-card {
+      width: 100%;
+      max-width: 680px;
+      background: var(--bg-card);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-lg);
+      padding: 2.25rem 2rem;
+      box-shadow: var(--shadow-lg);
+      box-sizing: border-box;
+    }
+
+    .survey-header-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      background: rgba(235, 77, 61, 0.12);
+      border: 1px solid rgba(235, 77, 61, 0.3);
+      color: var(--accent-coral);
+      padding: 0.25rem 0.75rem;
+      border-radius: 9999px;
+      font-size: 0.75rem;
+      font-weight: 700;
+      margin-bottom: 0.75rem;
+    }
+
+    /* Rating 5-star selector */
+    .rating-stars {
+      display: flex;
+      gap: 0.75rem;
+      margin-top: 0.5rem;
+      flex-wrap: wrap;
+    }
+
+    .rating-star-btn {
+      flex: 1;
+      min-width: 52px;
+      height: 52px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      background: var(--input-bg);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-md);
+      cursor: pointer;
+      transition: all 0.15s ease;
+      position: relative;
+    }
+
+    .rating-star-btn input[type="radio"] {
+      position: absolute;
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    .rating-star-btn:hover {
+      border-color: var(--accent-amber);
+      background: rgba(251, 191, 36, 0.1);
+    }
+
+    .rating-star-btn:has(input:checked) {
+      border-color: var(--accent-amber);
+      background: rgba(251, 191, 36, 0.2);
+      box-shadow: 0 0 12px rgba(251, 191, 36, 0.3);
+    }
+
+    .rating-star-btn:has(input:checked) .star-icon {
+      transform: scale(1.2);
+    }
+
+    /* NPS 0-10 scale */
+    .nps-scale {
+      display: grid;
+      grid-template-columns: repeat(11, 1fr);
+      gap: 0.35rem;
+      margin-top: 0.5rem;
+    }
+
+    .nps-btn {
+      height: 48px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: var(--input-bg);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-sm);
+      cursor: pointer;
+      font-weight: 700;
+      font-size: 0.9rem;
+      transition: all 0.15s ease;
+      position: relative;
+    }
+
+    .nps-btn input[type="radio"] {
+      position: absolute;
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    .nps-btn:hover {
+      border-color: var(--accent-blue);
+      background: rgba(96, 165, 250, 0.1);
+    }
+
+    .nps-btn.detractor:has(input:checked) {
+      border-color: #ef4444;
+      background: #ef4444;
+      color: white;
+    }
+
+    .nps-btn.passive:has(input:checked) {
+      border-color: #f59e0b;
+      background: #f59e0b;
+      color: white;
+    }
+
+    .nps-btn.promoter:has(input:checked) {
+      border-color: #10b981;
+      background: #10b981;
+      color: white;
+    }
+
+    /* Choice pills */
+    .choice-group {
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+      margin-top: 0.5rem;
+    }
+
+    .choice-pill {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      padding: 0.75rem 1rem;
+      background: var(--input-bg);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-md);
+      cursor: pointer;
+      font-size: 0.9rem;
+      transition: all 0.15s ease;
+    }
+
+    .choice-pill:hover {
+      border-color: var(--accent-blue);
+    }
+
+    .choice-pill:has(input:checked) {
+      border-color: var(--accent-coral);
+      background: rgba(235, 77, 61, 0.1);
+    }
+
+    .autosave-badge {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      display: flex;
+      align-items: center;
+      gap: 0.35rem;
+    }
+  </style>
+</head>
+<body>
+  <div class="survey-card">
+    <!-- Header Branding -->
+    <div style="text-align: center; margin-bottom: 1.5rem;">
+      <div class="survey-header-badge">
+        <span>⭐</span>
+        <span>ITILSuite Satisfaction Experience</span>
+      </div>
+      <h1 style="margin: 0.5rem 0 0.25rem 0; font-size: 1.6rem; font-weight: 800; color: var(--text-primary);">
+        {{ survey.survey_name }}
+      </h1>
+
+      {% if let Some(ticket_num) = survey.ticket_number %}
+        <div style="font-size: 0.85rem; color: var(--text-muted); margin-top: 0.35rem;">
+          Referencia: <strong style="font-family: var(--font-mono); color: var(--accent-blue);">{{ ticket_num }}</strong>
+          {% if let Some(title) = survey.ticket_title %}
+            - "{{ title }}"
+          {% endif %}
+        </div>
+      {% endif %}
+
+      {% if let Some(tech) = survey.technician_name %}
+        <div style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.2rem;">
+          Atendido por: <strong style="color: var(--text-secondary);">{{ tech }}</strong>
+        </div>
+      {% endif %}
+    </div>
+
+    {% if already_completed %}
+      <!-- Completion Celebratory Screen -->
+      <div style="text-align: center; padding: 2.5rem 1rem;">
+        <div style="font-size: 3.5rem; margin-bottom: 1rem;">🎉</div>
+        <h2 style="margin: 0 0 0.75rem 0; font-size: 1.4rem; font-weight: 800; color: #10b981;">
+          ¡Gracias por tu valoración!
+        </h2>
+        <div style="font-size: 0.95rem; line-height: 1.6; color: var(--text-secondary); max-width: 500px; margin: 0 auto;">
+          {% if let Some(success) = survey.success_content %}
+            {{ success|safe }}
+          {% else %}
+            Tus respuestas han sido registradas exitosamente en la plataforma de calidad de ITILSuite. Nos ayudan a mejorar continuamente nuestro servicio.
+          {% endif %}
+        </div>
+        <div style="margin-top: 2rem;">
+          <span style="font-size: 0.75rem; color: var(--text-muted);">ITILSuite ITSM Platform</span>
+        </div>
+      </div>
+    {% else if is_expired %}
+      <!-- Expired Screen -->
+      <div style="text-align: center; padding: 2.5rem 1rem;">
+        <div style="font-size: 3rem; margin-bottom: 1rem;">⏳</div>
+        <h2 style="margin: 0 0 0.75rem 0; font-size: 1.3rem; font-weight: 800; color: #f59e0b;">
+          Encuesta Expirada
+        </h2>
+        <p style="font-size: 0.9rem; color: var(--text-secondary);">
+          El plazo establecido para completar esta encuesta de satisfacción ha finalizado.
+        </p>
+      </div>
+    {% else %}
+      <!-- Header Content from Survey Definition -->
+      {% if let Some(header) = survey.header_content %}
+        <div style="font-size: 0.92rem; line-height: 1.6; color: var(--text-secondary); margin-bottom: 1.5rem; padding-bottom: 1rem; border-bottom: 1px solid var(--border-subtle);">
+          {{ header|safe }}
+        </div>
+      {% endif %}
+
+      <!-- Survey Form with Autosave and Submission -->
+      <form method="POST" action="/survey/{{ survey.token }}/submit" id="survey-form">
+        <div style="display: flex; flex-direction: column; gap: 1.5rem;">
+          {% for q in survey.questions %}
+            <div class="question-container" id="q-container-{{ q.id }}" style="padding-bottom: 1.25rem; border-bottom: 1px solid var(--border-subtle);">
+              <label style="display: block; font-weight: 700; font-size: 0.95rem; color: var(--text-primary); margin-bottom: 0.35rem;">
+                <span style="color: var(--accent-coral); margin-right: 0.25rem;">{{ loop.index }}.</span>
+                {{ q.name }}
+                {% if q.is_mandatory %}
+                  <span style="color: #ef4444; font-size: 0.85rem;" title="Obligatoria">*</span>
+                {% endif %}
+              </label>
+
+              <!-- Render by question_type -->
+              {% if q.question_type == "rating5" %}
+                <div class="rating-stars">
+                  {% for star in 1..=5 %}
+                    <label class="rating-star-btn">
+                      <input type="radio" name="answer_{{ q.id }}" value="{{ star }}" {% if q.is_mandatory %}required{% endif %}>
+                      <span class="star-icon" style="font-size: 1.3rem; transition: transform 0.2s;">
+                        {% if star == 1 %}⭐{% else if star == 2 %}⭐⭐{% else if star == 3 %}⭐⭐⭐{% else if star == 4 %}⭐⭐⭐⭐{% else %}⭐⭐⭐⭐⭐{% endif %}
+                      </span>
+                      <span style="font-size: 0.72rem; color: var(--text-muted); margin-top: 0.2rem;">{{ star }}</span>
+                    </label>
+                  {% endfor %}
+                </div>
+
+              {% else if q.question_type == "nps" %}
+                <div>
+                  <div class="nps-scale">
+                    {% for n in 0..=10 %}
+                      <label class="nps-btn {% if n <= 6 %}detractor{% else if n <= 8 %}passive{% else %}promoter{% endif %}">
+                        <input type="radio" name="answer_{{ q.id }}" value="{{ n }}" {% if q.is_mandatory %}required{% endif %}>
+                        <span>{{ n }}</span>
+                      </label>
+                    {% endfor %}
+                  </div>
+                  <div style="display: flex; justify-content: space-between; font-size: 0.72rem; color: var(--text-muted); margin-top: 0.4rem;">
+                    <span>0: Muy improbable (Detractor)</span>
+                    <span>10: Definitivamente sí (Promotor)</span>
+                  </div>
+                </div>
+
+              {% else if q.question_type == "yesno" %}
+                <div style="display: flex; gap: 0.75rem; margin-top: 0.5rem;">
+                  <label class="choice-pill" style="flex: 1; justify-content: center;">
+                    <input type="radio" name="answer_{{ q.id }}" value="yes" {% if q.is_mandatory %}required{% endif %}>
+                    <span style="font-weight: 600;">👍 Sí</span>
+                  </label>
+                  <label class="choice-pill" style="flex: 1; justify-content: center;">
+                    <input type="radio" name="answer_{{ q.id }}" value="no" {% if q.is_mandatory %}required{% endif %}>
+                    <span style="font-weight: 600;">👎 No</span>
+                  </label>
+                </div>
+
+              {% else if q.question_type == "choice_single" %}
+                <div class="choice-group">
+                  {% for opt in q.options %}
+                    <label class="choice-pill">
+                      <input type="radio" name="answer_{{ q.id }}" value="{{ opt.value }}" {% if q.is_mandatory %}required{% endif %}>
+                      <span>{{ opt.value }}</span>
+                    </label>
+                  {% endfor %}
+                </div>
+
+              {% else if q.question_type == "choice_multiple" %}
+                <div class="choice-group">
+                  {% for opt in q.options %}
+                    <label class="choice-pill">
+                      <input type="checkbox" name="answer_{{ q.id }}[]" value="{{ opt.value }}">
+                      <span>{{ opt.value }}</span>
+                    </label>
+                  {% endfor %}
+                </div>
+
+              {% else if q.question_type == "dropdown" %}
+                <select name="answer_{{ q.id }}" class="input-field" style="width: 100%; box-sizing: border-box; margin-top: 0.5rem;" {% if q.is_mandatory %}required{% endif %}>
+                  <option value="">-- Seleccione una opción --</option>
+                  {% for opt in q.options %}
+                    <option value="{{ opt.value }}">{{ opt.value }}</option>
+                  {% endfor %}
+                </select>
+
+              {% else if q.question_type == "date" %}
+                <input type="date" name="answer_{{ q.id }}" class="input-field" style="width: 100%; box-sizing: border-box; margin-top: 0.5rem;" {% if q.is_mandatory %}required{% endif %}>
+
+              {% else if q.question_type == "textarea" %}
+                <textarea
+                  name="answer_{{ q.id }}"
+                  rows="3"
+                  class="input-field"
+                  placeholder="Escriba aquí sus comentarios detallados..."
+                  style="width: 100%; box-sizing: border-box; margin-top: 0.5rem; resize: vertical;"
+                  {% if q.is_mandatory %}required{% endif %}
+                ></textarea>
+
+              {% else %}
+                <input
+                  type="text"
+                  name="answer_{{ q.id }}"
+                  class="input-field"
+                  placeholder="Respuesta..."
+                  style="width: 100%; box-sizing: border-box; margin-top: 0.5rem;"
+                  {% if q.is_mandatory %}required{% endif %}
+                >
+              {% endif %}
+            </div>
+          {% endfor %}
+        </div>
+
+        {% if let Some(footer) = survey.footer_content %}
+          <div style="font-size: 0.8rem; color: var(--text-muted); margin-top: 1rem;">
+            {{ footer|safe }}
+          </div>
+        {% endif %}
+
+        <div style="margin-top: 1.5rem; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 1rem;">
+          <div class="autosave-badge">
+            <span>🛡️</span>
+            <span>Tus respuestas se guardan de forma segura</span>
+          </div>
+
+          <button type="submit" class="btn btn-primary" style="padding: 0.75rem 2rem; font-size: 1rem;" id="btn-submit-survey">
+            <span>🚀</span>
+            <span>Enviar Encuesta</span>
+          </button>
+        </div>
+      </form>
+    {% endif %}
+  </div>
+</body>
+</html>

@@ -1,0 +1,213 @@
+{% extends "layouts/base.html" %}
+
+{% block title %}Mesa de Tickets & Service Desk - ITILSuite{% endblock %}
+
+{% block content %}
+<div class="tickets-page-container" style="display: flex; flex-direction: column; gap: 1.25rem;">
+  <!-- Header & Actions -->
+  <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 1rem;">
+    <div>
+      <div style="display: flex; align-items: center; gap: 0.5rem; font-size: 0.8rem; color: var(--text-muted); margin-bottom: 0.25rem;">
+        <span>Service Desk</span>
+        <span>/</span>
+        <span style="color: var(--text-primary); font-weight: 500;">Mesa de Tickets</span>
+      </div>
+      <h1 style="margin: 0; font-size: 1.5rem; font-weight: 700; color: var(--text-primary); display: flex; align-items: center; gap: 0.6rem;">
+        <span>🎫</span>
+        <span>Incidentes & Solicitudes de Servicio</span>
+      </h1>
+    </div>
+
+    <div style="display: flex; align-items: center; gap: 0.75rem;">
+      <a href="/tickets" class="btn btn-secondary" title="Actualizar tabla">
+        <span>🔄</span>
+        <span>Refrescar</span>
+      </a>
+      <button type="button" class="btn btn-primary" onclick="openCreateTicketModal()" id="btn-open-create-modal">
+        <span>➕</span>
+        <span>Nuevo Ticket</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- KPI Mini Cards -->
+  <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 0.75rem;">
+    <div class="dashboard-kpi-card" style="padding: 0.85rem 1rem;">
+      <div style="font-size: 0.75rem; color: var(--text-muted); font-weight: 600;">TOTAL ABIERTOS</div>
+      <div style="font-size: 1.5rem; font-weight: 800; color: var(--text-primary); margin-top: 0.2rem;">
+        {{ metrics.total_open }}
+      </div>
+    </div>
+    <div class="dashboard-kpi-card" style="padding: 0.85rem 1rem;">
+      <div style="font-size: 0.75rem; color: var(--text-muted); font-weight: 600;">INCIDENTES</div>
+      <div style="font-size: 1.5rem; font-weight: 800; color: #ef4444; margin-top: 0.2rem;">
+        {{ metrics.incidents_count }}
+      </div>
+    </div>
+    <div class="dashboard-kpi-card" style="padding: 0.85rem 1rem;">
+      <div style="font-size: 0.75rem; color: var(--text-muted); font-weight: 600;">SOLICITUDES</div>
+      <div style="font-size: 1.5rem; font-weight: 800; color: #3b82f6; margin-top: 0.2rem;">
+        {{ metrics.requests_count }}
+      </div>
+    </div>
+    <div class="dashboard-kpi-card" style="padding: 0.85rem 1rem;">
+      <div style="font-size: 0.75rem; color: var(--text-muted); font-weight: 600;">SLA EN RIESGO</div>
+      <div style="font-size: 1.5rem; font-weight: 800; color: #f59e0b; margin-top: 0.2rem;">
+        {{ metrics.sla_at_risk_count }}
+      </div>
+    </div>
+    <div class="dashboard-kpi-card" style="padding: 0.85rem 1rem;">
+      <div style="font-size: 0.75rem; color: var(--text-muted); font-weight: 600;">SLA VENCIDO</div>
+      <div style="font-size: 1.5rem; font-weight: 800; color: #dc2626; margin-top: 0.2rem;">
+        {{ metrics.sla_breached_count }}
+      </div>
+    </div>
+    <div class="dashboard-kpi-card" style="padding: 0.85rem 1rem;">
+      <div style="font-size: 0.75rem; color: var(--text-muted); font-weight: 600;">RESUELTOS</div>
+      <div style="font-size: 1.5rem; font-weight: 800; color: #10b981; margin-top: 0.2rem;">
+        {{ metrics.solved_count }}
+      </div>
+    </div>
+  </div>
+
+  <!-- Filter & Search Toolbar with Live HTMX Swapping -->
+  <div style="background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: var(--radius-md); padding: 0.85rem 1.25rem;">
+    <form id="tickets-filter-form" style="display: flex; flex-wrap: wrap; align-items: center; gap: 0.75rem;" onsubmit="event.preventDefault();">
+      <!-- Search Input -->
+      <div style="flex: 1 1 240px; position: relative;">
+        <input
+          type="search"
+          name="search"
+          id="tickets-search-input"
+          value="{{ current_search }}"
+          class="input-field"
+          placeholder="🔍 Buscar por código, asunto o descripción..."
+          style="width: 100%; box-sizing: border-box; padding-left: 2rem;"
+          hx-get="/tickets/table"
+          hx-trigger="keyup changed delay:250ms, search"
+          hx-target="#tickets-table-body"
+          hx-include="#tickets-filter-form"
+          hx-indicator="#table-spinner"
+        >
+      </div>
+
+      <!-- Status Filter -->
+      <div style="flex: 0 1 160px;">
+        <select
+          name="status"
+          id="tickets-status-select"
+          class="input-field"
+          style="width: 100%; box-sizing: border-box;"
+          hx-get="/tickets/table"
+          hx-trigger="change"
+          hx-target="#tickets-table-body"
+          hx-include="#tickets-filter-form"
+          hx-indicator="#table-spinner"
+        >
+          <option value="">Todos los Estados</option>
+          <option value="new" {% if current_status == "new" %}selected{% endif %}>Nuevo</option>
+          <option value="assigned" {% if current_status == "assigned" %}selected{% endif %}>Asignado</option>
+          <option value="planned" {% if current_status == "planned" %}selected{% endif %}>Planificado</option>
+          <option value="pending" {% if current_status == "pending" %}selected{% endif %}>En Espera</option>
+          <option value="solved" {% if current_status == "solved" %}selected{% endif %}>Resuelto</option>
+          <option value="closed" {% if current_status == "closed" %}selected{% endif %}>Cerrado</option>
+        </select>
+      </div>
+
+      <!-- Type Filter -->
+      <div style="flex: 0 1 140px;">
+        <select
+          name="ticket_type"
+          id="tickets-type-select"
+          class="input-field"
+          style="width: 100%; box-sizing: border-box;"
+          hx-get="/tickets/table"
+          hx-trigger="change"
+          hx-target="#tickets-table-body"
+          hx-include="#tickets-filter-form"
+          hx-indicator="#table-spinner"
+        >
+          <option value="">Todos los Tipos</option>
+          <option value="incident" {% if current_ticket_type == "incident" %}selected{% endif %}>Incidente</option>
+          <option value="request" {% if current_ticket_type == "request" %}selected{% endif %}>Solicitud</option>
+        </select>
+      </div>
+
+      <!-- Priority Filter -->
+      <div style="flex: 0 1 140px;">
+        <select
+          name="priority"
+          id="tickets-priority-select"
+          class="input-field"
+          style="width: 100%; box-sizing: border-box;"
+          hx-get="/tickets/table"
+          hx-trigger="change"
+          hx-target="#tickets-table-body"
+          hx-include="#tickets-filter-form"
+          hx-indicator="#table-spinner"
+        >
+          <option value="">Prioridad (Todas)</option>
+          <option value="5" {% if current_priority == "5" %}selected{% endif %}>P5 Crítica</option>
+          <option value="4" {% if current_priority == "4" %}selected{% endif %}>P4 Alta</option>
+          <option value="3" {% if current_priority == "3" %}selected{% endif %}>P3 Media</option>
+          <option value="2" {% if current_priority == "2" %}selected{% endif %}>P2 Baja</option>
+          <option value="1" {% if current_priority == "1" %}selected{% endif %}>P1 Muy Baja</option>
+        </select>
+      </div>
+
+      <!-- SLA Status Filter -->
+      <div style="flex: 0 1 150px;">
+        <select
+          name="sla_status"
+          id="tickets-sla-select"
+          class="input-field"
+          style="width: 100%; box-sizing: border-box;"
+          hx-get="/tickets/table"
+          hx-trigger="change"
+          hx-target="#tickets-table-body"
+          hx-include="#tickets-filter-form"
+          hx-indicator="#table-spinner"
+        >
+          <option value="">Estado SLA</option>
+          <option value="within_sla" {% if current_sla_status == "within_sla" %}selected{% endif %}>En Tiempo</option>
+          <option value="at_risk" {% if current_sla_status == "at_risk" %}selected{% endif %}>En Riesgo (&lt;1h)</option>
+          <option value="breached" {% if current_sla_status == "breached" %}selected{% endif %}>Vencidos</option>
+        </select>
+      </div>
+
+      <!-- Loading Spinner Indicator -->
+      <div id="table-spinner" class="htmx-indicator" style="display: none; align-items: center; gap: 0.35rem; color: var(--text-muted); font-size: 0.8rem;">
+        <span style="animation: spin 1s infinite linear; display: inline-block;">⏳</span>
+        <span>Filtrando...</span>
+      </div>
+    </form>
+  </div>
+
+  <!-- Tickets Table Card -->
+  <div style="background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: var(--radius-md); overflow: hidden; box-shadow: var(--shadow-sm);">
+    <div style="overflow-x: auto;">
+      <table class="tickets-table" style="width: 100%; border-collapse: collapse; text-align: left;">
+        <thead>
+          <tr style="background: var(--card-subtle-bg); border-bottom: 1px solid var(--border-subtle); font-size: 0.72rem; text-transform: uppercase; color: var(--text-muted); letter-spacing: 0.05em;">
+            <th style="padding: 0.75rem 1rem; width: 130px;">Número</th>
+            <th style="padding: 0.75rem 0.5rem; width: 90px;">Tipo</th>
+            <th style="padding: 0.75rem 1rem;">Asunto & Entidad</th>
+            <th style="padding: 0.75rem 0.75rem; width: 110px;">Estado</th>
+            <th style="padding: 0.75rem 0.75rem; width: 115px;">Prioridad</th>
+            <th style="padding: 0.75rem 1rem; width: 160px;">Asignado A</th>
+            <th style="padding: 0.75rem 0.75rem; width: 120px;">SLA Resolución</th>
+            <th style="padding: 0.75rem 1rem; width: 130px;">Fecha / Acción</th>
+          </tr>
+        </thead>
+        <tbody id="tickets-table-body">
+          {% include "partials/tickets_table.html" %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block modals %}
+  {% include "partials/create_ticket_modal.html" %}
+{% endblock %}
