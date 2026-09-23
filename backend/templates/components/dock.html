@@ -192,7 +192,7 @@
         type="button"
         id="dock-btn-inventory"
         onclick="toggleDockMenu('inventory')"
-        class="dock-item {% if active_nav == "computers" || active_nav == "assets" %}active{% endif %}"
+        class="dock-item {% if active_nav == "computers" || active_nav == "assets" || active_nav == "contracts" %}active{% endif %}"
         title="Gestión de Activos, Hardware, Redes y CMDB"
       >
         <span>🖥️</span>
@@ -230,7 +230,7 @@
               <span class="dock-dropup-item-desc">Switches, routers, firewalls, racks y cableado de red</span>
             </div>
           </a>
-          <a href="/contracts" class="dock-dropup-item">
+          <a href="/contracts" class="dock-dropup-item {% if active_nav == "contracts" %}active{% endif %}">
             <div class="dock-dropup-item-icon">📑</div>
             <div class="dock-dropup-item-content">
               <div class="dock-dropup-item-title-row">

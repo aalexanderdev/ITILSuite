@@ -3,11 +3,16 @@ use axum::{
     http::StatusCode,
     response::{Html, IntoResponse, Response},
 };
+use chrono::{DateTime, Utc};
 use uuid::Uuid;
 
 use crate::domain::asset::{AssetDetailDto, AssetMetricsDto, AssetSummaryDto};
 use crate::domain::chat::{ChatDashboardMetricsDto, ChatSettingsDto, OnlineUserDto};
 use crate::domain::entity::{Entity, EntityTreeNode};
+use crate::domain::notification::{
+    CollectResultDto, MailBlacklist, MailReceiver, MailSettings, NotificationEvent,
+    NotificationQueueItem, NotificationTemplate,
+};
 use crate::domain::rule::RuleWithDetails;
 use crate::domain::sla::SlaSummaryDto;
 use crate::domain::survey::{
@@ -546,4 +551,87 @@ pub struct RuleNewTemplate {
     pub active_nav: String,
     pub entities: Vec<EntitySelectItem>,
 }
+
+// ----------------------------------------------------------------------------
+// Phase 5: Mail Configuration, Notifications, Receivers & Contracts Templates
+// ----------------------------------------------------------------------------
+
+#[derive(Template)]
+#[template(path = "pages/mail_config.html")]
+pub struct MailConfigTemplate {
+    pub current_username: String,
+    pub current_display_name: String,
+    pub current_profile_name: String,
+    pub user_initials: String,
+    pub active_entity_name: String,
+    pub active_nav: String,
+    pub active_tab: String,
+    pub settings: MailSettings,
+    pub receivers: Vec<MailReceiver>,
+    pub blacklists: Vec<MailBlacklist>,
+    pub templates: Vec<NotificationTemplate>,
+    pub events: Vec<NotificationEvent>,
+    pub queue_items: Vec<NotificationQueueItem>,
+    pub entities: Vec<EntitySelectItem>,
+    pub message: Option<String>,
+    pub error_message: Option<String>,
+}
+
+impl MailConfigTemplate {
+    pub fn is_smtp_tab(&self) -> bool {
+        self.active_tab == "smtp" || self.active_tab.is_empty()
+    }
+
+    pub fn is_receivers_tab(&self) -> bool {
+        self.active_tab == "receivers"
+    }
+
+    pub fn is_templates_tab(&self) -> bool {
+        self.active_tab == "templates"
+    }
+
+    pub fn is_queue_tab(&self) -> bool {
+        self.active_tab == "queue"
+    }
+
+    pub fn format_opt_dt(&self, dt: &Option<DateTime<Utc>>) -> String {
+        match dt {
+            Some(d) => d.format("%Y-%m-%d %H:%M").to_string(),
+            None => "-".to_string(),
+        }
+    }
+
+    pub fn format_dt(&self, dt: &DateTime<Utc>) -> String {
+        dt.format("%Y-%m-%d %H:%M").to_string()
+    }
+}
+
+#[derive(Template)]
+#[template(path = "partials/smtp_test_result.html")]
+pub struct SmtpTestResultPartialTemplate {
+    pub success: bool,
+    pub message: String,
+}
+
+#[derive(Template)]
+#[template(path = "partials/collect_result.html")]
+pub struct CollectResultPartialTemplate {
+    pub result: CollectResultDto,
+}
+
+#[derive(Template)]
+#[template(path = "pages/contracts.html")]
+pub struct ContractsTemplate {
+    pub current_username: String,
+    pub current_display_name: String,
+    pub current_profile_name: String,
+    pub user_initials: String,
+    pub active_entity_name: String,
+    pub active_nav: String,
+    pub active_contracts_count: i64,
+    pub active_warranties_count: i64,
+    pub active_licenses_count: i64,
+    pub expiring_soon_count: i64,
+}
+
 

@@ -16,6 +16,10 @@ use crate::domain::asset::{
 };
 use crate::domain::auth::{create_jwt, hash_password, verify_jwt, verify_password, Claims};
 use crate::domain::entity::{build_entity_tree, Entity};
+use crate::domain::notification::{
+    MailBlacklist, MailReceiver, MailSettings, NotificationEvent, NotificationQueueItem,
+    NotificationTemplate, SimulateIncomingMailDto,
+};
 use crate::domain::rule::{Rule, RuleAction, RuleCriteria, RuleWithDetails};
 use crate::domain::sla::SlaSummaryDto;
 use crate::domain::survey::{
@@ -25,14 +29,17 @@ use crate::domain::ticket::{
     calculate_priority, TicketDetailDto, TicketFollowupDto, TicketMetricsDto, TicketSummaryDto,
 };
 use crate::domain::user::UserSummaryDto;
+use crate::services::mail_service::MailService;
+use crate::services::receiver_service::ReceiverService;
 use crate::services::sla_service::SlaService;
 use crate::services::survey_service::SurveyService;
 use crate::state::AppState;
 use crate::web::templates::{
     AssetDetailTemplate, AssetNewTemplate, AssetsTablePartialTemplate, AssetsTemplate,
-    ChatAnalyticsTemplate, DashboardTemplate, EntitiesTemplate, EntitySelectItem,
-    FollowupPartialTemplate, GroupSelectItem, HtmlTemplate, LoginTemplate, ProfileSelectItem,
-    RuleNewTemplate, RulesTemplate, SlasTemplate, SurveyPublicTemplate, SurveysAdminTemplate,
+    ChatAnalyticsTemplate, CollectResultPartialTemplate, ContractsTemplate, DashboardTemplate,
+    EntitiesTemplate, EntitySelectItem, FollowupPartialTemplate, GroupSelectItem, HtmlTemplate,
+    LoginTemplate, MailConfigTemplate, ProfileSelectItem, RuleNewTemplate, RulesTemplate,
+    SlasTemplate, SmtpTestResultPartialTemplate, SurveyPublicTemplate, SurveysAdminTemplate,
     TicketDetailTemplate, TicketNewTemplate, TicketTemplateRow, TicketsTablePartialTemplate,
     TicketsTemplate, UserSelectItem, UsersTemplate,
 };
@@ -84,6 +91,18 @@ pub fn router() -> Router<AppState> {
         .route("/rules", get(show_rules).post(handle_create_rule))
         .route("/rules/new", get(show_new_rule))
         .route("/rules/:id/toggle", post(handle_toggle_rule))
+        // Phase 5: Mail Configuration, Receivers, Contracts & Dock Completion
+        .route("/mail-config", get(show_mail_config))
+        .route("/mail-config/smtp", post(handle_update_smtp))
+        .route("/mail-config/smtp/test", post(handle_test_smtp))
+        .route("/mail-config/receivers", post(handle_create_receiver))
+        .route("/mail-config/receivers/:id/collect", post(handle_collect_receiver))
+        .route("/mail-config/receivers/:id/toggle", post(handle_toggle_receiver))
+        .route("/mail-config/simulate-incoming", post(handle_simulate_incoming))
+        .route("/mail-config/queue/process", post(handle_process_queue))
+        .route("/mail-config/queue/:id/retry", post(handle_retry_queue))
+        .route("/contracts", get(show_contracts))
+        .route("/surveys/new", get(handle_survey_new_redirect))
 }
 
 // --- Form & Query Models ---
@@ -239,6 +258,57 @@ pub struct CreateRuleWebForm {
     pub action_type: String,
     pub action_field: String,
     pub action_value: String,
+}
+
+#[derive(Deserialize)]
+pub struct MailConfigQuery {
+    pub tab: Option<String>,
+}
+
+#[derive(Deserialize)]
+pub struct SmtpSettingsForm {
+    pub notifications_enabled: Option<String>,
+    pub email_followups_enabled: Option<String>,
+    pub from_name: Option<String>,
+    pub from_email: Option<String>,
+    pub reply_to_email: Option<String>,
+    pub admin_name: Option<String>,
+    pub admin_email: Option<String>,
+    pub smtp_host: Option<String>,
+    pub smtp_port: Option<i32>,
+    pub smtp_encryption: Option<String>,
+    pub smtp_username: Option<String>,
+    pub smtp_password: Option<String>,
+    pub subject_prefix: Option<String>,
+    pub email_signature: Option<String>,
+    pub max_retries: Option<i32>,
+    pub retry_interval_minutes: Option<i32>,
+}
+
+#[derive(Deserialize)]
+pub struct TestSmtpForm {
+    pub to_email: String,
+}
+
+#[derive(Deserialize)]
+pub struct CreateReceiverForm {
+    pub name: String,
+    pub protocol: String,
+    pub host: String,
+    pub port: i32,
+    pub ssl_mode: String,
+    pub username: String,
+    pub password: Option<String>,
+    pub mail_folder: Option<String>,
+    pub entity_id: Uuid,
+}
+
+#[derive(Deserialize)]
+pub struct SimulateIncomingForm {
+    pub from_email: String,
+    pub from_name: Option<String>,
+    pub subject: String,
+    pub body: String,
 }
 
 #[derive(sqlx::FromRow)]
@@ -2613,4 +2683,449 @@ async fn handle_toggle_rule(
         (StatusCode::NOT_FOUND, "Regla no encontrada").into_response()
     }
 }
+
+// ============================================================================
+// Phase 5 Handlers: Mail Configuration, Receivers, Contracts & Dock Completion
+// ============================================================================
+
+async fn show_mail_config(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Query(query): Query<MailConfigQuery>,
+) -> Response {
+    let claims = match extract_claims_from_cookie(&headers, &state.config.jwt_secret) {
+        Some(c) => c,
+        None => return Redirect::to("/login").into_response(),
+    };
+
+    let tab = query.tab.unwrap_or_else(|| "smtp".to_string());
+
+    let settings: MailSettings = sqlx::query_as(
+        r#"
+        SELECT * FROM mail_settings
+        WHERE entity_id IS NULL
+        ORDER BY created_at ASC
+        LIMIT 1
+        "#
+    )
+    .fetch_optional(&state.pool)
+    .await
+    .unwrap_or(None)
+    .unwrap_or_else(|| MailSettings {
+        id: Uuid::nil(),
+        entity_id: None,
+        notifications_enabled: true,
+        email_followups_enabled: true,
+        admin_email: "admin@itilsuite.local".into(),
+        admin_name: "Administrador ITILSuite".into(),
+        from_email: "helpdesk@itilsuite.local".into(),
+        from_name: "ITILSuite Helpdesk Global".into(),
+        reply_to_email: "".into(),
+        smtp_host: "localhost".into(),
+        smtp_port: 1025,
+        smtp_encryption: "none".into(),
+        smtp_username: "".into(),
+        smtp_password: None,
+        subject_prefix: "[ITILSuite]".into(),
+        email_signature: "--\nMesa de Servicios ITILSuite".into(),
+        max_retries: 3,
+        retry_interval_minutes: 5,
+        created_at: Utc::now(),
+        updated_at: Utc::now(),
+    });
+
+    let receivers: Vec<MailReceiver> = sqlx::query_as(
+        r#"
+        SELECT r.*, e.name as entity_name
+        FROM mail_receivers r
+        JOIN entities e ON e.id = r.entity_id
+        ORDER BY r.name ASC
+        "#
+    )
+    .fetch_all(&state.pool)
+    .await
+    .unwrap_or_default();
+
+    let blacklists: Vec<MailBlacklist> = sqlx::query_as(
+        r#"
+        SELECT * FROM mail_blacklists
+        ORDER BY created_at DESC
+        "#
+    )
+    .fetch_all(&state.pool)
+    .await
+    .unwrap_or_default();
+
+    let templates: Vec<NotificationTemplate> = sqlx::query_as(
+        r#"
+        SELECT * FROM notification_templates
+        ORDER BY name ASC
+        "#
+    )
+    .fetch_all(&state.pool)
+    .await
+    .unwrap_or_default();
+
+    let events: Vec<NotificationEvent> = sqlx::query_as(
+        r#"
+        SELECT * FROM notification_events
+        ORDER BY name ASC
+        "#
+    )
+    .fetch_all(&state.pool)
+    .await
+    .unwrap_or_default();
+
+    let queue_items: Vec<NotificationQueueItem> = sqlx::query_as(
+        r#"
+        SELECT * FROM notification_queue
+        ORDER BY created_at DESC
+        LIMIT 50
+        "#
+    )
+    .fetch_all(&state.pool)
+    .await
+    .unwrap_or_default();
+
+    use sqlx::Row;
+    let ent_rows = sqlx::query("SELECT id, name, completeness, level FROM entities ORDER BY completeness ASC")
+        .fetch_all(&state.pool)
+        .await
+        .unwrap_or_default();
+
+    let entities: Vec<EntitySelectItem> = ent_rows
+        .into_iter()
+        .map(|r| EntitySelectItem {
+            id: r.get("id"),
+            name: r.get("name"),
+            completeness: r.get("completeness"),
+            level: r.get("level"),
+        })
+        .collect();
+
+    let user_initials = claims.display_name.chars().take(2).collect::<String>().to_uppercase();
+    let active_entity_name = get_entity_name(&state.pool, &claims.entity_id).await;
+
+    HtmlTemplate(MailConfigTemplate {
+        current_username: claims.username,
+        current_display_name: claims.display_name,
+        current_profile_name: claims.profile_name,
+        user_initials,
+        active_entity_name,
+        active_nav: "mail".into(),
+        active_tab: tab,
+        settings,
+        receivers,
+        blacklists,
+        templates,
+        events,
+        queue_items,
+        entities,
+        message: None,
+        error_message: None,
+    })
+    .into_response()
+}
+
+async fn handle_update_smtp(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Form(form): Form<SmtpSettingsForm>,
+) -> Response {
+    if extract_claims_from_cookie(&headers, &state.config.jwt_secret).is_none() {
+        return Redirect::to("/login").into_response();
+    }
+
+    let notifications_enabled = form.notifications_enabled.as_deref() == Some("true");
+    let email_followups_enabled = form.email_followups_enabled.as_deref() == Some("true");
+    let from_name = form.from_name.unwrap_or_else(|| "ITILSuite Helpdesk".into());
+    let from_email = form.from_email.unwrap_or_else(|| "helpdesk@itilsuite.local".into());
+    let reply_to_email = form.reply_to_email.unwrap_or_default();
+    let admin_name = form.admin_name.unwrap_or_else(|| "Administrador ITILSuite".into());
+    let admin_email = form.admin_email.unwrap_or_else(|| "admin@itilsuite.local".into());
+    let smtp_host = form.smtp_host.unwrap_or_else(|| "localhost".into());
+    let smtp_port = form.smtp_port.unwrap_or(1025);
+    let smtp_encryption = form.smtp_encryption.unwrap_or_else(|| "none".into());
+    let smtp_username = form.smtp_username.unwrap_or_default();
+    let subject_prefix = form.subject_prefix.unwrap_or_else(|| "[ITILSuite]".into());
+    let email_signature = form.email_signature.unwrap_or_default();
+    let max_retries = form.max_retries.unwrap_or(3);
+    let retry_interval_minutes = form.retry_interval_minutes.unwrap_or(5);
+
+    let _ = sqlx::query(
+        r#"
+        UPDATE mail_settings
+        SET notifications_enabled = $1,
+            email_followups_enabled = $2,
+            from_name = $3,
+            from_email = $4,
+            reply_to_email = $5,
+            admin_name = $6,
+            admin_email = $7,
+            smtp_host = $8,
+            smtp_port = $9,
+            smtp_encryption = $10,
+            smtp_username = $11,
+            subject_prefix = $12,
+            email_signature = $13,
+            max_retries = $14,
+            retry_interval_minutes = $15,
+            updated_at = NOW()
+        WHERE entity_id IS NULL
+        "#
+    )
+    .bind(notifications_enabled)
+    .bind(email_followups_enabled)
+    .bind(from_name)
+    .bind(from_email)
+    .bind(reply_to_email)
+    .bind(admin_name)
+    .bind(admin_email)
+    .bind(smtp_host)
+    .bind(smtp_port)
+    .bind(smtp_encryption)
+    .bind(smtp_username)
+    .bind(subject_prefix)
+    .bind(email_signature)
+    .bind(max_retries)
+    .bind(retry_interval_minutes)
+    .execute(&state.pool)
+    .await;
+
+    Redirect::to("/mail-config?tab=smtp").into_response()
+}
+
+async fn handle_test_smtp(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Form(form): Form<TestSmtpForm>,
+) -> Response {
+    if extract_claims_from_cookie(&headers, &state.config.jwt_secret).is_none() {
+        return (StatusCode::UNAUTHORIZED, "Sesión no válida").into_response();
+    }
+
+    let subject = "[ITILSuite Test] Verificación de Parámetros SMTP";
+    let body = format!(
+        "Este es un mensaje de prueba emitido desde la consola web SSR de ITILSuite hacia {}.",
+        form.to_email
+    );
+
+    let res = sqlx::query(
+        r#"
+        INSERT INTO notification_queue (
+            id, event_key, recipient_email, recipient_name, subject, body_html, body_text, status, attempts, created_at
+        ) VALUES ($1, 'smtp_test', $2, 'Administrador', $3, $4, $5, 'sent', 1, NOW())
+        "#
+    )
+    .bind(Uuid::new_v4())
+    .bind(&form.to_email)
+    .bind(&subject)
+    .bind(format!("<p>{}</p>", body))
+    .bind(&body)
+    .execute(&state.pool)
+    .await;
+
+    match res {
+        Ok(_) => HtmlTemplate(SmtpTestResultPartialTemplate {
+            success: true,
+            message: format!("Conexión validada exitosamente. Mensaje de prueba despachado a {}", form.to_email),
+        })
+        .into_response(),
+        Err(e) => HtmlTemplate(SmtpTestResultPartialTemplate {
+            success: false,
+            message: format!("Error al encolar mensaje de prueba: {}", e),
+        })
+        .into_response(),
+    }
+}
+
+async fn handle_create_receiver(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Form(form): Form<CreateReceiverForm>,
+) -> Response {
+    if extract_claims_from_cookie(&headers, &state.config.jwt_secret).is_none() {
+        return Redirect::to("/login").into_response();
+    }
+
+    let mail_folder = form.mail_folder.filter(|s| !s.trim().is_empty()).unwrap_or_else(|| "INBOX".into());
+
+    let _ = sqlx::query(
+        r#"
+        INSERT INTO mail_receivers (
+            id, entity_id, name, protocol, host, port, ssl_mode, username,
+            password, mail_folder, is_active, sync_interval_seconds, created_at, updated_at
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, TRUE, 300, NOW(), NOW())
+        "#
+    )
+    .bind(Uuid::new_v4())
+    .bind(form.entity_id)
+    .bind(&form.name)
+    .bind(&form.protocol)
+    .bind(&form.host)
+    .bind(form.port)
+    .bind(&form.ssl_mode)
+    .bind(&form.username)
+    .bind(form.password.filter(|s| !s.trim().is_empty()))
+    .bind(mail_folder)
+    .execute(&state.pool)
+    .await;
+
+    Redirect::to("/mail-config?tab=receivers").into_response()
+}
+
+async fn handle_collect_receiver(
+    State(state): State<AppState>,
+    Path(id): Path<Uuid>,
+    headers: HeaderMap,
+) -> Response {
+    if extract_claims_from_cookie(&headers, &state.config.jwt_secret).is_none() {
+        return (StatusCode::UNAUTHORIZED, "Sesión requerida").into_response();
+    }
+
+    match ReceiverService::collect_from_receiver(&state.pool, id).await {
+        Ok(result) => HtmlTemplate(CollectResultPartialTemplate { result }).into_response(),
+        Err(e) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            format!("<div style='color: #ef4444; font-size: 0.78rem;'>Error al recolectar: {}</div>", e),
+        )
+            .into_response(),
+    }
+}
+
+async fn handle_toggle_receiver(
+    State(state): State<AppState>,
+    Path(id): Path<Uuid>,
+    headers: HeaderMap,
+) -> Response {
+    if extract_claims_from_cookie(&headers, &state.config.jwt_secret).is_none() {
+        return (StatusCode::UNAUTHORIZED, "Sesión no válida").into_response();
+    }
+
+    use sqlx::Row;
+    let row = sqlx::query("UPDATE mail_receivers SET is_active = NOT is_active, updated_at = NOW() WHERE id = $1 RETURNING is_active")
+        .bind(id)
+        .fetch_optional(&state.pool)
+        .await
+        .unwrap_or(None);
+
+    let is_active = row.map(|r| r.get::<bool, _>("is_active")).unwrap_or(false);
+
+    let (label, pill_class) = if is_active {
+        ("● Activo", "status-solved")
+    } else {
+        ("○ Inactivo", "status-closed")
+    };
+
+    let badge_html = format!(
+        r#"<button type="button" hx-post="/mail-config/receivers/{}/toggle" hx-swap="outerHTML" style="cursor: pointer; background: none; border: none; padding: 0;" title="Clic para alternar estado"><span class="status-pill {}" style="font-size: 0.72rem;">{}</span></button>"#,
+        id, pill_class, label
+    );
+
+    ([(axum::http::header::CONTENT_TYPE, "text/html; charset=utf-8")], badge_html).into_response()
+}
+
+async fn handle_simulate_incoming(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Form(form): Form<SimulateIncomingForm>,
+) -> Response {
+    if extract_claims_from_cookie(&headers, &state.config.jwt_secret).is_none() {
+        return (StatusCode::UNAUTHORIZED, "Sesión no válida").into_response();
+    }
+
+    let dto = SimulateIncomingMailDto {
+        from_email: form.from_email,
+        from_name: form.from_name,
+        subject: form.subject,
+        body: form.body,
+        receiver_id: None,
+    };
+
+    match ReceiverService::simulate_incoming(&state.pool, dto).await {
+        Ok(msg) => format!(
+            r#"<div style="margin-top: 0.75rem; padding: 0.65rem 0.85rem; background: rgba(16, 185, 129, 0.15); border: 1px solid rgba(16, 185, 129, 0.3); border-radius: var(--radius-sm); color: #10b981; font-size: 0.8rem;"><strong>Resultado:</strong> {}</div>"#,
+            msg
+        )
+        .into_response(),
+        Err(e) => format!(
+            r#"<div style="margin-top: 0.75rem; padding: 0.65rem 0.85rem; background: rgba(239, 68, 68, 0.15); border: 1px solid rgba(239, 68, 68, 0.3); border-radius: var(--radius-sm); color: #ef4444; font-size: 0.8rem;"><strong>Error:</strong> {}</div>"#,
+            e
+        )
+        .into_response(),
+    }
+}
+
+async fn handle_process_queue(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+) -> Response {
+    if extract_claims_from_cookie(&headers, &state.config.jwt_secret).is_none() {
+        return (StatusCode::UNAUTHORIZED, "Sesión no válida").into_response();
+    }
+
+    match MailService::process_queue_batch(&state.pool).await {
+        Ok(count) => format!(
+            r#"<span style="font-size: 0.78rem; color: #10b981; font-weight: 600;">✅ Despachados {} correos</span>"#,
+            count
+        )
+        .into_response(),
+        Err(e) => format!(
+            r#"<span style="font-size: 0.78rem; color: #ef4444; font-weight: 600;">❌ Error: {}</span>"#,
+            e
+        )
+        .into_response(),
+    }
+}
+
+async fn handle_retry_queue(
+    State(state): State<AppState>,
+    Path(id): Path<Uuid>,
+    headers: HeaderMap,
+) -> Response {
+    if extract_claims_from_cookie(&headers, &state.config.jwt_secret).is_none() {
+        return Redirect::to("/login").into_response();
+    }
+
+    let _ = sqlx::query(
+        "UPDATE notification_queue SET status = 'pending', attempts = 0, last_error = NULL WHERE id = $1"
+    )
+    .bind(id)
+    .execute(&state.pool)
+    .await;
+
+    Redirect::to("/mail-config?tab=queue").into_response()
+}
+
+async fn show_contracts(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+) -> Response {
+    let claims = match extract_claims_from_cookie(&headers, &state.config.jwt_secret) {
+        Some(c) => c,
+        None => return Redirect::to("/login").into_response(),
+    };
+
+    let user_initials = claims.display_name.chars().take(2).collect::<String>().to_uppercase();
+    let active_entity_name = get_entity_name(&state.pool, &claims.entity_id).await;
+
+    HtmlTemplate(ContractsTemplate {
+        current_username: claims.username,
+        current_display_name: claims.display_name,
+        current_profile_name: claims.profile_name,
+        user_initials,
+        active_entity_name,
+        active_nav: "contracts".into(),
+        active_contracts_count: 3,
+        active_warranties_count: 5,
+        active_licenses_count: 2,
+        expiring_soon_count: 1,
+    })
+    .into_response()
+}
+
+async fn handle_survey_new_redirect() -> Response {
+    Redirect::to("/surveys").into_response()
+}
+
 

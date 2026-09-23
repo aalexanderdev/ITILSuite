@@ -1,0 +1,733 @@
+{% extends "layouts/base.html" %}
+
+{% block title %}Configuración de Correo & Notificaciones - ITILSuite{% endblock %}
+
+{% block content %}
+<div class="tickets-page-container" style="display: flex; flex-direction: column; gap: 1.25rem;">
+  <!-- Header & Actions -->
+  <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 1rem;">
+    <div>
+      <div style="display: flex; align-items: center; gap: 0.5rem; font-size: 0.8rem; color: var(--text-muted); margin-bottom: 0.25rem;">
+        <span>Administración</span>
+        <span>/</span>
+        <span style="color: var(--text-primary); font-weight: 500;">Canales de Comunicación</span>
+      </div>
+      <h1 style="margin: 0; font-size: 1.5rem; font-weight: 700; color: var(--text-primary); display: flex; align-items: center; gap: 0.6rem;">
+        <span>✉️</span>
+        <span>Configuración de Correo & Notificaciones</span>
+      </h1>
+      <p style="margin: 0.25rem 0 0; font-size: 0.85rem; color: var(--text-secondary);">
+        Gestión de servidores SMTP salientes, colectores IMAP/POP3, plantillas de correo y cola de entrega.
+      </p>
+    </div>
+
+    <div style="display: flex; align-items: center; gap: 0.75rem;">
+      <a href="http://localhost:8025" target="_blank" rel="noopener noreferrer" class="btn btn-secondary" title="Abrir interfaz de Mailpit">
+        <span>📬</span>
+        <span>Buzón Mailpit</span>
+      </a>
+      <a href="/mail-config?tab={{ active_tab }}" class="btn btn-secondary" title="Actualizar vista">
+        <span>🔄</span>
+        <span>Refrescar</span>
+      </a>
+      {% if active_tab == "receivers" %}
+        <button type="button" class="btn btn-primary" onclick="openModal('modal-create-receiver')">
+          <span>➕</span>
+          <span>Nuevo Colector IMAP</span>
+        </button>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- Flash Messages -->
+  {% if let Some(msg) = message %}
+    <div style="padding: 0.75rem 1rem; background: rgba(16, 185, 129, 0.15); border: 1px solid rgba(16, 185, 129, 0.3); border-radius: var(--radius-sm); color: #10b981; font-size: 0.85rem; display: flex; align-items: center; gap: 0.5rem;">
+      <span>✅</span>
+      <span>{{ msg }}</span>
+    </div>
+  {% endif %}
+  {% if let Some(err) = error_message %}
+    <div style="padding: 0.75rem 1rem; background: rgba(239, 68, 68, 0.15); border: 1px solid rgba(239, 68, 68, 0.3); border-radius: var(--radius-sm); color: #ef4444; font-size: 0.85rem; display: flex; align-items: center; gap: 0.5rem;">
+      <span>❌</span>
+      <span>{{ err }}</span>
+    </div>
+  {% endif %}
+
+  <!-- Tabs Navigation -->
+  <div style="display: flex; gap: 0.5rem; border-bottom: 1px solid var(--border-subtle); padding-bottom: 0.5rem; overflow-x: auto;">
+    <a
+      href="/mail-config?tab=smtp"
+      class="btn btn-secondary btn-sm {% if self.is_smtp_tab() %}active-tab-btn{% endif %}"
+    >
+      <span>📤</span>
+      <span>Servidor SMTP Saliente</span>
+    </a>
+
+    <a
+      href="/mail-config?tab=receivers"
+      class="btn btn-secondary btn-sm {% if self.is_receivers_tab() %}active-tab-btn{% endif %}"
+    >
+      <span>📥</span>
+      <span>Colectores IMAP / POP3 ({{ receivers.len() }})</span>
+    </a>
+
+    <a
+      href="/mail-config?tab=templates"
+      class="btn btn-secondary btn-sm {% if self.is_templates_tab() %}active-tab-btn{% endif %}"
+    >
+      <span>📝</span>
+      <span>Plantillas & Eventos ({{ templates.len() }})</span>
+    </a>
+
+    <a
+      href="/mail-config?tab=queue"
+      class="btn btn-secondary btn-sm {% if self.is_queue_tab() %}active-tab-btn{% endif %}"
+    >
+      <span>📬</span>
+      <span>Cola de Entrega ({{ queue_items.len() }})</span>
+    </a>
+  </div>
+
+  <!-- TAB 1: SMTP Settings -->
+  {% if self.is_smtp_tab() %}
+    <div style="display: grid; grid-template-columns: 2fr 1.2fr; gap: 1.25rem; align-items: start;">
+      <!-- Main Form -->
+      <form action="/mail-config/smtp" method="POST" class="card" style="display: flex; flex-direction: column; gap: 1.25rem;">
+        <div style="border-bottom: 1px solid var(--border-subtle); padding-bottom: 0.75rem;">
+          <h3 style="margin: 0; font-size: 1.05rem; font-weight: 700; color: var(--text-primary); display: flex; align-items: center; gap: 0.5rem;">
+            <span>⚙️</span>
+            <span>Parámetros de Servidor SMTP</span>
+          </h3>
+          <p style="margin: 0.25rem 0 0; font-size: 0.8rem; color: var(--text-muted);">
+            Configuración para el despacho de alertas, asignaciones de tickets y notificaciones a usuarios.
+          </p>
+        </div>
+
+        <!-- Global Toggles -->
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; background: var(--bg-elevated); padding: 1rem; border-radius: var(--radius-sm); border: 1px solid var(--border-subtle);">
+          <label style="display: flex; align-items: center; gap: 0.6rem; cursor: pointer;">
+            <input type="checkbox" name="notifications_enabled" value="true" {% if settings.notifications_enabled %}checked{% endif %} style="width: 18px; height: 18px; accent-color: var(--btn-primary-from);">
+            <div>
+              <div style="font-weight: 600; font-size: 0.85rem; color: var(--text-primary);">Habilitar Notificaciones</div>
+              <div style="font-size: 0.75rem; color: var(--text-muted);">Activar el despacho global de correos</div>
+            </div>
+          </label>
+
+          <label style="display: flex; align-items: center; gap: 0.6rem; cursor: pointer;">
+            <input type="checkbox" name="email_followups_enabled" value="true" {% if settings.email_followups_enabled %}checked{% endif %} style="width: 18px; height: 18px; accent-color: var(--btn-primary-from);">
+            <div>
+              <div style="font-weight: 600; font-size: 0.85rem; color: var(--text-primary);">Seguimientos por Correo</div>
+              <div style="font-size: 0.75rem; color: var(--text-muted);">Notificar respuestas y notas técnicas</div>
+            </div>
+          </label>
+        </div>
+
+        <!-- Sender Information -->
+        <div>
+          <div style="font-size: 0.85rem; font-weight: 600; color: var(--text-primary); margin-bottom: 0.75rem; display: flex; align-items: center; gap: 0.4rem;">
+            <span>👤</span>
+            <span>Identidad del Remitente</span>
+          </div>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+            <div>
+              <label class="form-label">Nombre del Remitente *</label>
+              <input type="text" name="from_name" value="{{ settings.from_name }}" required class="form-input">
+            </div>
+            <div>
+              <label class="form-label">Email del Remitente (From) *</label>
+              <input type="email" name="from_email" value="{{ settings.from_email }}" required class="form-input">
+            </div>
+            <div>
+              <label class="form-label">Email de Respuesta (Reply-To)</label>
+              <input type="email" name="reply_to_email" value="{{ settings.reply_to_email }}" class="form-input">
+            </div>
+            <div>
+              <label class="form-label">Email del Administrador ITIL</label>
+              <input type="email" name="admin_email" value="{{ settings.admin_email }}" class="form-input">
+            </div>
+          </div>
+        </div>
+
+        <!-- Connection Details -->
+        <div>
+          <div style="font-size: 0.85rem; font-weight: 600; color: var(--text-primary); margin-bottom: 0.75rem; display: flex; align-items: center; gap: 0.4rem;">
+            <span>🌐</span>
+            <span>Conexión de Transporte SMTP</span>
+          </div>
+          <div style="display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 0.75rem;">
+            <div>
+              <label class="form-label">Host SMTP *</label>
+              <input type="text" name="smtp_host" value="{{ settings.smtp_host }}" required class="form-input" placeholder="mail.itilsuite.internal o localhost">
+            </div>
+            <div>
+              <label class="form-label">Puerto *</label>
+              <input type="number" name="smtp_port" value="{{ settings.smtp_port }}" required class="form-input">
+            </div>
+            <div>
+              <label class="form-label">Cifrado</label>
+              <select name="smtp_encryption" class="form-select">
+                <option value="none" {% if settings.smtp_encryption == "none" %}selected{% endif %}>Sin cifrado (Plain)</option>
+                <option value="tls" {% if settings.smtp_encryption == "tls" %}selected{% endif %}>STARTTLS (587)</option>
+                <option value="ssl" {% if settings.smtp_encryption == "ssl" %}selected{% endif %}>SSL / TLS (465)</option>
+              </select>
+            </div>
+          </div>
+
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-top: 0.75rem;">
+            <div>
+              <label class="form-label">Usuario SMTP</label>
+              <input type="text" name="smtp_username" value="{{ settings.smtp_username }}" class="form-input" placeholder="Opcional si es relay local">
+            </div>
+            <div>
+              <label class="form-label">Contraseña SMTP</label>
+              <input type="password" name="smtp_password" class="form-input" placeholder="Dejar en blanco para no cambiar">
+            </div>
+          </div>
+        </div>
+
+        <!-- Formatting & Retries -->
+        <div>
+          <div style="font-size: 0.85rem; font-weight: 600; color: var(--text-primary); margin-bottom: 0.75rem; display: flex; align-items: center; gap: 0.4rem;">
+            <span>🏷️</span>
+            <span>Personalización & Reintentos</span>
+          </div>
+          <div style="display: grid; grid-template-columns: 1.5fr 1fr 1fr; gap: 0.75rem;">
+            <div>
+              <label class="form-label">Prefijo de Asunto</label>
+              <input type="text" name="subject_prefix" value="{{ settings.subject_prefix }}" class="form-input" placeholder="[ITILSuite]">
+            </div>
+            <div>
+              <label class="form-label">Reintentos Máx.</label>
+              <input type="number" name="max_retries" value="{{ settings.max_retries }}" class="form-input">
+            </div>
+            <div>
+              <label class="form-label">Intervalo (Min)</label>
+              <input type="number" name="retry_interval_minutes" value="{{ settings.retry_interval_minutes }}" class="form-input">
+            </div>
+          </div>
+
+          <div style="margin-top: 0.75rem;">
+            <label class="form-label">Firma Institucional (Texto)</label>
+            <textarea name="email_signature" rows="2" class="form-textarea">{{ settings.email_signature }}</textarea>
+          </div>
+        </div>
+
+        <div style="display: flex; justify-content: flex-end; gap: 0.75rem; border-top: 1px solid var(--border-subtle); padding-top: 1rem;">
+          <button type="submit" class="btn btn-primary">
+            <span>💾</span>
+            <span>Guardar Configuración SMTP</span>
+          </button>
+        </div>
+      </form>
+
+      <!-- Live SMTP Diagnostic Card -->
+      <div style="display: flex; flex-direction: column; gap: 1.25rem;">
+        <div class="card" style="display: flex; flex-direction: column; gap: 1rem;">
+          <div style="border-bottom: 1px solid var(--border-subtle); padding-bottom: 0.5rem;">
+            <h3 style="margin: 0; font-size: 1rem; font-weight: 700; color: var(--text-primary); display: flex; align-items: center; gap: 0.5rem;">
+              <span>🧪</span>
+              <span>Prueba de Conexión en Vivo</span>
+            </h3>
+            <p style="margin: 0.2rem 0 0; font-size: 0.75rem; color: var(--text-muted);">
+              Envía un email sintético inmediato para validar el enlace SMTP con el servidor de correos.
+            </p>
+          </div>
+
+          <form
+            hx-post="/mail-config/smtp/test"
+            hx-target="#smtp-test-result"
+            hx-indicator="#test-smtp-spinner"
+            style="display: flex; flex-direction: column; gap: 0.85rem;"
+          >
+            <div>
+              <label class="form-label">Destinatario de Prueba *</label>
+              <input type="email" name="to_email" value="admin@itilsuite.local" required class="form-input">
+            </div>
+
+            <button type="submit" class="btn btn-primary" style="width: 100%; justify-content: center;">
+              <span>🚀</span>
+              <span>Enviar Correo de Prueba</span>
+              <span id="test-smtp-spinner" class="htmx-indicator" style="margin-left: 0.5rem;">⏳</span>
+            </button>
+          </form>
+
+          <div id="smtp-test-result"></div>
+        </div>
+
+        <!-- Quick Help Card -->
+        <div class="card" style="background: var(--bg-elevated);">
+          <div style="font-weight: 700; font-size: 0.85rem; color: var(--text-primary); display: flex; align-items: center; gap: 0.4rem; margin-bottom: 0.4rem;">
+            <span>💡</span>
+            <span>Entorno Local con Mailpit</span>
+          </div>
+          <div style="font-size: 0.78rem; color: var(--text-secondary); line-height: 1.5;">
+            ITILSuite incluye un contenedor Docker para <strong>Mailpit</strong> en el puerto SMTP <code>1025</code> y su consola web en <code>8025</code>.
+            Puedes configurar el Host SMTP como <code>localhost</code> y puerto <code>1025</code> con cifrado <code>Sin cifrado</code> para capturar todos los correos en desarrollo.
+          </div>
+        </div>
+      </div>
+    </div>
+  {% endif %}
+
+  <!-- TAB 2: Receivers & Inbound Mail -->
+  {% if self.is_receivers_tab() %}
+    <div style="display: flex; flex-direction: column; gap: 1.25rem;">
+      <!-- Receivers Table Card -->
+      <div class="card" style="display: flex; flex-direction: column; gap: 1rem;">
+        <div style="display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--border-subtle); padding-bottom: 0.75rem;">
+          <div>
+            <h3 style="margin: 0; font-size: 1.05rem; font-weight: 700; color: var(--text-primary); display: flex; align-items: center; gap: 0.5rem;">
+              <span>📥</span>
+              <span>Colectores de Correo Entrante ({{ receivers.len() }})</span>
+            </h3>
+            <p style="margin: 0.2rem 0 0; font-size: 0.8rem; color: var(--text-muted);">
+              Sincronización automática de buzones IMAP/POP3 para creación de incidentes y seguimientos.
+            </p>
+          </div>
+
+          <button type="button" class="btn btn-primary btn-sm" onclick="openModal('modal-create-receiver')">
+            <span>➕</span>
+            <span>Añadir Colector</span>
+          </button>
+        </div>
+
+        <div style="overflow-x: auto;">
+          <table class="tickets-table">
+            <thead>
+              <tr>
+                <th>Nombre del Colector</th>
+                <th>Protocolo</th>
+                <th>Servidor & Puerto</th>
+                <th>Buzón</th>
+                <th>Usuario</th>
+                <th>Estado</th>
+                <th>Última Sincronización</th>
+                <th style="text-align: right;">Acciones</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% if receivers.is_empty() %}
+                <tr>
+                  <td colspan="8" style="text-align: center; padding: 2rem; color: var(--text-muted);">
+                    No hay colectores de correo configurados. Haz clic en "Añadir Colector" para registrar uno.
+                  </td>
+                </tr>
+              {% else %}
+                {% for r in receivers %}
+                  <tr>
+                    <td style="font-weight: 600; color: var(--text-primary);">
+                      {{ r.name }}
+                    </td>
+                    <td>
+                      <span class="status-pill" style="font-size: 0.7rem; text-transform: uppercase;">
+                        {{ r.protocol }}
+                      </span>
+                    </td>
+                    <td>
+                      <code>{{ r.host }}:{{ r.port }}</code>
+                      <span style="font-size: 0.72rem; color: var(--text-muted);">({{ r.ssl_mode }})</span>
+                    </td>
+                    <td>
+                      <span style="font-family: var(--font-mono); font-size: 0.78rem;">{{ r.mail_folder }}</span>
+                    </td>
+                    <td>
+                      <span style="font-size: 0.78rem; color: var(--text-secondary);">{{ r.username }}</span>
+                    </td>
+                    <td>
+                      <button
+                        type="button"
+                        hx-post="/mail-config/receivers/{{ r.id }}/toggle"
+                        hx-swap="outerHTML"
+                        style="cursor: pointer; background: none; border: none; padding: 0;"
+                        title="Clic para alternar estado"
+                      >
+                        {% if r.is_active %}
+                          <span class="status-pill status-solved" style="font-size: 0.72rem;">● Activo</span>
+                        {% else %}
+                          <span class="status-pill status-closed" style="font-size: 0.72rem;">○ Inactivo</span>
+                        {% endif %}
+                      </button>
+                    </td>
+                    <td>
+                      <span style="font-size: 0.75rem; color: var(--text-secondary);">
+                        {{ self.format_opt_dt(r.last_sync_at) }}
+                      </span>
+                    </td>
+                    <td style="text-align: right;">
+                      <div style="display: inline-flex; align-items: center; gap: 0.4rem;">
+                        <button
+                          type="button"
+                          class="btn btn-secondary btn-sm"
+                          hx-post="/mail-config/receivers/{{ r.id }}/collect"
+                          hx-target="#collect-result-{{ r.id }}"
+                          hx-swap="innerHTML"
+                          title="Sincronizar buzón inmediatamente"
+                        >
+                          <span>🔄</span>
+                          <span>Recolectar</span>
+                        </button>
+                      </div>
+                      <div id="collect-result-{{ r.id }}"></div>
+                    </td>
+                  </tr>
+                {% endfor %}
+              {% endif %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Simulator Card & Blacklist Grid -->
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem;">
+        <!-- Incoming Mail Simulator -->
+        <div class="card" style="display: flex; flex-direction: column; gap: 1rem;">
+          <div style="border-bottom: 1px solid var(--border-subtle); padding-bottom: 0.5rem;">
+            <h3 style="margin: 0; font-size: 1rem; font-weight: 700; color: var(--text-primary); display: flex; align-items: center; gap: 0.5rem;">
+              <span>🤖</span>
+              <span>Simulador de Correo Entrante</span>
+            </h3>
+            <p style="margin: 0.2rem 0 0; font-size: 0.75rem; color: var(--text-muted);">
+              Prueba el motor de ingesta y apertura automática de tickets sin necesidad de servidor de correo real.
+            </p>
+          </div>
+
+          <form
+            hx-post="/mail-config/simulate-incoming"
+            hx-target="#simulate-result"
+            style="display: flex; flex-direction: column; gap: 0.75rem;"
+          >
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem;">
+              <div>
+                <label class="form-label">Remitente (Email) *</label>
+                <input type="email" name="from_email" value="usuario.remoto@empresa.com" required class="form-input">
+              </div>
+              <div>
+                <label class="form-label">Nombre del Remitente</label>
+                <input type="text" name="from_name" value="Juan Usuario" class="form-input">
+              </div>
+            </div>
+
+            <div>
+              <label class="form-label">Asunto del Correo *</label>
+              <input type="text" name="subject" value="Fallo en monitor y VPN remota" required class="form-input">
+            </div>
+
+            <div>
+              <label class="form-label">Cuerpo del Mensaje *</label>
+              <textarea name="body" rows="3" required class="form-textarea">Hola equipo de soporte,
+No puedo acceder a la VPN ni detectar la segunda pantalla desde esta mañana.
+Agradezco su pronta ayuda.</textarea>
+            </div>
+
+            <button type="submit" class="btn btn-primary" style="justify-content: center;">
+              <span>📥</span>
+              <span>Simular Ingesta y Crear Ticket</span>
+            </button>
+          </form>
+
+          <div id="simulate-result"></div>
+        </div>
+
+        <!-- Blacklists Card -->
+        <div class="card" style="display: flex; flex-direction: column; gap: 1rem;">
+          <div style="border-bottom: 1px solid var(--border-subtle); padding-bottom: 0.5rem;">
+            <h3 style="margin: 0; font-size: 1rem; font-weight: 700; color: var(--text-primary); display: flex; align-items: center; gap: 0.5rem;">
+              <span>🛡️</span>
+              <span>Reglas de Lista Negra (Spam & Filtrado)</span>
+            </h3>
+            <p style="margin: 0.2rem 0 0; font-size: 0.75rem; color: var(--text-muted);">
+              Direcciones, dominios o patrones bloqueados para evitar creación de tickets no deseados.
+            </p>
+          </div>
+
+          <div style="overflow-x: auto;">
+            <table class="tickets-table">
+              <thead>
+                <tr>
+                  <th>Tipo</th>
+                  <th>Patrón</th>
+                  <th>Motivo</th>
+                  <th>Estado</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for b in blacklists %}
+                  <tr>
+                    <td>
+                      <span class="status-pill" style="font-size: 0.7rem;">{{ b.rule_type }}</span>
+                    </td>
+                    <td>
+                      <code>{{ b.pattern }}</code>
+                    </td>
+                    <td>
+                      <span style="font-size: 0.78rem; color: var(--text-secondary);">{{ b.reason.as_deref().unwrap_or("-") }}</span>
+                    </td>
+                    <td>
+                      <span class="status-pill status-solved" style="font-size: 0.7rem;">● Activo</span>
+                    </td>
+                  </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  {% endif %}
+
+  <!-- TAB 3: Templates & Events -->
+  {% if self.is_templates_tab() %}
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem;">
+      <!-- Templates List -->
+      <div class="card" style="display: flex; flex-direction: column; gap: 1rem;">
+        <div style="border-bottom: 1px solid var(--border-subtle); padding-bottom: 0.5rem;">
+          <h3 style="margin: 0; font-size: 1.05rem; font-weight: 700; color: var(--text-primary); display: flex; align-items: center; gap: 0.5rem;">
+            <span>📝</span>
+            <span>Plantillas de Notificación ({{ templates.len() }})</span>
+          </h3>
+          <p style="margin: 0.2rem 0 0; font-size: 0.8rem; color: var(--text-muted);">
+            Diseño HTML y variables contextuales para cada tipo de mensaje institucional.
+          </p>
+        </div>
+
+        <div style="display: flex; flex-direction: column; gap: 0.65rem;">
+          {% for tmpl in templates %}
+            <div style="padding: 0.75rem; background: var(--bg-elevated); border-radius: var(--radius-sm); border: 1px solid var(--border-subtle); display: flex; align-items: center; justify-content: space-between;">
+              <div>
+                <div style="font-weight: 600; font-size: 0.85rem; color: var(--text-primary);">{{ tmpl.name }}</div>
+                <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.15rem;">
+                  Asunto: <code>{{ tmpl.subject_template }}</code>
+                </div>
+              </div>
+              <span class="status-pill status-solved" style="font-size: 0.7rem;">Activa</span>
+            </div>
+          {% endfor %}
+        </div>
+
+        <!-- Available Tags Legend -->
+        <div style="margin-top: 0.5rem; padding: 0.75rem; background: var(--bg-elevated); border-radius: var(--radius-sm); border: 1px dashed var(--border-subtle);">
+          <div style="font-weight: 600; font-size: 0.78rem; color: var(--text-primary); margin-bottom: 0.35rem;">
+            🏷️ Etiquetas Dinámicas Disponibles:
+          </div>
+          <div style="display: flex; flex-wrap: wrap; gap: 0.4rem;">
+            <code style="font-size: 0.7rem;">##ticket.id##</code>
+            <code style="font-size: 0.7rem;">##ticket.title##</code>
+            <code style="font-size: 0.7rem;">##ticket.content##</code>
+            <code style="font-size: 0.7rem;">##ticket.status##</code>
+            <code style="font-size: 0.7rem;">##ticket.priority##</code>
+            <code style="font-size: 0.7rem;">##ticket.technician##</code>
+            <code style="font-size: 0.7rem;">##ticket.requester##</code>
+            <code style="font-size: 0.7rem;">##ticket.created_at##</code>
+          </div>
+        </div>
+      </div>
+
+      <!-- Events List -->
+      <div class="card" style="display: flex; flex-direction: column; gap: 1rem;">
+        <div style="border-bottom: 1px solid var(--border-subtle); padding-bottom: 0.5rem;">
+          <h3 style="margin: 0; font-size: 1.05rem; font-weight: 700; color: var(--text-primary); display: flex; align-items: center; gap: 0.5rem;">
+            <span>⚡</span>
+            <span>Eventos de Ciclo de Vida & Disparadores ({{ events.len() }})</span>
+          </h3>
+          <p style="margin: 0.2rem 0 0; font-size: 0.8rem; color: var(--text-muted);">
+            Asociación de eventos de Service Desk con destinatarios automáticos.
+          </p>
+        </div>
+
+        <div style="display: flex; flex-direction: column; gap: 0.65rem;">
+          {% for ev in events %}
+            <div style="padding: 0.75rem; background: var(--bg-elevated); border-radius: var(--radius-sm); border: 1px solid var(--border-subtle);">
+              <div style="display: flex; align-items: center; justify-content: space-between;">
+                <div style="font-weight: 600; font-size: 0.85rem; color: var(--text-primary);">{{ ev.name }}</div>
+                <span class="status-pill status-solved" style="font-size: 0.7rem;">Disparador Activo</span>
+              </div>
+              <div style="font-size: 0.75rem; color: var(--text-secondary); margin-top: 0.25rem;">
+                Clave de evento: <code>{{ ev.event_key }}</code>
+              </div>
+            </div>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+  {% endif %}
+
+  <!-- TAB 4: Outbound Queue -->
+  {% if self.is_queue_tab() %}
+    <div class="card" style="display: flex; flex-direction: column; gap: 1rem;">
+      <div style="display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--border-subtle); padding-bottom: 0.75rem;">
+        <div>
+          <h3 style="margin: 0; font-size: 1.05rem; font-weight: 700; color: var(--text-primary); display: flex; align-items: center; gap: 0.5rem;">
+            <span>📬</span>
+            <span>Cola de Notificaciones Salientes ({{ queue_items.len() }})</span>
+          </h3>
+          <p style="margin: 0.2rem 0 0; font-size: 0.8rem; color: var(--text-muted);">
+            Registro de auditoría del despachador en segundo plano con reintentos automáticos.
+          </p>
+        </div>
+
+        <form
+          hx-post="/mail-config/queue/process"
+          hx-target="#queue-process-status"
+          style="display: flex; align-items: center; gap: 0.75rem;"
+        >
+          <span id="queue-process-status"></span>
+          <button type="submit" class="btn btn-primary btn-sm">
+            <span>⚡</span>
+            <span>Procesar Cola Ahora</span>
+          </button>
+        </form>
+      </div>
+
+      <div style="overflow-x: auto;">
+        <table class="tickets-table">
+          <thead>
+            <tr>
+              <th>Destinatario</th>
+              <th>Evento</th>
+              <th>Asunto</th>
+              <th>Estado</th>
+              <th>Intentos</th>
+              <th>Último Intento</th>
+              <th style="text-align: right;">Acción</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% if queue_items.is_empty() %}
+              <tr>
+                <td colspan="7" style="text-align: center; padding: 2rem; color: var(--text-muted);">
+                  La cola de notificaciones se encuentra vacía.
+                </td>
+              </tr>
+            {% else %}
+              {% for q in queue_items %}
+                <tr>
+                  <td>
+                    <div style="font-weight: 600; color: var(--text-primary);">
+                      {{ q.recipient_name.as_deref().unwrap_or("-") }}
+                    </div>
+                    <code style="font-size: 0.75rem;">{{ q.recipient_email }}</code>
+                  </td>
+                  <td>
+                    <span class="status-pill" style="font-size: 0.7rem;">{{ q.event_key }}</span>
+                  </td>
+                  <td style="max-width: 250px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                    {{ q.subject }}
+                  </td>
+                  <td>
+                    {% if q.status == "sent" %}
+                      <span class="status-pill status-solved" style="font-size: 0.72rem;">● Enviado</span>
+                    {% else if q.status == "pending" %}
+                      <span class="status-pill status-new" style="font-size: 0.72rem;">⏳ Pendiente</span>
+                    {% else %}
+                      <span class="status-pill status-closed" style="font-size: 0.72rem;">❌ Fallido</span>
+                    {% endif %}
+                  </td>
+                  <td>
+                    {{ q.attempts }}
+                  </td>
+                  <td>
+                    <span style="font-size: 0.75rem; color: var(--text-secondary);">
+                      {{ self.format_opt_dt(q.last_attempt_at) }}
+                    </span>
+                  </td>
+                  <td style="text-align: right;">
+                    {% if q.status == "failed" %}
+                      <form action="/mail-config/queue/{{ q.id }}/retry" method="POST" style="display: inline;">
+                        <button type="submit" class="btn btn-secondary btn-sm" title="Reintentar envío">
+                          <span>🔄</span>
+                        </button>
+                      </form>
+                    {% else %}
+                      <span style="color: var(--text-muted); font-size: 0.8rem;">-</span>
+                    {% endif %}
+                  </td>
+                </tr>
+              {% endfor %}
+            {% endif %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  {% endif %}
+</div>
+
+<!-- Modal: Nuevo Colector IMAP/POP3 -->
+<div id="modal-create-receiver" class="modal-backdrop" style="display: none;" onclick="if(event.target === this) closeModal('modal-create-receiver')">
+  <div class="modal-dialog" style="max-width: 580px;" onclick="event.stopPropagation()">
+    <div style="display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--border-subtle); padding-bottom: 0.75rem;">
+      <h3 style="margin: 0; font-size: 1.15rem; font-weight: 700; color: var(--text-primary); display: flex; align-items: center; gap: 0.5rem;">
+        <span>📥</span>
+        <span>Añadir Colector de Correo</span>
+      </h3>
+      <button type="button" class="btn btn-secondary btn-sm" onclick="closeModal('modal-create-receiver')">✕</button>
+    </div>
+
+    <form action="/mail-config/receivers" method="POST" style="display: flex; flex-direction: column; gap: 1rem; margin-top: 1rem;">
+      <div>
+        <label class="form-label">Nombre Descriptivo *</label>
+        <input type="text" name="name" required class="form-input" placeholder="ej. Soporte Regional IMAP">
+      </div>
+
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem;">
+        <div>
+          <label class="form-label">Protocolo *</label>
+          <select name="protocol" class="form-select">
+            <option value="imap">IMAP (Recomendado)</option>
+            <option value="pop3">POP3</option>
+          </select>
+        </div>
+        <div>
+          <label class="form-label">Cifrado SSL / TLS *</label>
+          <select name="ssl_mode" class="form-select">
+            <option value="ssl">SSL / TLS (Seguro)</option>
+            <option value="tls">STARTTLS</option>
+            <option value="none">Sin cifrado (Plain)</option>
+          </select>
+        </div>
+      </div>
+
+      <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 0.75rem;">
+        <div>
+          <label class="form-label">Servidor Host *</label>
+          <input type="text" name="host" required class="form-input" placeholder="imap.gmail.com o mail.empresa.com">
+        </div>
+        <div>
+          <label class="form-label">Puerto *</label>
+          <input type="number" name="port" value="993" required class="form-input">
+        </div>
+      </div>
+
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem;">
+        <div>
+          <label class="form-label">Usuario / Correo *</label>
+          <input type="text" name="username" required class="form-input" placeholder="soporte@empresa.com">
+        </div>
+        <div>
+          <label class="form-label">Contraseña</label>
+          <input type="password" name="password" class="form-input">
+        </div>
+      </div>
+
+      <div style="display: grid; grid-template-columns: 1.5fr 1fr; gap: 0.75rem;">
+        <div>
+          <label class="form-label">Buzón / Carpeta</label>
+          <input type="text" name="mail_folder" value="INBOX" class="form-input">
+        </div>
+        <div>
+          <label class="form-label">Entidad Asociada *</label>
+          <select name="entity_id" class="form-select">
+            {% for ent in entities %}
+              <option value="{{ ent.id }}">{{ ent.name }}</option>
+            {% endfor %}
+          </select>
+        </div>
+      </div>
+
+      <div style="display: flex; justify-content: flex-end; gap: 0.75rem; border-top: 1px solid var(--border-subtle); padding-top: 1rem; margin-top: 0.5rem;">
+        <button type="button" class="btn btn-secondary" onclick="closeModal('modal-create-receiver')">Cancelar</button>
+        <button type="submit" class="btn btn-primary">Registrar Colector</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}

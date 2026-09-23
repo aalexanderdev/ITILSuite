@@ -8,9 +8,42 @@ All notable changes to this project will be documented in this file in accordanc
 
 ---
 
-## [0.0.8] - 2026-09-20
+## [0.0.8] - 2026-09-23
 
 ### Added
+* **Consolidated Native Server-Side Rendering (SSR) Architecture (Askama + HTMX)**:
+  * Complete full-stack migration eliminating Node.js, npm, and Vite dependencies from production and development runtimes.
+  * Unified high-performance Rust web server compiling templates at build time via **Askama** and enabling reactive, single-page-like UI dynamics via **HTMX**.
+  * **Material Design 2 Warm Dark & Clean Light Design System**: Curated warm parchment typography, deep espresso surface palette, elevation overlays (`00dp` to `24dp`), and zero external CDN bloat.
+  * **Phase 1: Authentication & Dashboard Foundation**:
+    * Cryptographic JWT cookie-based session management (`itilsuite_session`) with Argon2id verification.
+    * Interactive floating navigation Dock (`dock.html`) with dropup menus, active badges, and keyboard shortcuts.
+    * System diagnostics, KPI metrics cards, and release roadmap overview.
+  * **Phase 2: Service Desk & Ticket Lifecycles**:
+    * Ticket management console (`/tickets`) with real-time HTMX filtering by status, urgency, and technician.
+    * Detailed technical ticket view (`/tickets/:id`) with priority matrix indicators, SLA status, and timeline followups (`/tickets/:id/followups`).
+    * Full ticket creation workflow (`/tickets/new`) supporting template preloading.
+  * **Phase 2.5: Native HelpdeskChat & WebSocket Telemetry**:
+    * Live chat analytics console (`/chat-analytics`) and docked floating widget (`chat_widget.html`).
+    * 1-click chat-to-ticket conversion and active agent tracking.
+  * **Phase 3: Customer Satisfaction Management (CSAT & NPS)**:
+    * Multi-tab administrative console (`/surveys`) for survey presets, question building, and NPS gauges.
+    * Standalone zero-login public responder (`/survey/public/:token`) with draft autosave and responsive mobile design.
+  * **Phase 4: CMDB / ITAM, Entity Hierarchy, RBAC Directory & Rule Engine**:
+    * Complete ITAM inventory (`/assets`, `/computers`, `/network`) with diagnostic spec sheets (`/assets/:id`) for CPU, RAM, storage, network, OS, and software packages.
+    * GLPI Field Locks protection visualization and connected peripheral tracking.
+    * Interactive multi-tenant entity tree (`/entities`) with completeness path calculation (`Root Entity > Regional > Dept`).
+    * User directory (`/users`) with role badges, group chips, and inline HTMX status toggles (`POST /users/:id/toggle`).
+    * Business rule automation console (`/rules`, `/rules/new`) with 3 operational tabs (Helpdesk, Reconciliation, Dictionaries) and inline pause/resume switches.
+  * **Phase 5: Mail Configuration, Collectors, Contracts & Dock Completion**:
+    * Dedicated mail console (`/mail-config`) with 4 operational tabs (SMTP Server, IMAP/POP3 Collectors, Templates & Events, Outbound Queue).
+    * Live HTMX SMTP connection test against local Mailpit (`localhost:1025`) or remote servers.
+    * Inbound mail collectors table with 1-click manual collection (`POST /mail-config/receivers/:id/collect`) and active toggling.
+    * In-app incoming email simulator (`POST /mail-config/simulate-incoming`) creating tickets and dispatching events without external servers.
+    * Outbound notification queue audit with manual flush and retry actions.
+    * Contracts, warranties, and vendor agreement console (`/contracts`) linked to CMDB inventory.
+    * 100% completion of all navigation links in the bottom Dock.
+    * Formal retirement and archival of the legacy React prototype (`frontend/`).
 * **Native Survey & Customer Satisfaction Subsystem (CSAT & NPS)**:
   * Complete native port and architecture replacing external PHP plugins with high-performance Rust Axum, PostgreSQL, and React 19.
   * Multi-entity survey configuration with recursive inheritance (`is_recursive`), default survey indicators, and customizable link lifetime (`ttl_days_override`).

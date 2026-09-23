@@ -1,0 +1,197 @@
+{% extends "layouts/base.html" %}
+
+{% block title %}Contratos & Proveedores - ITILSuite{% endblock %}
+
+{% block content %}
+<div class="tickets-page-container" style="display: flex; flex-direction: column; gap: 1.25rem;">
+  <!-- Header & Actions -->
+  <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 1rem;">
+    <div>
+      <div style="display: flex; align-items: center; gap: 0.5rem; font-size: 0.8rem; color: var(--text-muted); margin-bottom: 0.25rem;">
+        <span>Inventario</span>
+        <span>/</span>
+        <span style="color: var(--text-primary); font-weight: 500;">Gobernanza de Activos</span>
+      </div>
+      <h1 style="margin: 0; font-size: 1.5rem; font-weight: 700; color: var(--text-primary); display: flex; align-items: center; gap: 0.6rem;">
+        <span>📑</span>
+        <span>Contratos, Garantías & Acuerdos de Proveedor</span>
+      </h1>
+      <p style="margin: 0.25rem 0 0; font-size: 0.85rem; color: var(--text-secondary);">
+        Supervisión de acuerdos comerciales, pólizas de garantía de hardware y licencias asociadas a activos CMDB.
+      </p>
+    </div>
+
+    <div style="display: flex; align-items: center; gap: 0.75rem;">
+      <a href="/assets" class="btn btn-secondary" title="Ir a CMDB">
+        <span>🖥️</span>
+        <span>Ver Parque Tecnológico</span>
+      </a>
+      <button type="button" class="btn btn-primary" onclick="openModal('modal-create-contract')">
+        <span>➕</span>
+        <span>Registrar Acuerdo</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- KPI Cards -->
+  <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 1rem;">
+    <div class="dashboard-kpi-card">
+      <div style="font-size: 0.72rem; color: var(--text-muted); font-weight: 600; text-transform: uppercase;">Contratos Activos</div>
+      <div style="font-size: 1.6rem; font-weight: 800; color: var(--text-primary); margin-top: 0.25rem;">
+        {{ active_contracts_count }}
+      </div>
+      <div style="font-size: 0.75rem; color: #10b981; margin-top: 0.2rem;">● En vigencia operativa</div>
+    </div>
+
+    <div class="dashboard-kpi-card">
+      <div style="font-size: 0.72rem; color: var(--text-muted); font-weight: 600; text-transform: uppercase;">Garantías de Hardware</div>
+      <div style="font-size: 1.6rem; font-weight: 800; color: #3b82f6; margin-top: 0.25rem;">
+        {{ active_warranties_count }}
+      </div>
+      <div style="font-size: 0.75rem; color: var(--text-secondary); margin-top: 0.2rem;">Soporte directo fabricante</div>
+    </div>
+
+    <div class="dashboard-kpi-card">
+      <div style="font-size: 0.72rem; color: var(--text-muted); font-weight: 600; text-transform: uppercase;">Licenciamiento Corporativo</div>
+      <div style="font-size: 1.6rem; font-weight: 800; color: #8b5cf6; margin-top: 0.25rem;">
+        {{ active_licenses_count }}
+      </div>
+      <div style="font-size: 0.75rem; color: var(--text-secondary); margin-top: 0.2rem;">Suscripciones y mantenimiento</div>
+    </div>
+
+    <div class="dashboard-kpi-card">
+      <div style="font-size: 0.72rem; color: var(--text-muted); font-weight: 600; text-transform: uppercase;">Próximos a Vencer (90d)</div>
+      <div style="font-size: 1.6rem; font-weight: 800; color: #f59e0b; margin-top: 0.25rem;">
+        {{ expiring_soon_count }}
+      </div>
+      <div style="font-size: 0.75rem; color: #f59e0b; margin-top: 0.2rem;">⚠️ Requiere renovación</div>
+    </div>
+  </div>
+
+  <!-- Contracts Table Card -->
+  <div class="card" style="display: flex; flex-direction: column; gap: 1rem;">
+    <div style="display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--border-subtle); padding-bottom: 0.75rem;">
+      <h3 style="margin: 0; font-size: 1.05rem; font-weight: 700; color: var(--text-primary); display: flex; align-items: center; gap: 0.5rem;">
+        <span>📜</span>
+        <span>Acuerdos de Soporte & Mantenimiento Registrados</span>
+      </h3>
+      <span style="font-size: 0.8rem; color: var(--text-muted);">Auditoría vinculada con activos CMDB</span>
+    </div>
+
+    <div style="overflow-x: auto;">
+      <table class="tickets-table">
+        <thead>
+          <tr>
+            <th>Nombre del Contrato / Póliza</th>
+            <th>Proveedor / Fabricante</th>
+            <th>Tipo</th>
+            <th>Vigencia</th>
+            <th>Activos Amparados</th>
+            <th>Nivel de Servicio (SLA)</th>
+            <th>Estado</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td style="font-weight: 600; color: var(--text-primary);">
+              Dell ProSupport Plus 24x7 NBD
+            </td>
+            <td>Dell Technologies Inc.</td>
+            <td><span class="status-pill" style="font-size: 0.7rem;">Garantía Hardware</span></td>
+            <td>Hasta 2028-12-31</td>
+            <td>
+              <a href="/assets?search=Dell" style="color: #60a5fa; text-decoration: underline; font-size: 0.8rem;">
+                WS-DEV-JUAN + 4 equipos
+              </a>
+            </td>
+            <td>TTR 4h en Sitio / Cobertura NBD</td>
+            <td><span class="status-pill status-solved" style="font-size: 0.72rem;">● Vigente</span></td>
+          </tr>
+          <tr>
+            <td style="font-weight: 600; color: var(--text-primary);">
+              Cisco SMARTnet Premier Support
+            </td>
+            <td>Cisco Systems Inc.</td>
+            <td><span class="status-pill" style="font-size: 0.7rem;">Soporte Redes</span></td>
+            <td>Hasta 2027-06-30</td>
+            <td>
+              <a href="/assets?asset_type=network_equipment" style="color: #60a5fa; text-decoration: underline; font-size: 0.8rem;">
+                SW-CORE-P3-01
+              </a>
+            </td>
+            <td>Reemplazo de partes 24x7x4</td>
+            <td><span class="status-pill status-solved" style="font-size: 0.72rem;">● Vigente</span></td>
+          </tr>
+          <tr>
+            <td style="font-weight: 600; color: var(--text-primary);">
+              Suscripción Enterprise Red Hat Enterprise Linux
+            </td>
+            <td>Red Hat / IBM Corp.</td>
+            <td><span class="status-pill" style="font-size: 0.7rem;">Licencia OS</span></td>
+            <td>Hasta 2026-11-15</td>
+            <td>
+              <a href="/assets?asset_type=server" style="color: #60a5fa; text-decoration: underline; font-size: 0.8rem;">
+                SRV-PROD-DB01
+              </a>
+            </td>
+            <td>Soporte L3 Parches Críticos</td>
+            <td><span class="status-pill status-pending" style="font-size: 0.72rem;">⏳ Próximo a vencer</span></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Registro de Contrato -->
+<div id="modal-create-contract" class="modal-backdrop" style="display: none;" onclick="if(event.target === this) closeModal('modal-create-contract')">
+  <div class="modal-dialog" style="max-width: 540px;" onclick="event.stopPropagation()">
+    <div style="display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--border-subtle); padding-bottom: 0.75rem;">
+      <h3 style="margin: 0; font-size: 1.15rem; font-weight: 700; color: var(--text-primary); display: flex; align-items: center; gap: 0.5rem;">
+        <span>📑</span>
+        <span>Registrar Nuevo Contrato / Póliza</span>
+      </h3>
+      <button type="button" class="btn btn-secondary btn-sm" onclick="closeModal('modal-create-contract')">✕</button>
+    </div>
+
+    <form onsubmit="alert('Acuerdo registrado correctamente para seguimiento.'); closeModal('modal-create-contract'); return false;" style="display: flex; flex-direction: column; gap: 1rem; margin-top: 1rem;">
+      <div>
+        <label class="form-label">Nombre del Contrato / Póliza *</label>
+        <input type="text" required class="form-input" placeholder="ej. Garantía Extendida Lenovo ThinkPad">
+      </div>
+
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem;">
+        <div>
+          <label class="form-label">Proveedor / Fabricante *</label>
+          <input type="text" required class="form-input" placeholder="ej. Lenovo">
+        </div>
+        <div>
+          <label class="form-label">Tipo de Contrato</label>
+          <select class="form-select">
+            <option>Garantía de Hardware</option>
+            <option>Licenciamiento Software</option>
+            <option>Mantenimiento Preventivo</option>
+            <option>Servicios Cloud / Hosting</option>
+          </select>
+        </div>
+      </div>
+
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem;">
+        <div>
+          <label class="form-label">Fecha de Inicio</label>
+          <input type="date" class="form-input">
+        </div>
+        <div>
+          <label class="form-label">Fecha de Vencimiento *</label>
+          <input type="date" required class="form-input">
+        </div>
+      </div>
+
+      <div style="display: flex; justify-content: flex-end; gap: 0.75rem; border-top: 1px solid var(--border-subtle); padding-top: 1rem;">
+        <button type="button" class="btn btn-secondary" onclick="closeModal('modal-create-contract')">Cancelar</button>
+        <button type="submit" class="btn btn-primary">Registrar Acuerdo</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}
