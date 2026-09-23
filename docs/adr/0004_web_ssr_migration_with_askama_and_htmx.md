@@ -38,8 +38,8 @@ We have replaced the React SPA with a native, compiled **Server-Side Rendering (
 * **Phase 4**: CMDB/ITAM (`/assets`, `/assets/:id`), multi-tenant entity tree (`/entities`), user management (`/users`), and business rule automation (`/rules`, `/rules/new`).
 * **Phase 5**: Mail configuration console (`/mail-config`), live SMTP test, inbound collectors, incoming simulator, contracts directory (`/contracts`), and 100% Dock link completion.
 
-### 6. Archival of React Frontend
-* The legacy `frontend/` directory has been retired and archived for historical reference. Node.js, npm, and Vite are no longer required to build or run ITILSuite.
+### 6. Decommissioning & Removal of React Frontend
+* The legacy `frontend/` directory has been completely decommissioned and removed from the repository. Node.js, npm, and Vite are no longer required to build or run ITILSuite. All assets have been centralized into `backend/static/`.
 
 ## Consequences
 

@@ -6,7 +6,7 @@ This document synthesizes the architectural review of two reference implementati
 1. **[`aalexanderdev/helpdesk-chat`](https://github.com/aalexanderdev/helpdesk-chat.git)**: The original helpdesk plugin (`plugins/chat`), providing a floating helpdesk widget, 11 database tables, an HTTP polling engine, message-to-ticket conversion, and ITIL notification hooks.
 2. **[`aalexanderdev/ITIL`](https://github.com/aalexanderdev/ITIL.git)**: The Ruby on Rails 8 implementation (OpenITIL) which adapted the plugin into a native core subsystem with Active Record models (`chat_*`), dedicated namespaced controllers (`Chat::*`), and asset integration.
 
-In **ITILSuite**, we take this proven workflow and elevate it into a **first-class native subsystem** built directly into the **Rust (Axum + Tokio)** backend and the **React + TypeScript** frontend.
+In **ITILSuite**, we take this proven workflow and elevate it into a **first-class native subsystem** built directly into the **Rust (Axum + Tokio)** backend and the **native Server-Side Rendering (Askama + HTMX)** web client with an interactive docked floating chat widget.
 
 ---
 

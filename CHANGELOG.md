@@ -43,9 +43,9 @@ All notable changes to this project will be documented in this file in accordanc
     * Outbound notification queue audit with manual flush and retry actions.
     * Contracts, warranties, and vendor agreement console (`/contracts`) linked to CMDB inventory.
     * 100% completion of all navigation links in the bottom Dock.
-    * Formal retirement and archival of the legacy React prototype (`frontend/`).
+    * Formal retirement and complete removal of the legacy React prototype (`frontend/`).
 * **Native Survey & Customer Satisfaction Subsystem (CSAT & NPS)**:
-  * Complete native port and architecture replacing external PHP plugins with high-performance Rust Axum, PostgreSQL, and React 19.
+  * Complete native port and architecture replacing external PHP plugins with high-performance Rust Axum, PostgreSQL, Askama templates, and HTMX.
   * Multi-entity survey configuration with recursive inheritance (`is_recursive`), default survey indicators, and customizable link lifetime (`ttl_days_override`).
   * 9 native question types supported across builder and respondents:
     1. `rating5`: 1 to 5 visual stars with animated hover and fill.

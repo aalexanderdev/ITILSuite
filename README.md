@@ -149,8 +149,6 @@ ITILSuite/
 │   ├── migrations/         # Deterministic SQLx PostgreSQL migrations
 │   └── Cargo.toml
 │
-├── frontend/               # [ARCHIVED / LEGACY] Original React 19 + TypeScript prototype
-│
 ├── docs/                   # Architectural documentation & ADRs
 │   ├── architecture/       # Domain mapping and API design guidelines
 │   └── adr/                # Architecture Decision Records (ADR 0001 to 0004)
