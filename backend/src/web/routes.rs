@@ -11,6 +11,7 @@ use serde::Deserialize;
 use uuid::Uuid;
 
 use crate::domain::auth::{create_jwt, verify_jwt, verify_password, Claims};
+use crate::domain::sla::SlaSummaryDto;
 use crate::domain::survey::{
     CreateSurveyDto, QuestionAnswerInput, SubmitSurveyDto, SurveyPresetDef,
 };
@@ -21,29 +22,40 @@ use crate::services::sla_service::SlaService;
 use crate::services::survey_service::SurveyService;
 use crate::state::AppState;
 use crate::web::templates::{
-    DashboardTemplate, FollowupPartialTemplate, HtmlTemplate, LoginTemplate, SurveyPublicTemplate,
-    SurveysAdminTemplate, TicketDetailTemplate, TicketsTablePartialTemplate, TicketsTemplate,
+    ChatAnalyticsTemplate, DashboardTemplate, FollowupPartialTemplate, GroupSelectItem,
+    HtmlTemplate, LoginTemplate, SlasTemplate, SurveyPublicTemplate, SurveysAdminTemplate,
+    TicketDetailTemplate, TicketNewTemplate, TicketTemplateRow, TicketsTablePartialTemplate,
+    TicketsTemplate, UserSelectItem,
 };
 
 pub fn router() -> Router<AppState> {
     Router::new()
-        // Auth & Dashboard
+        // Auth, Dashboard & Static Meta
         .route("/", get(handle_root))
+        .route("/favicon.ico", get(handle_favicon))
         .route("/login", get(show_login).post(handle_login))
         .route("/logout", post(handle_logout))
         .route("/dashboard", get(show_dashboard))
         // Phase 2: Service Desk & Tickets
         .route("/tickets", get(show_tickets).post(handle_create_ticket))
+        .route("/tickets/new", get(show_new_ticket))
         .route("/tickets/table", get(filter_tickets_table))
         .route("/tickets/:id", get(show_ticket_detail))
         .route("/tickets/:id/followups", post(handle_add_followup))
         .route("/tickets/:id/status", post(handle_update_status))
+        .route("/tickets/:id/assign", post(handle_assign_ticket))
+        .route("/tickets/:id/classification", post(handle_update_classification))
+        // SLAs view
+        .route("/slas", get(show_slas))
         // Phase 3: Surveys Admin & Public Responder
         .route("/surveys", get(show_surveys_admin))
         .route("/surveys/from-preset", post(handle_instantiate_preset))
         .route("/surveys/:id/toggle", post(handle_toggle_survey))
         .route("/survey/:token", get(show_public_survey))
         .route("/survey/:token/submit", post(handle_submit_public_survey))
+        // Phase 2.5: Helpdesk Chat & Analytics
+        .route("/chat-analytics", get(show_chat_analytics))
+        .route("/chat-analytics/settings", post(handle_update_chat_settings))
 }
 
 // --- Form & Query Models ---
@@ -61,6 +73,8 @@ pub struct FilterTicketsWebQuery {
     pub ticket_type: Option<String>,
     pub priority: Option<i32>,
     pub sla_status: Option<String>,
+    pub page: Option<i64>,
+    pub limit: Option<i64>,
 }
 
 #[derive(Deserialize)]
@@ -71,6 +85,8 @@ pub struct CreateTicketWebForm {
     pub category: Option<String>,
     pub urgency: Option<i32>,
     pub impact: Option<i32>,
+    pub assigned_technician_id: Option<Uuid>,
+    pub assigned_group_id: Option<Uuid>,
 }
 
 #[derive(Deserialize)]
@@ -86,8 +102,32 @@ pub struct UpdateStatusWebForm {
 }
 
 #[derive(Deserialize)]
+pub struct AssignTicketWebForm {
+    pub technician_id: Option<Uuid>,
+    pub group_id: Option<Uuid>,
+}
+
+#[derive(Deserialize)]
+pub struct UpdateClassificationWebForm {
+    pub category: Option<String>,
+    pub urgency: i32,
+    pub impact: i32,
+}
+
+#[derive(Deserialize)]
 pub struct InstantiatePresetForm {
     pub preset_key: String,
+}
+
+#[derive(Deserialize)]
+pub struct UpdateChatSettingsWebForm {
+    pub launcher_color: Option<String>,
+    pub bubble_color: Option<String>,
+    pub panel_width_px: Option<i32>,
+    pub max_attachment_size_mb: Option<i32>,
+    pub ticket_conversion_enabled: Option<String>,
+    pub allow_attachments: Option<String>,
+    pub auto_notify_ticket_events: Option<String>,
 }
 
 #[derive(sqlx::FromRow)]
@@ -184,7 +224,12 @@ fn url_decode(s: &str) -> String {
     result
 }
 
-// --- Handlers: Core Auth & Root ---
+// --- Handlers: Core Auth, Root & Meta ---
+
+async fn handle_favicon() -> Response {
+    let svg = include_str!("../../static/favicon.svg");
+    ([(header::CONTENT_TYPE, "image/svg+xml")], svg).into_response()
+}
 
 async fn handle_root(State(state): State<AppState>, headers: HeaderMap) -> Response {
     if let Some(_) = extract_claims_from_cookie(&headers, &state.config.jwt_secret) {
@@ -377,7 +422,9 @@ async fn show_dashboard(State(state): State<AppState>, headers: HeaderMap) -> Re
 async fn query_tickets_filtered(
     pool: &sqlx::PgPool,
     params: &FilterTicketsWebQuery,
-) -> Vec<TicketSummaryDto> {
+    limit: i64,
+    offset: i64,
+) -> (Vec<TicketSummaryDto>, i64) {
     let search_clean = params
         .search
         .as_ref()
@@ -399,7 +446,30 @@ async fn query_tickets_filtered(
         .map(|s| s.trim())
         .filter(|s| !s.is_empty());
 
-    sqlx::query_as(
+    let total_count: i64 = sqlx::query_scalar(
+        r#"
+        SELECT COUNT(*)::BIGINT
+        FROM tickets t
+        WHERE ($1::varchar IS NULL OR t.status = $1)
+          AND ($2::varchar IS NULL OR t.ticket_type = $2)
+          AND ($3::int IS NULL OR t.priority = $3)
+          AND ($4::varchar IS NULL OR (t.name ILIKE '%' || $4 || '%' OR t.ticket_number ILIKE '%' || $4 || '%' OR t.content ILIKE '%' || $4 || '%'))
+          AND ($5::varchar IS NULL OR 
+                ($5 = 'at_risk' AND t.sla_ttr_status = 'at_risk') OR 
+                ($5 = 'breached' AND (t.sla_ttr_status = 'breached' OR t.sla_tto_status = 'breached')) OR 
+                ($5 = 'within_sla' AND t.sla_ttr_status = 'within_sla'))
+        "#,
+    )
+    .bind(status_clean)
+    .bind(type_clean)
+    .bind(params.priority)
+    .bind(search_clean)
+    .bind(sla_clean)
+    .fetch_one(pool)
+    .await
+    .unwrap_or(0);
+
+    let tickets: Vec<TicketSummaryDto> = sqlx::query_as(
         r#"
         SELECT 
             t.id, t.ticket_number, t.entity_id, e.name AS entity_name,
@@ -439,7 +509,7 @@ async fn query_tickets_filtered(
                 ($5 = 'breached' AND (t.sla_ttr_status = 'breached' OR t.sla_tto_status = 'breached')) OR 
                 ($5 = 'within_sla' AND t.sla_ttr_status = 'within_sla'))
         ORDER BY t.priority DESC, t.created_at DESC
-        LIMIT 100
+        LIMIT $6 OFFSET $7
         "#,
     )
     .bind(status_clean)
@@ -447,9 +517,13 @@ async fn query_tickets_filtered(
     .bind(params.priority)
     .bind(search_clean)
     .bind(sla_clean)
+    .bind(limit)
+    .bind(offset)
     .fetch_all(pool)
     .await
-    .unwrap_or_default()
+    .unwrap_or_default();
+
+    (tickets, total_count)
 }
 
 async fn query_ticket_metrics(pool: &sqlx::PgPool) -> TicketMetricsDto {
@@ -505,7 +579,14 @@ async fn show_tickets(
         None => return Redirect::to("/login").into_response(),
     };
 
-    let tickets = query_tickets_filtered(&state.pool, &query).await;
+    let limit = query.limit.unwrap_or(20).clamp(5, 100);
+    let page = query.page.unwrap_or(1).max(1);
+    let offset = (page - 1) * limit;
+
+    let (tickets, total_count) = query_tickets_filtered(&state.pool, &query, limit, offset).await;
+    let total_pages = ((total_count as f64) / (limit as f64)).ceil() as i64;
+    let total_pages = total_pages.max(1);
+
     let metrics = query_ticket_metrics(&state.pool).await;
     let entity_name = get_entity_name(&state.pool, &claims.entity_id).await;
     let user_initials = get_user_initials(&claims.display_name);
@@ -524,6 +605,10 @@ async fn show_tickets(
         current_ticket_type: query.ticket_type.unwrap_or_default(),
         current_priority: query.priority.map(|p| p.to_string()).unwrap_or_default(),
         current_sla_status: query.sla_status.unwrap_or_default(),
+        current_page: page,
+        total_pages,
+        total_count,
+        limit,
     })
     .into_response()
 }
@@ -536,8 +621,73 @@ async fn filter_tickets_table(
     if extract_claims_from_cookie(&headers, &state.config.jwt_secret).is_none() {
         return StatusCode::UNAUTHORIZED.into_response();
     }
-    let tickets = query_tickets_filtered(&state.pool, &query).await;
-    HtmlTemplate(TicketsTablePartialTemplate { tickets }).into_response()
+    let limit = query.limit.unwrap_or(20).clamp(5, 100);
+    let page = query.page.unwrap_or(1).max(1);
+    let offset = (page - 1) * limit;
+
+    let (tickets, total_count) = query_tickets_filtered(&state.pool, &query, limit, offset).await;
+    let total_pages = ((total_count as f64) / (limit as f64)).ceil() as i64;
+    let total_pages = total_pages.max(1);
+
+    HtmlTemplate(TicketsTablePartialTemplate {
+        tickets,
+        current_page: page,
+        total_pages,
+        total_count,
+        limit,
+    })
+    .into_response()
+}
+
+async fn show_new_ticket(State(state): State<AppState>, headers: HeaderMap) -> Response {
+    let claims = match extract_claims_from_cookie(&headers, &state.config.jwt_secret) {
+        Some(c) => c,
+        None => return Redirect::to("/login").into_response(),
+    };
+
+    let templates: Vec<TicketTemplateRow> = sqlx::query_as(
+        r#"
+        SELECT 
+            id, name, category, ticket_type,
+            predefined_title, predefined_content,
+            predefined_urgency, predefined_impact,
+            default_technician_id
+        FROM ticket_templates
+        WHERE is_active = true
+        ORDER BY name ASC
+        "#,
+    )
+    .fetch_all(&state.pool)
+    .await
+    .unwrap_or_default();
+
+    let technicians: Vec<UserSelectItem> = sqlx::query_as(
+        "SELECT id, COALESCE(NULLIF(TRIM(firstname || ' ' || realname), ''), username) AS name FROM users WHERE is_active = true ORDER BY name ASC"
+    )
+    .fetch_all(&state.pool)
+    .await
+    .unwrap_or_default();
+
+    let groups: Vec<GroupSelectItem> = sqlx::query_as("SELECT id, name FROM groups ORDER BY name ASC")
+        .fetch_all(&state.pool)
+        .await
+        .unwrap_or_default();
+
+    let entity_name = get_entity_name(&state.pool, &claims.entity_id).await;
+    let user_initials = get_user_initials(&claims.display_name);
+
+    HtmlTemplate(TicketNewTemplate {
+        current_username: claims.username,
+        current_display_name: claims.display_name,
+        current_profile_name: claims.profile_name,
+        user_initials,
+        active_entity_name: entity_name,
+        active_nav: "tickets".to_string(),
+        templates,
+        technicians,
+        groups,
+    })
+    .into_response()
 }
 
 async fn show_ticket_detail(
@@ -619,6 +769,18 @@ async fn show_ticket_detail(
     .await
     .unwrap_or(None);
 
+    let technicians: Vec<UserSelectItem> = sqlx::query_as(
+        "SELECT id, COALESCE(NULLIF(TRIM(firstname || ' ' || realname), ''), username) AS name FROM users WHERE is_active = true ORDER BY name ASC"
+    )
+    .fetch_all(&state.pool)
+    .await
+    .unwrap_or_default();
+
+    let groups: Vec<GroupSelectItem> = sqlx::query_as("SELECT id, name FROM groups ORDER BY name ASC")
+        .fetch_all(&state.pool)
+        .await
+        .unwrap_or_default();
+
     let entity_name = get_entity_name(&state.pool, &claims.entity_id).await;
     let user_initials = get_user_initials(&claims.display_name);
 
@@ -631,6 +793,8 @@ async fn show_ticket_detail(
         active_nav: "tickets".to_string(),
         ticket: TicketDetailDto { summary, followups },
         survey_token,
+        technicians,
+        groups,
     })
     .into_response()
 }
@@ -678,16 +842,20 @@ async fn handle_create_ticket(
     let ticket_number = format!("{}-{}-{:04}", prefix, Utc::now().format("%Y"), count.0 + 1);
 
     let new_id = Uuid::new_v4();
+    let is_assigned = payload.assigned_technician_id.is_some() || payload.assigned_group_id.is_some();
+    let initial_status = if is_assigned { "assigned" } else { "new" };
+    let acknowledged_at = if is_assigned { Some(Utc::now()) } else { None };
+    let sla_tto_status = if is_assigned { "within_sla" } else { "pending" };
 
     let insert_res = sqlx::query(
         r#"
         INSERT INTO tickets (
             id, ticket_number, entity_id, name, content, ticket_type, status,
-            urgency, impact, priority, requester_id, category, sla_id,
-            time_to_own, time_to_resolve, sla_tto_status, sla_ttr_status,
-            created_at, updated_at
+            urgency, impact, priority, requester_id, assigned_technician_id,
+            assigned_group_id, category, sla_id, time_to_own, time_to_resolve,
+            acknowledged_at, sla_tto_status, sla_ttr_status, created_at, updated_at
         )
-        VALUES ($1, $2, $3, $4, $5, $6, 'new', $7, $8, $9, $10, $11, $12, $13, $14, 'pending', 'within_sla', NOW(), NOW())
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, 'within_sla', NOW(), NOW())
         "#,
     )
     .bind(new_id)
@@ -696,14 +864,19 @@ async fn handle_create_ticket(
     .bind(name)
     .bind(content)
     .bind(ticket_type)
+    .bind(initial_status)
     .bind(urgency)
     .bind(impact)
     .bind(priority)
     .bind(requester_id)
+    .bind(payload.assigned_technician_id)
+    .bind(payload.assigned_group_id)
     .bind(payload.category)
     .bind(sla_id)
     .bind(time_to_own)
     .bind(time_to_resolve)
+    .bind(acknowledged_at)
+    .bind(sla_tto_status)
     .execute(&state.pool)
     .await;
 
@@ -715,6 +888,17 @@ async fn handle_create_ticket(
             None,
         )
         .await;
+
+        if is_assigned {
+            let _ = crate::services::mail_service::MailService::dispatch_event(
+                &state.pool,
+                "ticket_assigned",
+                new_id,
+                None,
+            )
+            .await;
+        }
+
         Redirect::to(&format!("/tickets/{}", new_id)).into_response()
     } else {
         Redirect::to("/tickets").into_response()
@@ -856,6 +1040,133 @@ async fn handle_update_status(
     }
 
     Redirect::to(&format!("/tickets/{}", id)).into_response()
+}
+
+async fn handle_assign_ticket(
+    State(state): State<AppState>,
+    Path(id): Path<Uuid>,
+    headers: HeaderMap,
+    Form(payload): Form<AssignTicketWebForm>,
+) -> Response {
+    if extract_claims_from_cookie(&headers, &state.config.jwt_secret).is_none() {
+        return Redirect::to("/login").into_response();
+    }
+
+    let is_assigned = payload.technician_id.is_some() || payload.group_id.is_some();
+
+    let _ = sqlx::query(
+        r#"
+        UPDATE tickets
+        SET 
+            assigned_technician_id = $2,
+            assigned_group_id = $3,
+            status = CASE WHEN status = 'new' AND $4 THEN 'assigned' ELSE status END,
+            acknowledged_at = CASE WHEN acknowledged_at IS NULL AND $4 THEN NOW() ELSE acknowledged_at END,
+            sla_tto_status = CASE WHEN sla_tto_status = 'pending' AND $4 THEN 'within_sla' ELSE sla_tto_status END,
+            updated_at = NOW()
+        WHERE id = $1
+        "#
+    )
+    .bind(id)
+    .bind(payload.technician_id)
+    .bind(payload.group_id)
+    .bind(is_assigned)
+    .execute(&state.pool)
+    .await;
+
+    if is_assigned {
+        let _ = crate::services::mail_service::MailService::dispatch_event(
+            &state.pool,
+            "ticket_assigned",
+            id,
+            None,
+        )
+        .await;
+    }
+
+    Redirect::to(&format!("/tickets/{}", id)).into_response()
+}
+
+async fn handle_update_classification(
+    State(state): State<AppState>,
+    Path(id): Path<Uuid>,
+    headers: HeaderMap,
+    Form(payload): Form<UpdateClassificationWebForm>,
+) -> Response {
+    if extract_claims_from_cookie(&headers, &state.config.jwt_secret).is_none() {
+        return Redirect::to("/login").into_response();
+    }
+
+    let urgency = payload.urgency.clamp(1, 5);
+    let impact = payload.impact.clamp(1, 5);
+    let priority = calculate_priority(urgency, impact);
+
+    let _ = sqlx::query(
+        r#"
+        UPDATE tickets
+        SET 
+            category = COALESCE($2, category),
+            urgency = $3,
+            impact = $4,
+            priority = $5,
+            updated_at = NOW()
+        WHERE id = $1
+        "#
+    )
+    .bind(id)
+    .bind(payload.category)
+    .bind(urgency)
+    .bind(impact)
+    .bind(priority)
+    .execute(&state.pool)
+    .await;
+
+    Redirect::to(&format!("/tickets/{}", id)).into_response()
+}
+
+// --- Handler: SLAs View ---
+
+async fn show_slas(State(state): State<AppState>, headers: HeaderMap) -> Response {
+    let claims = match extract_claims_from_cookie(&headers, &state.config.jwt_secret) {
+        Some(c) => c,
+        None => return Redirect::to("/login").into_response(),
+    };
+
+    let slas: Vec<SlaSummaryDto> = sqlx::query_as(
+        r#"
+        SELECT 
+            s.id, s.entity_id, e.name AS entity_name,
+            s.name, s.description,
+            s.calendar_id, c.name AS calendar_name,
+            s.tto_duration_minutes, s.ttr_duration_minutes,
+            s.priority_override, s.is_active,
+            COUNT(l.id)::BIGINT AS escalation_levels_count,
+            s.created_at, s.updated_at
+        FROM slas s
+        LEFT JOIN entities e ON e.id = s.entity_id
+        LEFT JOIN calendars c ON c.id = s.calendar_id
+        LEFT JOIN sla_levels l ON l.sla_id = s.id
+        GROUP BY s.id, e.name, c.name
+        ORDER BY s.priority_override ASC, s.name ASC
+        "#
+    )
+    .fetch_all(&state.pool)
+    .await
+    .unwrap_or_default();
+
+    let entity_name = get_entity_name(&state.pool, &claims.entity_id).await;
+    let user_initials = get_user_initials(&claims.display_name);
+
+    HtmlTemplate(SlasTemplate {
+        current_username: claims.username,
+        current_display_name: claims.display_name,
+        current_profile_name: claims.profile_name,
+        user_initials,
+        active_entity_name: entity_name,
+        active_nav: "slas".to_string(),
+        slas,
+    })
+    .into_response()
 }
 
 // --- Handlers: Phase 3 Surveys & CSAT ---
@@ -1062,4 +1373,86 @@ async fn handle_submit_public_survey(
     .await;
 
     show_public_survey(State(state), Path(token)).await
+}
+
+// --- Handlers: Phase 2.5 Helpdesk Chat & Analytics ---
+
+async fn show_chat_analytics(State(state): State<AppState>, headers: HeaderMap) -> Response {
+    let claims = match extract_claims_from_cookie(&headers, &state.config.jwt_secret) {
+        Some(c) => c,
+        None => return Redirect::to("/login").into_response(),
+    };
+
+    let metrics = crate::services::chat_service::ChatService::get_dashboard_metrics(&state.pool)
+        .await
+        .unwrap_or_else(|_| crate::domain::chat::ChatDashboardMetricsDto {
+            total_messages: 0,
+            daily_avg_messages: 0.0,
+            group_messages_pct: 0.0,
+            online_users_count: 0,
+            daily_active_users_avg: 0.0,
+            daily_online_seconds_avg: 0,
+            recent_intervals: vec![],
+        });
+
+    let online_users = crate::services::chat_service::ChatService::get_online_users(&state.pool)
+        .await
+        .unwrap_or_default();
+
+    let settings = crate::services::chat_service::ChatService::get_settings(&state.pool, None)
+        .await
+        .unwrap_or_else(|_| crate::domain::chat::ChatSettingsDto {
+            launcher_color: "#eb4d3d".to_string(),
+            bubble_color: "#eb4d3d".to_string(),
+            panel_width_px: 380,
+            max_message_length: 2000,
+            ticket_conversion_enabled: true,
+            allow_attachments: true,
+            max_attachment_size_mb: 10,
+            auto_notify_ticket_events: true,
+        });
+
+    let entity_name = get_entity_name(&state.pool, &claims.entity_id).await;
+    let user_initials = get_user_initials(&claims.display_name);
+
+    HtmlTemplate(ChatAnalyticsTemplate {
+        current_username: claims.username,
+        current_display_name: claims.display_name,
+        current_profile_name: claims.profile_name,
+        user_initials,
+        active_entity_name: entity_name,
+        active_nav: "chat".to_string(),
+        metrics,
+        online_users,
+        settings,
+    })
+    .into_response()
+}
+
+async fn handle_update_chat_settings(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Form(payload): Form<UpdateChatSettingsWebForm>,
+) -> Response {
+    if extract_claims_from_cookie(&headers, &state.config.jwt_secret).is_none() {
+        return Redirect::to("/login").into_response();
+    }
+
+    let dto = crate::domain::chat::ChatSettingsDto {
+        launcher_color: payload.launcher_color.unwrap_or_else(|| "#eb4d3d".into()),
+        bubble_color: payload.bubble_color.unwrap_or_else(|| "#eb4d3d".into()),
+        panel_width_px: payload.panel_width_px.unwrap_or(380).clamp(300, 600),
+        max_message_length: 2000,
+        ticket_conversion_enabled: payload.ticket_conversion_enabled.as_deref() == Some("true")
+            || payload.ticket_conversion_enabled.as_deref() == Some("on"),
+        allow_attachments: payload.allow_attachments.as_deref() == Some("true")
+            || payload.allow_attachments.as_deref() == Some("on"),
+        max_attachment_size_mb: payload.max_attachment_size_mb.unwrap_or(10).clamp(1, 50),
+        auto_notify_ticket_events: payload.auto_notify_ticket_events.as_deref() == Some("true")
+            || payload.auto_notify_ticket_events.as_deref() == Some("on"),
+    };
+
+    let _ = crate::services::chat_service::ChatService::update_settings(&state.pool, dto).await;
+
+    Redirect::to("/chat-analytics").into_response()
 }

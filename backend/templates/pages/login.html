@@ -9,6 +9,10 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
   
+  <!-- Favicon -->
+  <link rel="icon" type="image/svg+xml" href="/static/favicon.svg">
+  <link rel="alternate icon" href="/static/img/favicon.svg">
+
   <link rel="stylesheet" href="/static/css/main.css">
   
   <style>
@@ -36,12 +40,14 @@
 </head>
 <body class="login-page">
   <div class="login-card">
-    <!-- Header -->
+    <!-- Header with Official Brand Logo -->
     <div style="text-align: center; margin-bottom: 2rem;">
-      <div style="width: 48px; height: 48px; border-radius: 12px; background: linear-gradient(135deg, var(--btn-primary-from, #eb4d3d), #f59e0b); display: inline-flex; align-items: center; justify-content: center; font-size: 1.5rem; color: white; margin-bottom: 0.85rem; box-shadow: 0 4px 14px var(--btn-primary-shadow, rgba(235, 77, 61, 0.4));">
-        ⚡
+      <div style="display: inline-flex; align-items: center; justify-content: center; margin-bottom: 0.75rem;">
+        <img src="/static/img/itilsuite-mark.svg" alt="ITILSuite Mark" height="48" style="height: 48px; width: auto; filter: drop-shadow(0 4px 14px rgba(235, 77, 61, 0.4));" />
       </div>
-      <h1 style="font-size: 1.5rem; font-weight: 800; color: var(--text-primary); margin: 0 0 0.4rem; letter-spacing: -0.02em;">ITILSuite Core</h1>
+      <div style="display: flex; justify-content: center; margin-bottom: 0.5rem;">
+        <img src="/static/img/itilsuite-logo.svg" alt="ITILSuite" height="28" style="height: 28px; width: auto;" />
+      </div>
       <p style="font-size: 0.82rem; color: var(--text-muted); margin: 0;">Plataforma ITSM y CMDB nativa en Rust v0.0.8</p>
     </div>
 

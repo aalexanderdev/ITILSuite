@@ -1,0 +1,135 @@
+<!-- Floating Helpdesk Chat Widget -->
+<div id="helpdesk-chat-root">
+  <!-- 1. Floating Launcher Button (Fixed above bottom dock) -->
+  <button
+    type="button"
+    id="chat-launcher-btn"
+    class="chat-launcher-btn"
+    onclick="toggleHelpdeskChat()"
+    title="Asistencia y Chat en Vivo (Helpdesk)"
+    aria-label="Abrir Helpdesk Chat"
+  >
+    <span class="chat-launcher-icon">💬</span>
+    <span id="chat-launcher-badge" class="chat-launcher-badge" style="display: none;">0</span>
+    <span id="chat-connection-dot" class="chat-connection-dot" title="Conectando..."></span>
+  </button>
+
+  <!-- 2. Floating Chat Popup Panel -->
+  <div id="helpdesk-chat-panel" class="chat-panel" style="display: none;">
+    <!-- Panel Header -->
+    <div class="chat-panel-header">
+      <div class="chat-header-left">
+        <button
+          type="button"
+          id="chat-back-btn"
+          class="chat-header-btn"
+          onclick="returnToConversationsList()"
+          style="display: none;"
+          title="Volver a la lista de canales"
+        >
+          ←
+        </button>
+        <div style="display: flex; flex-direction: column;">
+          <div style="display: flex; align-items: center; gap: 0.4rem;">
+            <span id="chat-header-title" class="chat-header-title">Helpdesk Chat</span>
+            <span id="chat-active-dot" class="status-dot-active" style="display: none;"></span>
+          </div>
+          <span id="chat-header-subtitle" class="chat-header-subtitle">Soporte Técnico en Vivo</span>
+        </div>
+      </div>
+
+      <div class="chat-header-actions">
+        <a href="/chat-analytics" class="chat-header-btn" title="Supervisión & Métricas" target="_self">
+          📊
+        </a>
+        <button type="button" class="chat-header-btn" onclick="toggleHelpdeskChat()" title="Minimizar chat">
+          ✕
+        </button>
+      </div>
+    </div>
+
+    <!-- View 1: Conversations & Channels Directory -->
+    <div id="chat-conversations-view" class="chat-view">
+      <!-- Search Filter -->
+      <div style="padding: 0.75rem 1rem 0.5rem; border-bottom: 1px solid var(--border-subtle);">
+        <input
+          type="search"
+          id="chat-conv-search"
+          class="input-search"
+          placeholder="Buscar canal o técnico..."
+          oninput="filterConversations(this.value)"
+          style="width: 100%; box-sizing: border-box; font-size: 0.78rem; padding: 0.35rem 0.75rem;"
+        >
+      </div>
+
+      <!-- Conversations Scrollable Directory -->
+      <div id="chat-directory-list" class="chat-directory-list">
+        <!-- Sections dynamically populated by chat_widget.js -->
+        <div class="chat-directory-section-title">Canales de Soporte</div>
+        <div id="chat-channels-container">
+          <div class="chat-loading-placeholder">Cargando canales...</div>
+        </div>
+
+        <div class="chat-directory-section-title" style="margin-top: 0.75rem;">Mensajes Directos</div>
+        <div id="chat-direct-container">
+          <div class="chat-loading-placeholder">Cargando contactos...</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- View 2: Active Message Thread -->
+    <div id="chat-messages-view" class="chat-view" style="display: none;">
+      <!-- Messages Feed Container -->
+      <div id="chat-messages-feed" class="chat-messages-feed">
+        <!-- Populated dynamically via JS -->
+      </div>
+
+      <!-- Live Typing Indicator -->
+      <div id="chat-typing-indicator" class="chat-typing-indicator" style="display: none;">
+        <span>...</span>
+        <span id="chat-typing-text" style="font-size: 0.72rem; color: var(--text-muted);">alguien está escribiendo</span>
+      </div>
+
+      <!-- Emoji Quick Tray (Collapsible) -->
+      <div id="chat-emoji-tray" class="chat-emoji-tray" style="display: none;">
+        <button type="button" class="emoji-btn" onclick="insertEmoji('👍')">👍</button>
+        <button type="button" class="emoji-btn" onclick="insertEmoji('❤️')">❤️</button>
+        <button type="button" class="emoji-btn" onclick="insertEmoji('🚀')">🚀</button>
+        <button type="button" class="emoji-btn" onclick="insertEmoji('👀')">👀</button>
+        <button type="button" class="emoji-btn" onclick="insertEmoji('🎉')">🎉</button>
+        <button type="button" class="emoji-btn" onclick="insertEmoji('🙏')">🙏</button>
+        <button type="button" class="emoji-btn" onclick="insertEmoji('✅')">✅</button>
+      </div>
+
+      <!-- Chat Input Toolbar -->
+      <form id="chat-input-form" onsubmit="submitChatMessage(event)" class="chat-input-toolbar">
+        <button
+          type="button"
+          class="chat-tool-btn"
+          onclick="toggleEmojiTray()"
+          title="Insertar emoji"
+        >
+          😊
+        </button>
+
+        <input
+          type="text"
+          id="chat-message-input"
+          class="chat-input-field"
+          placeholder="Escriba un mensaje de asistencia (Enter para enviar)..."
+          autocomplete="off"
+          required
+        >
+
+        <button
+          type="submit"
+          id="chat-send-btn"
+          class="chat-send-btn"
+          title="Enviar mensaje"
+        >
+          ➤
+        </button>
+      </form>
+    </div>
+  </div>
+</div>

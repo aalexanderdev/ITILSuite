@@ -1,5 +1,5 @@
 <div id="create-ticket-modal" class="modal-backdrop" style="display: none;" onclick="if(event.target === this) closeCreateTicketModal()">
-  <div class="modal-dialog" style="max-width: 620px;">
+  <div class="modal-dialog" style="max-width: 640px;">
     <div class="modal-header">
       <div style="display: flex; align-items: center; gap: 0.6rem;">
         <span style="font-size: 1.25rem;">🎫</span>
@@ -10,6 +10,22 @@
 
     <form method="POST" action="/tickets" id="create-ticket-form">
       <div class="modal-body" style="padding: 1.25rem; display: flex; flex-direction: column; gap: 1rem;">
+        <!-- Plantilla Rápida -->
+        <div class="form-group" style="background: var(--card-subtle-bg); padding: 0.65rem 0.85rem; border-radius: var(--radius-sm); border: 1px solid var(--border-subtle);">
+          <label for="quick-template-picker" style="display: flex; align-items: center; justify-content: space-between; font-size: 0.78rem; font-weight: 700; margin-bottom: 0.35rem; color: var(--text-secondary);">
+            <span>⚡ Cargar Plantilla Predefinida</span>
+            <span style="font-size: 0.72rem; color: var(--text-muted); font-weight: 400;">Opcional</span>
+          </label>
+          <select id="quick-template-picker" class="input-field" style="width: 100%; box-sizing: border-box; font-size: 0.85rem;" onchange="handleModalTemplateSelect(this.value)">
+            <option value="">-- Formulario en Blanco / Personalizado --</option>
+            <option value="impresora">🖥️ Falla de Impresora / Periférico</option>
+            <option value="correo">📧 Incidente de Correo Electrónico / Buzón</option>
+            <option value="vpn">🔐 Solicitud de Acceso y Credenciales VPN</option>
+            <option value="onboarding">👥 Alta y Onboarding de Nuevo Empleado</option>
+            <option value="red">🌐 Interrupción Crítica de Red / Enlace Caído</option>
+          </select>
+        </div>
+
         <!-- Tipo de Ticket -->
         <div class="form-group">
           <label style="display: block; font-size: 0.8rem; font-weight: 600; margin-bottom: 0.35rem; color: var(--text-secondary);">
@@ -17,14 +33,14 @@
           </label>
           <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem;">
             <label style="display: flex; align-items: center; gap: 0.5rem; padding: 0.6rem 0.85rem; border: 1px solid var(--border-subtle); border-radius: var(--radius-sm); cursor: pointer; background: var(--input-bg);">
-              <input type="radio" name="ticket_type" value="incident" checked>
+              <input type="radio" name="ticket_type" id="modal-type-incident" value="incident" checked>
               <div>
                 <span style="font-weight: 600; font-size: 0.85rem; color: #ef4444;">🚨 Incidente</span>
                 <span style="display: block; font-size: 0.72rem; color: var(--text-muted);">Falla, degradación o interrupción</span>
               </div>
             </label>
             <label style="display: flex; align-items: center; gap: 0.5rem; padding: 0.6rem 0.85rem; border: 1px solid var(--border-subtle); border-radius: var(--radius-sm); cursor: pointer; background: var(--input-bg);">
-              <input type="radio" name="ticket_type" value="request">
+              <input type="radio" name="ticket_type" id="modal-type-request" value="request">
               <div>
                 <span style="font-weight: 600; font-size: 0.85rem; color: #3b82f6;">📋 Solicitud</span>
                 <span style="display: block; font-size: 0.72rem; color: var(--text-muted);">Petición de nuevo servicio o acceso</span>
@@ -55,10 +71,11 @@
             Categoría del Catálogo
           </label>
           <select id="ticket-category-select" name="category" class="input-field" style="width: 100%; box-sizing: border-box;">
-            <option value="Hardware">🖥️ Hardware & Equipos</option>
-            <option value="Software">💿 Software & Aplicaciones</option>
-            <option value="Redes">🌐 Redes, VPN & Conectividad</option>
-            <option value="Accesos">🔐 Accesos, Permisos & Cuentas</option>
+            <option value="Hardware / Equipos">🖥️ Hardware & Equipos</option>
+            <option value="Sistemas / Correo">💿 Sistemas & Correo</option>
+            <option value="Redes / Infraestructura">🌐 Redes & Infraestructura</option>
+            <option value="Cuentas y Accesos">🔐 Accesos, Permisos & Cuentas</option>
+            <option value="Gestión de Personal">👥 Gestión de Personal</option>
             <option value="General" selected>💼 Soporte General</option>
           </select>
         </div>
@@ -138,6 +155,56 @@
     var modal = document.getElementById('create-ticket-modal');
     if (modal) modal.style.display = 'none';
   }
+
+  function handleModalTemplateSelect(val) {
+    if (!val) return;
+    var nameInput = document.getElementById('ticket-name-input');
+    var contentInput = document.getElementById('ticket-content-input');
+    var catSelect = document.getElementById('ticket-category-select');
+    var uSelect = document.getElementById('ticket-urgency-select');
+    var iSelect = document.getElementById('ticket-impact-select');
+    var typeInc = document.getElementById('modal-type-incident');
+    var typeReq = document.getElementById('modal-type-request');
+
+    if (val === 'impresora') {
+      typeInc.checked = true;
+      nameInput.value = 'Falla de Impresora / Periférico';
+      contentInput.value = 'El equipo no responde a la cola de impresión, presenta atasco de papel o error de tóner en la sede.';
+      catSelect.value = 'Hardware / Equipos';
+      uSelect.value = '2';
+      iSelect.value = '2';
+    } else if (val === 'correo') {
+      typeInc.checked = true;
+      nameInput.value = 'Incidente de Correo Electrónico / Buzón';
+      contentInput.value = 'Problemas al enviar/recibir correos corporativos, rebote de mensajes o bloqueo de cuenta.';
+      catSelect.value = 'Sistemas / Correo';
+      uSelect.value = '3';
+      iSelect.value = '3';
+    } else if (val === 'vpn') {
+      typeReq.checked = true;
+      nameInput.value = 'Solicitud de Acceso y Credenciales VPN';
+      contentInput.value = 'Se requiere habilitar usuario y certificado para conexión remota a la red corporativa.';
+      catSelect.value = 'Cuentas y Accesos';
+      uSelect.value = '2';
+      iSelect.value = '2';
+    } else if (val === 'onboarding') {
+      typeReq.checked = true;
+      nameInput.value = 'Alta y Onboarding de Nuevo Empleado';
+      contentInput.value = 'Preparación de equipo portátil, creación de cuenta de correo, accesos a sistemas y telefonía IP.';
+      catSelect.value = 'Gestión de Personal';
+      uSelect.value = '3';
+      iSelect.value = '2';
+    } else if (val === 'red') {
+      typeInc.checked = true;
+      nameInput.value = 'Interrupción Crítica de Red / Enlace Caído';
+      contentInput.value = 'Caída total de conectividad a Internet / switch troncal inaccesible en la sede.';
+      catSelect.value = 'Redes / Infraestructura';
+      uSelect.value = '5';
+      iSelect.value = '5';
+    }
+    updateCalculatedPriority();
+  }
+
   function updateCalculatedPriority() {
     var u = parseInt(document.getElementById('ticket-urgency-select').value) || 3;
     var i = parseInt(document.getElementById('ticket-impact-select').value) || 3;

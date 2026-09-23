@@ -16,7 +16,7 @@
     </div>
 
     <!-- Quick Status Actions -->
-    <div style="display: flex; align-items: center; gap: 0.5rem;">
+    <div style="display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;">
       {% if ticket.summary.status != "solved" && ticket.summary.status != "closed" %}
         <form method="POST" action="/tickets/{{ ticket.summary.id }}/status" style="margin: 0;">
           <input type="hidden" name="status" value="solved">
@@ -25,14 +25,40 @@
             <span>Marcar Resuelto</span>
           </button>
         </form>
+
+        <form method="POST" action="/tickets/{{ ticket.summary.id }}/status" style="margin: 0;">
+          <input type="hidden" name="status" value="pending">
+          <button type="submit" class="btn btn-secondary" style="border-color: #f59e0b; color: #f59e0b;" title="Poner en espera (detiene temporizador SLA)">
+            <span>⏳</span>
+            <span>En Espera</span>
+          </button>
+        </form>
+      {% endif %}
+
+      {% if ticket.summary.status == "pending" || ticket.summary.status == "planned" %}
+        <form method="POST" action="/tickets/{{ ticket.summary.id }}/status" style="margin: 0;">
+          <input type="hidden" name="status" value="assigned">
+          <button type="submit" class="btn btn-secondary" style="border-color: #3b82f6; color: #3b82f6;" title="Reanudar atención técnica activa">
+            <span>▶</span>
+            <span>Reanudar</span>
+          </button>
+        </form>
       {% endif %}
 
       {% if ticket.summary.status == "solved" %}
         <form method="POST" action="/tickets/{{ ticket.summary.id }}/status" style="margin: 0;">
+          <input type="hidden" name="status" value="assigned">
+          <button type="submit" class="btn btn-secondary" style="border-color: #f59e0b; color: #f59e0b;" title="Reabrir incidente por inconformidad o reapertura">
+            <span>🔄</span>
+            <span>Reabrir Ticket</span>
+          </button>
+        </form>
+
+        <form method="POST" action="/tickets/{{ ticket.summary.id }}/status" style="margin: 0;">
           <input type="hidden" name="status" value="closed">
           <button type="submit" class="btn btn-secondary" style="border-color: var(--text-muted); color: var(--text-secondary);" title="Cerrar ticket definitivamente">
             <span>🔒</span>
-            <span>Cerrar Ticket</span>
+            <span>Cerrar Definitivo</span>
           </button>
         </form>
       {% endif %}
@@ -187,7 +213,7 @@
             hx-on::after-request="if(event.detail.successful) { document.getElementById('followup-content').value = ''; var emp = document.getElementById('timeline-empty'); if(emp) emp.style.display = 'none'; }"
           >
             <!-- Type Selector -->
-            <div style="display: flex; gap: 0.5rem; margin-bottom: 0.75rem;">
+            <div style="display: flex; gap: 0.5rem; margin-bottom: 0.75rem; flex-wrap: wrap;">
               <label style="display: flex; align-items: center; gap: 0.35rem; font-size: 0.8rem; font-weight: 600; cursor: pointer; padding: 0.4rem 0.75rem; border-radius: var(--radius-sm); border: 1px solid var(--border-subtle); background: var(--input-bg);">
                 <input type="radio" name="item_type" value="followup" checked>
                 <span>💬 Seguimiento</span>
@@ -286,7 +312,7 @@
         </div>
       </div>
 
-      <!-- Solicitante & Asignación -->
+      <!-- Solicitante & Asignación Reconfigurable -->
       <div style="background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: var(--radius-md); padding: 1rem 1.25rem; box-shadow: var(--shadow-sm);">
         <div style="font-weight: 700; font-size: 0.85rem; color: var(--text-primary); margin-bottom: 0.75rem; display: flex; align-items: center; gap: 0.4rem;">
           <span>👥</span>
@@ -306,64 +332,109 @@
             </div>
           </div>
 
-          <div>
-            <span style="display: block; font-size: 0.72rem; color: var(--text-muted); text-transform: uppercase; margin-bottom: 0.2rem;">
-              Técnico Asignado
-            </span>
-            <div style="display: flex; align-items: center; gap: 0.45rem;">
-              <span style="width: 24px; height: 24px; border-radius: 50%; background: var(--accent-blue); color: white; display: inline-flex; align-items: center; justify-content: center; font-size: 0.7rem; font-weight: 700;">🛠️</span>
-              <strong style="color: var(--text-primary);">
-                {% if let Some(tech) = ticket.summary.assigned_technician_name %}{{ tech }}{% else %}<em style="color: var(--text-muted);">Sin Asignar</em>{% endif %}
-              </strong>
-            </div>
-          </div>
-
-          {% if let Some(grp) = ticket.summary.assigned_group_name %}
+          <!-- Reassignment Form -->
+          <form method="POST" action="/tickets/{{ ticket.summary.id }}/assign" style="margin-top: 0.5rem; display: flex; flex-direction: column; gap: 0.5rem;">
             <div>
-              <span style="display: block; font-size: 0.72rem; color: var(--text-muted); text-transform: uppercase; margin-bottom: 0.2rem;">
-                Grupo Asignado
-              </span>
-              <span style="color: var(--text-primary); font-weight: 600;">👥 {{ grp }}</span>
+              <label for="assign-tech-select" style="display: block; font-size: 0.72rem; color: var(--text-muted); text-transform: uppercase; margin-bottom: 0.2rem;">
+                Técnico Asignado
+              </label>
+              <select id="assign-tech-select" name="technician_id" class="input-field" style="width: 100%; box-sizing: border-box; font-size: 0.8rem;">
+                <option value="">-- Sin Asignar --</option>
+                {% for tech in technicians %}
+                  <option value="{{ tech.id }}" {% if self.is_technician_selected(tech.id) %}selected{% endif %}>
+                    {{ tech.name }}
+                  </option>
+                {% endfor %}
+              </select>
             </div>
-          {% endif %}
+
+            <div>
+              <label for="assign-grp-select" style="display: block; font-size: 0.72rem; color: var(--text-muted); text-transform: uppercase; margin-bottom: 0.2rem;">
+                Grupo Resolutor
+              </label>
+              <select id="assign-grp-select" name="group_id" class="input-field" style="width: 100%; box-sizing: border-box; font-size: 0.8rem;">
+                <option value="">-- Sin Grupo --</option>
+                {% for grp in groups %}
+                  <option value="{{ grp.id }}" {% if self.is_group_selected(grp.id) %}selected{% endif %}>
+                    {{ grp.name }}
+                  </option>
+                {% endfor %}
+              </select>
+            </div>
+
+            <button type="submit" class="btn btn-secondary" style="margin-top: 0.25rem; width: 100%; justify-content: center; font-size: 0.78rem;">
+              <span>💾</span>
+              <span>Guardar Asignación</span>
+            </button>
+          </form>
         </div>
       </div>
 
-      <!-- Clasificación & Matriz -->
+      <!-- Clasificación & Matriz Editable -->
       <div style="background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: var(--radius-md); padding: 1rem 1.25rem; box-shadow: var(--shadow-sm);">
         <div style="font-weight: 700; font-size: 0.85rem; color: var(--text-primary); margin-bottom: 0.75rem; display: flex; align-items: center; gap: 0.4rem;">
           <span>🏷️</span>
           <span>Clasificación & Matriz</span>
         </div>
 
-        <div style="display: flex; flex-direction: column; gap: 0.6rem; font-size: 0.8rem;">
-          <div style="display: flex; justify-content: space-between;">
+        <form method="POST" action="/tickets/{{ ticket.summary.id }}/classification" style="display: flex; flex-direction: column; gap: 0.6rem; font-size: 0.8rem;">
+          <div style="display: flex; justify-content: space-between; align-items: center;">
             <span style="color: var(--text-muted);">Entidad:</span>
             <span style="font-weight: 600; color: var(--text-primary);">🏢 {{ ticket.summary.entity_name }}</span>
           </div>
 
-          <div style="display: flex; justify-content: space-between;">
-            <span style="color: var(--text-muted);">Categoría:</span>
-            <span style="font-weight: 600; color: var(--text-primary);">
-              {% if let Some(cat) = ticket.summary.category %}{{ cat }}{% else %}General{% endif %}
-            </span>
+          <div>
+            <label for="class-category-select" style="display: block; font-size: 0.72rem; color: var(--text-muted); text-transform: uppercase; margin-bottom: 0.2rem;">
+              Categoría
+            </label>
+            <select id="class-category-select" name="category" class="input-field" style="width: 100%; box-sizing: border-box; font-size: 0.8rem;">
+              <option value="Hardware / Equipos" {% if ticket.summary.category.as_deref() == Some("Hardware / Equipos") %}selected{% endif %}>Hardware / Equipos</option>
+              <option value="Sistemas / Correo" {% if ticket.summary.category.as_deref() == Some("Sistemas / Correo") %}selected{% endif %}>Sistemas & Correo</option>
+              <option value="Redes / Infraestructura" {% if ticket.summary.category.as_deref() == Some("Redes / Infraestructura") %}selected{% endif %}>Redes & Infraestructura</option>
+              <option value="Cuentas y Accesos" {% if ticket.summary.category.as_deref() == Some("Cuentas y Accesos") %}selected{% endif %}>Cuentas y Accesos VPN</option>
+              <option value="Gestión de Personal" {% if ticket.summary.category.as_deref() == Some("Gestión de Personal") %}selected{% endif %}>Gestión de Personal</option>
+              <option value="General" {% if ticket.summary.category.as_deref() == Some("General") || ticket.summary.category.is_none() %}selected{% endif %}>Soporte General</option>
+            </select>
           </div>
 
-          <div style="display: flex; justify-content: space-between;">
-            <span style="color: var(--text-muted);">Urgencia:</span>
-            <span style="font-weight: 600; color: var(--text-primary);">Nivel {{ ticket.summary.urgency }} / 5</span>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem;">
+            <div>
+              <label for="class-urgency-select" style="display: block; font-size: 0.72rem; color: var(--text-muted); text-transform: uppercase; margin-bottom: 0.2rem;">
+                Urgencia (1-5)
+              </label>
+              <select id="class-urgency-select" name="urgency" class="input-field" style="width: 100%; box-sizing: border-box; font-size: 0.8rem;">
+                <option value="1" {% if ticket.summary.urgency == 1 %}selected{% endif %}>1</option>
+                <option value="2" {% if ticket.summary.urgency == 2 %}selected{% endif %}>2</option>
+                <option value="3" {% if ticket.summary.urgency == 3 %}selected{% endif %}>3</option>
+                <option value="4" {% if ticket.summary.urgency == 4 %}selected{% endif %}>4</option>
+                <option value="5" {% if ticket.summary.urgency == 5 %}selected{% endif %}>5</option>
+              </select>
+            </div>
+
+            <div>
+              <label for="class-impact-select" style="display: block; font-size: 0.72rem; color: var(--text-muted); text-transform: uppercase; margin-bottom: 0.2rem;">
+                Impacto (1-5)
+              </label>
+              <select id="class-impact-select" name="impact" class="input-field" style="width: 100%; box-sizing: border-box; font-size: 0.8rem;">
+                <option value="1" {% if ticket.summary.impact == 1 %}selected{% endif %}>1</option>
+                <option value="2" {% if ticket.summary.impact == 2 %}selected{% endif %}>2</option>
+                <option value="3" {% if ticket.summary.impact == 3 %}selected{% endif %}>3</option>
+                <option value="4" {% if ticket.summary.impact == 4 %}selected{% endif %}>4</option>
+                <option value="5" {% if ticket.summary.impact == 5 %}selected{% endif %}>5</option>
+              </select>
+            </div>
           </div>
 
-          <div style="display: flex; justify-content: space-between;">
-            <span style="color: var(--text-muted);">Impacto:</span>
-            <span style="font-weight: 600; color: var(--text-primary);">Nivel {{ ticket.summary.impact }} / 5</span>
-          </div>
-
-          <div style="display: flex; justify-content: space-between;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 0.2rem;">
             <span style="color: var(--text-muted);">Prioridad ITIL:</span>
             <span style="font-weight: 700; color: var(--accent-coral);">P{{ ticket.summary.priority }}</span>
           </div>
-        </div>
+
+          <button type="submit" class="btn btn-secondary" style="margin-top: 0.25rem; width: 100%; justify-content: center; font-size: 0.78rem;">
+            <span>🔄</span>
+            <span>Actualizar Matriz</span>
+          </button>
+        </form>
       </div>
     </div>
   </div>

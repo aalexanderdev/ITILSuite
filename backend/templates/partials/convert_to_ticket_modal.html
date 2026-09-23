@@ -1,0 +1,108 @@
+<!-- Modal: Convertir Mensaje de Chat en Ticket ITIL -->
+<div id="convert-ticket-modal" class="modal-backdrop" style="display: none; position: fixed; inset: 0; background: rgba(0, 0, 0, 0.65); z-index: 9999; align-items: center; justify-content: center; backdrop-filter: blur(4px);">
+  <div class="modal-card" style="width: 100%; max-width: 520px; background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: var(--radius-lg); padding: 1.75rem; box-shadow: var(--shadow-xl); box-sizing: border-box;">
+    <!-- Header -->
+    <div style="display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--border-subtle); padding-bottom: 0.85rem; margin-bottom: 1.25rem;">
+      <div style="display: flex; align-items: center; gap: 0.6rem;">
+        <div style="width: 34px; height: 34px; border-radius: 8px; background: rgba(235, 77, 61, 0.15); border: 1px solid rgba(235, 77, 61, 0.3); display: flex; align-items: center; justify-content: center; color: var(--accent-coral); font-size: 1.1rem;">
+          🎫
+        </div>
+        <div>
+          <h3 style="margin: 0; font-size: 1.1rem; font-weight: 700; color: var(--text-primary);">Convertir Mensaje en Ticket</h3>
+          <span style="font-size: 0.76rem; color: var(--text-muted);">Genera un incidente formal en el Service Desk ITIL</span>
+        </div>
+      </div>
+      <button type="button" class="btn-icon" onclick="closeConvertToTicketModal()" style="font-size: 1.2rem; cursor: pointer; background: transparent; border: none; color: var(--text-muted);">
+        ✕
+      </button>
+    </div>
+
+    <!-- Form -->
+    <form id="convert-ticket-form" onsubmit="submitConvertToTicket(event)">
+      <input type="hidden" id="convert-message-id" name="message_id">
+
+      <!-- Message Excerpt Preview -->
+      <div style="margin-bottom: 1rem; padding: 0.75rem 1rem; border-radius: var(--radius-sm); background: var(--card-subtle-bg); border-left: 3px solid var(--accent-coral);">
+        <span style="display: block; font-size: 0.72rem; color: var(--text-muted); text-transform: uppercase; font-weight: 700; margin-bottom: 0.25rem;">Mensaje Original</span>
+        <p id="convert-message-preview" style="margin: 0; font-size: 0.84rem; color: var(--text-secondary); line-height: 1.4; max-height: 80px; overflow-y: auto; white-space: pre-wrap;"></p>
+      </div>
+
+      <!-- Ticket Title -->
+      <div style="margin-bottom: 1rem;">
+        <label for="convert-ticket-title" style="display: block; font-size: 0.8rem; font-weight: 600; color: var(--text-secondary); margin-bottom: 0.35rem;">
+          Título del Incidente <span style="color: var(--accent-coral);">*</span>
+        </label>
+        <input
+          type="text"
+          id="convert-ticket-title"
+          name="name"
+          class="input-field"
+          required
+          placeholder="Ej: Falla reportada por el usuario en chat..."
+          style="width: 100%; box-sizing: border-box;"
+        >
+      </div>
+
+      <!-- Category -->
+      <div style="margin-bottom: 1rem;">
+        <label for="convert-ticket-category" style="display: block; font-size: 0.8rem; font-weight: 600; color: var(--text-secondary); margin-bottom: 0.35rem;">
+          Categoría ITIL
+        </label>
+        <select id="convert-ticket-category" name="category" class="input-field" style="width: 100%; box-sizing: border-box;">
+          <option value="Mesa de Ayuda / Chat">Mesa de Ayuda / Chat en Vivo</option>
+          <option value="Hardware / Equipos">Hardware / Equipos</option>
+          <option value="Sistemas / Correo">Sistemas & Correo</option>
+          <option value="Redes / Infraestructura">Redes & Infraestructura</option>
+          <option value="Cuentas y Accesos">Cuentas y Accesos VPN</option>
+          <option value="Soporte General">Soporte General</option>
+        </select>
+      </div>
+
+      <!-- Urgency, Impact and Calculated Priority (5x5 ITIL Matrix) -->
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.85rem; margin-bottom: 1rem;">
+        <div>
+          <label for="convert-ticket-urgency" style="display: block; font-size: 0.78rem; font-weight: 600; color: var(--text-secondary); margin-bottom: 0.35rem;">
+            Urgencia (1 a 5)
+          </label>
+          <select id="convert-ticket-urgency" name="urgency" class="input-field" onchange="updateConvertPriority()" style="width: 100%; box-sizing: border-box;">
+            <option value="1">1 - Muy Baja</option>
+            <option value="2">2 - Baja</option>
+            <option value="3" selected>3 - Media</option>
+            <option value="4">4 - Alta</option>
+            <option value="5">5 - Crítica / Inmediata</option>
+          </select>
+        </div>
+
+        <div>
+          <label for="convert-ticket-impact" style="display: block; font-size: 0.78rem; font-weight: 600; color: var(--text-secondary); margin-bottom: 0.35rem;">
+            Impacto (1 a 5)
+          </label>
+          <select id="convert-ticket-impact" name="impact" class="input-field" onchange="updateConvertPriority()" style="width: 100%; box-sizing: border-box;">
+            <option value="1">1 - Individual</option>
+            <option value="2">2 - Departamental</option>
+            <option value="3" selected>3 - Medio</option>
+            <option value="4">4 - Alto</option>
+            <option value="5">5 - Crítico / Empresa</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Priority Preview Card -->
+      <div style="display: flex; align-items: center; justify-content: space-between; padding: 0.65rem 0.9rem; border-radius: var(--radius-sm); background: var(--card-subtle-bg); margin-bottom: 1.25rem;">
+        <span style="font-size: 0.8rem; color: var(--text-muted);">Prioridad ITIL Calculada:</span>
+        <span id="convert-priority-badge" class="priority-badge priority-p3">P3 - Media</span>
+      </div>
+
+      <!-- Actions -->
+      <div style="display: flex; align-items: center; justify-content: flex-end; gap: 0.75rem;">
+        <button type="button" class="btn btn-secondary" onclick="closeConvertToTicketModal()">
+          Cancelar
+        </button>
+        <button type="submit" class="btn btn-primary" id="btn-submit-convert">
+          <span>🎫</span>
+          <span>Crear Ticket Ahora</span>
+        </button>
+      </div>
+    </form>
+  </div>
+</div>

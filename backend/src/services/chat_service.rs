@@ -852,6 +852,32 @@ impl ChatService {
         }
     }
 
+    /// Update global or entity chat settings
+    pub async fn update_settings(pool: &PgPool, dto: ChatSettingsDto) -> Result<ChatSettingsDto, AppError> {
+        sqlx::query!(
+            r#"
+            UPDATE chat_settings
+            SET launcher_color = $1, bubble_color = $2, panel_width_px = $3,
+                max_message_length = $4, ticket_conversion_enabled = $5,
+                allow_attachments = $6, max_attachment_size_mb = $7,
+                auto_notify_ticket_events = $8, updated_at = NOW()
+            "#,
+            dto.launcher_color,
+            dto.bubble_color,
+            dto.panel_width_px,
+            dto.max_message_length,
+            dto.ticket_conversion_enabled,
+            dto.allow_attachments,
+            dto.max_attachment_size_mb,
+            dto.auto_notify_ticket_events
+        )
+        .execute(pool)
+        .await
+        .map_err(|e| AppError::InternalServerError(format!("Failed to update settings: {}", e)))?;
+
+        Ok(dto)
+    }
+
     /// Retrieve active shortcut buttons
     pub async fn get_shortcut_buttons(pool: &PgPool) -> Result<Vec<ShortcutButtonDto>, AppError> {
         let rows = sqlx::query!(

@@ -70,7 +70,7 @@
         type="button"
         id="dock-btn-servicedesk"
         onclick="toggleDockMenu('servicedesk')"
-        class="dock-item {% if active_nav == "tickets" || active_nav == "slas" || active_nav == "surveys" %}active{% endif %}"
+        class="dock-item {% if active_nav == "tickets" || active_nav == "slas" || active_nav == "surveys" || active_nav == "chat" %}active{% endif %}"
         title="Mesa de Servicio ITIL: Tickets, SLAs y Satisfacción"
       >
         <span>🎧</span>
@@ -118,7 +118,7 @@
               <span class="dock-dropup-item-desc">Satisfacción del usuario, encuestas dinámicas y métricas NPS</span>
             </div>
           </a>
-          <a href="/chat-analytics" class="dock-dropup-item">
+          <a href="/chat-analytics" class="dock-dropup-item {% if active_nav == "chat" %}active{% endif %}">
             <div class="dock-dropup-item-icon">💬</div>
             <div class="dock-dropup-item-content">
               <div class="dock-dropup-item-title-row">

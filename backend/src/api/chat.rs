@@ -59,11 +59,23 @@ pub async fn ws_chat_handler(
     ws: WebSocketUpgrade,
     Query(query): Query<WsQuery>,
     State(state): State<AppState>,
+    headers: axum::http::HeaderMap,
 ) -> Response {
-    // Authenticate token
-    let token = match query.token {
-        Some(t) => t,
-        None => return (StatusCode::UNAUTHORIZED, "Missing token query parameter").into_response(),
+    let token = query.token.or_else(|| {
+        let cookie_header = headers.get(header::COOKIE)?.to_str().ok()?;
+        for part in cookie_header.split(';') {
+            let mut kv = part.trim().splitn(2, '=');
+            if let (Some(k), Some(v)) = (kv.next(), kv.next()) {
+                if k == "itilsuite_session" {
+                    return Some(v.trim().to_string());
+                }
+            }
+        }
+        None
+    });
+
+    let Some(token) = token else {
+        return (StatusCode::UNAUTHORIZED, "Missing authentication token or session cookie").into_response();
     };
 
     let claims = match verify_jwt(&token, &state.config.jwt_secret) {
@@ -463,28 +475,8 @@ pub async fn update_settings(
     State(state): State<AppState>,
     Json(payload): Json<ChatSettingsDto>,
 ) -> Result<Json<ChatSettingsDto>, AppError> {
-    sqlx::query!(
-        r#"
-        UPDATE chat_settings
-        SET launcher_color = $1, bubble_color = $2, panel_width_px = $3,
-            max_message_length = $4, ticket_conversion_enabled = $5,
-            allow_attachments = $6, max_attachment_size_mb = $7,
-            auto_notify_ticket_events = $8, updated_at = NOW()
-        "#,
-        payload.launcher_color,
-        payload.bubble_color,
-        payload.panel_width_px,
-        payload.max_message_length,
-        payload.ticket_conversion_enabled,
-        payload.allow_attachments,
-        payload.max_attachment_size_mb,
-        payload.auto_notify_ticket_events
-    )
-    .execute(&state.pool)
-    .await
-    .map_err(|e| AppError::InternalServerError(format!("Failed to update settings: {}", e)))?;
-
-    Ok(Json(payload))
+    let updated = ChatService::update_settings(&state.pool, payload).await?;
+    Ok(Json(updated))
 }
 
 #[utoipa::path(

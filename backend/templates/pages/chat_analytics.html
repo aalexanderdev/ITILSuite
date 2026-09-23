@@ -1,0 +1,305 @@
+{% extends "layouts/base.html" %}
+
+{% block title %}Supervisión & Métricas de Helpdesk Chat - ITILSuite{% endblock %}
+
+{% block content %}
+<div class="workspace-page-container">
+  <!-- Page Header -->
+  <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 1.5rem; flex-wrap: wrap; gap: 1rem;">
+    <div>
+      <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.35rem;">
+        <span style="font-size: 1.5rem;">💬</span>
+        <h1 style="margin: 0; font-size: 1.45rem; font-weight: 800; color: var(--text-primary); letter-spacing: -0.02em;">
+          Helpdesk Chat & Métricas
+        </h1>
+        <span class="badge badge-coral" style="font-size: 0.7rem; font-weight: 700;">En Vivo</span>
+      </div>
+      <p style="margin: 0; font-size: 0.85rem; color: var(--text-muted);">
+        Supervisión en tiempo real de conversaciones, presencia de técnicos y auditoría de sesiones
+      </p>
+    </div>
+
+    <!-- Header Actions -->
+    <div style="display: flex; align-items: center; gap: 0.75rem;">
+      <a
+        href="/api/v1/chat/dashboard/export"
+        target="_blank"
+        class="btn btn-secondary"
+        id="btn-export-csv"
+        title="Descargar registro completo de mensajes en formato CSV"
+      >
+        <span>📥</span>
+        <span>Exportar Mensajes CSV</span>
+      </a>
+
+      <button
+        type="button"
+        class="btn btn-primary"
+        onclick="openHelpdeskChat()"
+        id="btn-open-chat-from-analytics"
+      >
+        <span>💬</span>
+        <span>Abrir Ventana de Chat</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- KPI Metrics Grid -->
+  <div class="metrics-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1rem; margin-bottom: 1.5rem;">
+    <!-- Metric 1: Total Messages -->
+    <div class="metric-card" style="background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: var(--radius-md); padding: 1.25rem 1.5rem; box-shadow: var(--shadow-sm);">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+        <span style="font-size: 0.76rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.04em;">Volumen Total</span>
+        <span style="font-size: 1.2rem;">📨</span>
+      </div>
+      <div style="font-size: 1.85rem; font-weight: 800; color: var(--text-primary); margin-bottom: 0.2rem;">
+        {{ metrics.total_messages }}
+      </div>
+      <span style="font-size: 0.75rem; color: var(--text-secondary);">Mensajes registrados en la base</span>
+    </div>
+
+    <!-- Metric 2: Daily Average -->
+    <div class="metric-card" style="background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: var(--radius-md); padding: 1.25rem 1.5rem; box-shadow: var(--shadow-sm);">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+        <span style="font-size: 0.76rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.04em;">Promedio Diario</span>
+        <span style="font-size: 1.2rem;">📈</span>
+      </div>
+      <div style="font-size: 1.85rem; font-weight: 800; color: var(--accent-coral); margin-bottom: 0.2rem;">
+        {{ metrics.daily_avg_messages }}
+      </div>
+      <span style="font-size: 0.75rem; color: var(--text-secondary);">Mensajes por jornada (últimos 7 días)</span>
+    </div>
+
+    <!-- Metric 3: Group Channels % -->
+    <div class="metric-card" style="background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: var(--radius-md); padding: 1.25rem 1.5rem; box-shadow: var(--shadow-sm);">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+        <span style="font-size: 0.76rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.04em;">Canales de Soporte</span>
+        <span style="font-size: 1.2rem;">👥</span>
+      </div>
+      <div style="font-size: 1.85rem; font-weight: 800; color: var(--accent-blue); margin-bottom: 0.2rem;">
+        {{ metrics.group_messages_pct }}%
+      </div>
+      <span style="font-size: 0.75rem; color: var(--text-secondary);">Tráfico en salas grupales de equipo</span>
+    </div>
+
+    <!-- Metric 4: Online Users & Technicians -->
+    <div class="metric-card" style="background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: var(--radius-md); padding: 1.25rem 1.5rem; box-shadow: var(--shadow-sm);">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+        <span style="font-size: 0.76rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.04em;">En Línea Ahora</span>
+        <span style="font-size: 1.2rem;">🟢</span>
+      </div>
+      <div style="font-size: 1.85rem; font-weight: 800; color: #10b981; margin-bottom: 0.2rem;">
+        {{ metrics.online_users_count }}
+      </div>
+      <span style="font-size: 0.75rem; color: var(--text-secondary);">Técnicos y usuarios conectados</span>
+    </div>
+  </div>
+
+  <!-- Two Column Workspace Layout -->
+  <div style="display: grid; grid-template-columns: 1fr 360px; gap: 1.5rem; align-items: start;">
+    <!-- Left Column: Online Users Monitor & Sessions Audit -->
+    <div style="display: flex; flex-direction: column; gap: 1.5rem;">
+      <!-- Card 1: Currently Online Users -->
+      <div style="background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: var(--radius-md); padding: 1.25rem 1.5rem; box-shadow: var(--shadow-sm);">
+        <div style="display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--border-subtle); padding-bottom: 0.75rem; margin-bottom: 1rem;">
+          <div style="display: flex; align-items: center; gap: 0.5rem;">
+            <span style="font-size: 1.1rem;">👥</span>
+            <h2 style="margin: 0; font-size: 1rem; font-weight: 700; color: var(--text-primary);">
+              Técnicos & Usuarios Conectados en Vivo
+            </h2>
+          </div>
+          <span style="font-size: 0.76rem; color: #10b981; font-weight: 600; background: rgba(16, 185, 129, 0.12); padding: 0.15rem 0.5rem; border-radius: 9999px;">
+            Activos en los últimos 3 min
+          </span>
+        </div>
+
+        {% if online_users.is_empty() %}
+          <div style="text-align: center; padding: 2rem 1rem; color: var(--text-muted); font-size: 0.85rem;">
+            <span>ℹ️ No hay técnicos ni usuarios con heartbeat activo en este momento.</span>
+          </div>
+        {% else %}
+          <div class="table-responsive">
+            <table class="tickets-table" style="width: 100%; border-collapse: collapse; font-size: 0.82rem;">
+              <thead>
+                <tr style="border-bottom: 1px solid var(--border-subtle); text-align: left; color: var(--text-muted); font-size: 0.72rem; text-transform: uppercase;">
+                  <th style="padding: 0.6rem 0.75rem;">Usuario</th>
+                  <th style="padding: 0.6rem 0.75rem;">Correo</th>
+                  <th style="padding: 0.6rem 0.75rem;">Estado</th>
+                  <th style="padding: 0.6rem 0.75rem;">Tiempo Activo</th>
+                  <th style="padding: 0.6rem 0.75rem; text-align: right;">Acción</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for u in online_users %}
+                  <tr style="border-bottom: 1px solid var(--border-subtle);">
+                    <td style="padding: 0.65rem 0.75rem;">
+                      <div style="display: flex; align-items: center; gap: 0.5rem;">
+                        <div style="width: 28px; height: 28px; border-radius: 50%; background: rgba(235, 77, 61, 0.15); color: var(--accent-coral); font-weight: 700; display: flex; align-items: center; justify-content: center; font-size: 0.75rem;">
+                          👤
+                        </div>
+                        <div>
+                          <strong style="color: var(--text-primary); display: block;">{{ u.display_name }}</strong>
+                          <span style="font-size: 0.72rem; color: var(--text-muted);">@{{ u.username }}</span>
+                        </div>
+                      </div>
+                    </td>
+                    <td style="padding: 0.65rem 0.75rem; color: var(--text-secondary);">
+                      {{ u.email }}
+                    </td>
+                    <td style="padding: 0.65rem 0.75rem;">
+                      <span style="display: inline-flex; align-items: center; gap: 0.35rem; color: #10b981; font-weight: 600;">
+                        <span style="width: 8px; height: 8px; border-radius: 50%; background: #10b981;"></span>
+                        {{ u.status }}
+                      </span>
+                    </td>
+                    <td style="padding: 0.65rem 0.75rem; font-family: var(--font-mono); color: var(--text-secondary);">
+                      {{ (u.active_seconds / 60) }} min
+                    </td>
+                    <td style="padding: 0.65rem 0.75rem; text-align: right;">
+                      <button
+                        type="button"
+                        class="btn btn-secondary"
+                        style="font-size: 0.75rem; padding: 0.25rem 0.65rem;"
+                        onclick="openHelpdeskChat()"
+                      >
+                        <span>💬 Chat</span>
+                      </button>
+                    </td>
+                  </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        {% endif %}
+      </div>
+
+      <!-- Card 2: Recent Session Intervals (Auditoría de Tiempo de Soporte) -->
+      <div style="background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: var(--radius-md); padding: 1.25rem 1.5rem; box-shadow: var(--shadow-sm);">
+        <div style="display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--border-subtle); padding-bottom: 0.75rem; margin-bottom: 1rem;">
+          <div style="display: flex; align-items: center; gap: 0.5rem;">
+            <span style="font-size: 1.1rem;">⏱️</span>
+            <h2 style="margin: 0; font-size: 1rem; font-weight: 700; color: var(--text-primary);">
+              Intervalos Recientes de Sesión (Últimos 7 días)
+            </h2>
+          </div>
+          <span style="font-size: 0.76rem; color: var(--text-muted);">
+            {{ metrics.recent_intervals.len() }} registros
+          </span>
+        </div>
+
+        {% if metrics.recent_intervals.is_empty() %}
+          <div style="text-align: center; padding: 2rem 1rem; color: var(--text-muted); font-size: 0.85rem;">
+            <span>ℹ️ No hay intervalos de sesión registrados en los últimos 7 días.</span>
+          </div>
+        {% else %}
+          <div class="table-responsive" style="max-height: 380px; overflow-y: auto;">
+            <table class="tickets-table" style="width: 100%; border-collapse: collapse; font-size: 0.82rem;">
+              <thead>
+                <tr style="border-bottom: 1px solid var(--border-subtle); text-align: left; color: var(--text-muted); font-size: 0.72rem; text-transform: uppercase;">
+                  <th style="padding: 0.6rem 0.75rem;">Usuario</th>
+                  <th style="padding: 0.6rem 0.75rem;">Fecha</th>
+                  <th style="padding: 0.6rem 0.75rem;">Inicio</th>
+                  <th style="padding: 0.6rem 0.75rem;">Fin</th>
+                  <th style="padding: 0.6rem 0.75rem;">Duración</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for interval in metrics.recent_intervals %}
+                  <tr style="border-bottom: 1px solid var(--border-subtle);">
+                    <td style="padding: 0.65rem 0.75rem; color: var(--text-primary); font-weight: 600;">
+                      {{ interval.display_name }}
+                    </td>
+                    <td style="padding: 0.65rem 0.75rem; color: var(--text-secondary);">
+                      {{ interval.session_date }}
+                    </td>
+                    <td style="padding: 0.65rem 0.75rem; font-family: var(--font-mono); color: var(--text-muted);">
+                      {{ interval.start_time.format("%H:%M:%S") }}
+                    </td>
+                    <td style="padding: 0.65rem 0.75rem; font-family: var(--font-mono); color: var(--text-muted);">
+                      {{ interval.end_time.format("%H:%M:%S") }}
+                    </td>
+                    <td style="padding: 0.65rem 0.75rem;">
+                      <span style="font-family: var(--font-mono); font-weight: 600; color: var(--accent-coral);">
+                        {{ (interval.duration_seconds / 60) }} min ({{ interval.duration_seconds }}s)
+                      </span>
+                    </td>
+                  </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- Right Column: Settings & Configuration -->
+    <div style="background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: var(--radius-md); padding: 1.25rem; box-shadow: var(--shadow-sm);">
+      <div style="display: flex; align-items: center; gap: 0.5rem; border-bottom: 1px solid var(--border-subtle); padding-bottom: 0.75rem; margin-bottom: 1rem;">
+        <span style="font-size: 1.1rem;">⚙️</span>
+        <h2 style="margin: 0; font-size: 1rem; font-weight: 700; color: var(--text-primary);">
+          Configuración del Chat
+        </h2>
+      </div>
+
+      <form method="POST" action="/chat-analytics/settings" style="display: flex; flex-direction: column; gap: 0.85rem; font-size: 0.82rem;">
+        <div>
+          <label for="set-launcher-color" style="display: block; font-size: 0.76rem; font-weight: 600; color: var(--text-secondary); margin-bottom: 0.25rem;">
+            Color del Botón Flotante
+          </label>
+          <div style="display: flex; gap: 0.5rem; align-items: center;">
+            <input type="color" id="set-launcher-color-picker" value="{{ settings.launcher_color }}" oninput="document.getElementById('set-launcher-color').value = this.value" style="width: 36px; height: 36px; border: none; border-radius: 6px; cursor: pointer;">
+            <input type="text" id="set-launcher-color" name="launcher_color" value="{{ settings.launcher_color }}" class="input-field" style="flex: 1;">
+          </div>
+        </div>
+
+        <div>
+          <label for="set-bubble-color" style="display: block; font-size: 0.76rem; font-weight: 600; color: var(--text-secondary); margin-bottom: 0.25rem;">
+            Color de Burbuja Propia
+          </label>
+          <div style="display: flex; gap: 0.5rem; align-items: center;">
+            <input type="color" id="set-bubble-color-picker" value="{{ settings.bubble_color }}" oninput="document.getElementById('set-bubble-color').value = this.value" style="width: 36px; height: 36px; border: none; border-radius: 6px; cursor: pointer;">
+            <input type="text" id="set-bubble-color" name="bubble_color" value="{{ settings.bubble_color }}" class="input-field" style="flex: 1;">
+          </div>
+        </div>
+
+        <div>
+          <label for="set-panel-width" style="display: block; font-size: 0.76rem; font-weight: 600; color: var(--text-secondary); margin-bottom: 0.25rem;">
+            Ancho del Panel Flotante (px)
+          </label>
+          <input type="number" id="set-panel-width" name="panel_width_px" value="{{ settings.panel_width_px }}" min="300" max="600" class="input-field" style="width: 100%; box-sizing: border-box;">
+        </div>
+
+        <div>
+          <label for="set-max-attachment" style="display: block; font-size: 0.76rem; font-weight: 600; color: var(--text-secondary); margin-bottom: 0.25rem;">
+            Tamaño Máximo Adjuntos (MB)
+          </label>
+          <input type="number" id="set-max-attachment" name="max_attachment_size_mb" value="{{ settings.max_attachment_size_mb }}" min="1" max="50" class="input-field" style="width: 100%; box-sizing: border-box;">
+        </div>
+
+        <!-- Switches / Checkboxes -->
+        <div style="display: flex; flex-direction: column; gap: 0.6rem; padding-top: 0.5rem; border-top: 1px solid var(--border-subtle);">
+          <label style="display: flex; align-items: center; gap: 0.5rem; font-size: 0.8rem; color: var(--text-primary); cursor: pointer;">
+            <input type="checkbox" name="ticket_conversion_enabled" value="true" {% if settings.ticket_conversion_enabled %}checked{% endif %}>
+            <span>Habilitar Conversión a Tickets ITIL</span>
+          </label>
+
+          <label style="display: flex; align-items: center; gap: 0.5rem; font-size: 0.8rem; color: var(--text-primary); cursor: pointer;">
+            <input type="checkbox" name="allow_attachments" value="true" {% if settings.allow_attachments %}checked{% endif %}>
+            <span>Permitir Envío de Archivos Adjuntos</span>
+          </label>
+
+          <label style="display: flex; align-items: center; gap: 0.5rem; font-size: 0.8rem; color: var(--text-primary); cursor: pointer;">
+            <input type="checkbox" name="auto_notify_ticket_events" value="true" {% if settings.auto_notify_ticket_events %}checked{% endif %}>
+            <span>Notificar Eventos de Tickets en Chat</span>
+          </label>
+        </div>
+
+        <button type="submit" class="btn btn-primary" style="margin-top: 0.75rem; width: 100%; justify-content: center;" id="btn-save-chat-settings">
+          <span>💾</span>
+          <span>Guardar Configuración</span>
+        </button>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}

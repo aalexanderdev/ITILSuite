@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 50 60" fill="none">
+  <!-- ITILSuite 3D Monolith Mark / Isometric "I" -->
+  <!-- Left Wireframe Face -->
+  <polygon
+    points="8,12 25,6 25,54 8,48"
+    fill="none"
+    stroke="#EB4D3D"
+    stroke-width="3.2"
+    stroke-linejoin="round"
+  />
+  <!-- Right Solid Face -->
+  <polygon
+    points="25,6 42,12 42,48 25,54"
+    fill="#EB4D3D"
+    stroke="#EB4D3D"
+    stroke-width="1"
+    stroke-linejoin="round"
+  />
+</svg>

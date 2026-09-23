@@ -11,12 +11,17 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
   
+  <!-- Favicon -->
+  <link rel="icon" type="image/svg+xml" href="/static/favicon.svg">
+  <link rel="alternate icon" href="/static/img/favicon.svg">
+
   <!-- Core Design System (Vanilla CSS) -->
   <link rel="stylesheet" href="/static/css/main.css">
   
   <!-- HTMX & Vanilla JS -->
   <script src="/static/js/htmx.min.js"></script>
   <script src="/static/js/main.js" defer></script>
+  <script src="/static/js/chat_widget.js" defer></script>
   
   <style>
     /* CSS additions for Askama / HTMX interactions */
@@ -57,5 +62,9 @@
 
   <!-- Modals & Dynamic Containers -->
   {% block modals %}{% endblock %}
+
+  <!-- Helpdesk Chat Widget & Message Conversion Modal -->
+  {% include "components/chat_widget.html" %}
+  {% include "partials/convert_to_ticket_modal.html" %}
 </body>
 </html>

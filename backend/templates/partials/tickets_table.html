@@ -7,10 +7,10 @@
       <p>No hay tickets que coincidan con los criterios de búsqueda o filtros seleccionados.</p>
       <div class="empty-actions">
         <a href="/tickets" class="btn-clear-filters">Limpiar Filtros</a>
-        <button type="button" class="btn btn-primary" onclick="openCreateTicketModal()">
+        <a href="/tickets/new" class="btn btn-primary">
           <span>➕</span>
           <span>Crear Primer Ticket</span>
-        </button>
+        </a>
       </div>
     </div>
   </td>
@@ -121,4 +121,55 @@
     </td>
   </tr>
   {% endfor %}
+
+  <!-- Pagination Footer Row -->
+  <tr style="background: var(--card-subtle-bg); border-top: 2px solid var(--border-subtle);">
+    <td colspan="8" style="padding: 0.75rem 1rem;">
+      <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0.5rem; font-size: 0.8rem;">
+        <div style="color: var(--text-muted);">
+          Mostrando <strong style="color: var(--text-primary);">{{ tickets.len() }}</strong> de <strong style="color: var(--text-primary);">{{ total_count }}</strong> tickets
+        </div>
+
+        <div style="display: flex; align-items: center; gap: 0.5rem;">
+          {% if current_page > 1 %}
+            <button
+              type="button"
+              class="btn btn-secondary"
+              style="padding: 0.35rem 0.75rem; font-size: 0.78rem;"
+              hx-get="/tickets/table?page={{ current_page - 1 }}&limit={{ limit }}"
+              hx-target="#tickets-table-body"
+              hx-include="#tickets-filter-form"
+            >
+              ← Anterior
+            </button>
+          {% else %}
+            <button type="button" class="btn btn-secondary" style="padding: 0.35rem 0.75rem; font-size: 0.78rem; opacity: 0.5;" disabled>
+              ← Anterior
+            </button>
+          {% endif %}
+
+          <span style="font-size: 0.8rem; font-weight: 600; color: var(--text-secondary); padding: 0 0.4rem;">
+            Página {{ current_page }} de {{ total_pages }}
+          </span>
+
+          {% if current_page < total_pages %}
+            <button
+              type="button"
+              class="btn btn-secondary"
+              style="padding: 0.35rem 0.75rem; font-size: 0.78rem;"
+              hx-get="/tickets/table?page={{ current_page + 1 }}&limit={{ limit }}"
+              hx-target="#tickets-table-body"
+              hx-include="#tickets-filter-form"
+            >
+              Siguiente →
+            </button>
+          {% else %}
+            <button type="button" class="btn btn-secondary" style="padding: 0.35rem 0.75rem; font-size: 0.78rem; opacity: 0.5;" disabled>
+              Siguiente →
+            </button>
+          {% endif %}
+        </div>
+      </div>
+    </td>
+  </tr>
 {% endif %}

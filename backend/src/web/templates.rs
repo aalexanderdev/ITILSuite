@@ -3,7 +3,10 @@ use axum::{
     http::StatusCode,
     response::{Html, IntoResponse, Response},
 };
+use uuid::Uuid;
 
+use crate::domain::chat::{ChatDashboardMetricsDto, ChatSettingsDto, OnlineUserDto};
+use crate::domain::sla::SlaSummaryDto;
 use crate::domain::survey::{
     PublicSurveyDto, SurveyDashboardMetricsDto, SurveyPresetDef, SurveySummaryDto, SurveyTokenDto,
 };
@@ -27,6 +30,31 @@ where
                 .into_response(),
         }
     }
+}
+
+#[derive(Debug, Clone, sqlx::FromRow)]
+pub struct UserSelectItem {
+    pub id: Uuid,
+    pub name: String,
+}
+
+#[derive(Debug, Clone, sqlx::FromRow)]
+pub struct GroupSelectItem {
+    pub id: Uuid,
+    pub name: String,
+}
+
+#[derive(Debug, Clone, sqlx::FromRow)]
+pub struct TicketTemplateRow {
+    pub id: Uuid,
+    pub name: String,
+    pub category: Option<String>,
+    pub ticket_type: String,
+    pub predefined_title: Option<String>,
+    pub predefined_content: Option<String>,
+    pub predefined_urgency: Option<i32>,
+    pub predefined_impact: Option<i32>,
+    pub default_technician_id: Option<Uuid>,
 }
 
 #[derive(Template)]
@@ -67,12 +95,34 @@ pub struct TicketsTemplate {
     pub current_ticket_type: String,
     pub current_priority: String,
     pub current_sla_status: String,
+    pub current_page: i64,
+    pub total_pages: i64,
+    pub total_count: i64,
+    pub limit: i64,
 }
 
 #[derive(Template)]
 #[template(path = "partials/tickets_table.html")]
 pub struct TicketsTablePartialTemplate {
     pub tickets: Vec<TicketSummaryDto>,
+    pub current_page: i64,
+    pub total_pages: i64,
+    pub total_count: i64,
+    pub limit: i64,
+}
+
+#[derive(Template)]
+#[template(path = "pages/ticket_new.html")]
+pub struct TicketNewTemplate {
+    pub current_username: String,
+    pub current_display_name: String,
+    pub current_profile_name: String,
+    pub user_initials: String,
+    pub active_entity_name: String,
+    pub active_nav: String,
+    pub templates: Vec<TicketTemplateRow>,
+    pub technicians: Vec<UserSelectItem>,
+    pub groups: Vec<GroupSelectItem>,
 }
 
 #[derive(Template)]
@@ -86,12 +136,36 @@ pub struct TicketDetailTemplate {
     pub active_nav: String,
     pub ticket: TicketDetailDto,
     pub survey_token: Option<String>,
+    pub technicians: Vec<UserSelectItem>,
+    pub groups: Vec<GroupSelectItem>,
+}
+
+impl TicketDetailTemplate {
+    pub fn is_technician_selected(&self, tech_id: &uuid::Uuid) -> bool {
+        self.ticket.summary.assigned_technician_id == Some(*tech_id)
+    }
+
+    pub fn is_group_selected(&self, group_id: &uuid::Uuid) -> bool {
+        self.ticket.summary.assigned_group_id == Some(*group_id)
+    }
 }
 
 #[derive(Template)]
 #[template(path = "partials/followup_item.html")]
 pub struct FollowupPartialTemplate {
     pub followup: TicketFollowupDto,
+}
+
+#[derive(Template)]
+#[template(path = "pages/slas.html")]
+pub struct SlasTemplate {
+    pub current_username: String,
+    pub current_display_name: String,
+    pub current_profile_name: String,
+    pub user_initials: String,
+    pub active_entity_name: String,
+    pub active_nav: String,
+    pub slas: Vec<SlaSummaryDto>,
 }
 
 #[derive(Template)]
@@ -116,4 +190,18 @@ pub struct SurveyPublicTemplate {
     pub survey: PublicSurveyDto,
     pub already_completed: bool,
     pub is_expired: bool,
+}
+
+#[derive(Template)]
+#[template(path = "pages/chat_analytics.html")]
+pub struct ChatAnalyticsTemplate {
+    pub current_username: String,
+    pub current_display_name: String,
+    pub current_profile_name: String,
+    pub user_initials: String,
+    pub active_entity_name: String,
+    pub active_nav: String,
+    pub metrics: ChatDashboardMetricsDto,
+    pub online_users: Vec<OnlineUserDto>,
+    pub settings: ChatSettingsDto,
 }

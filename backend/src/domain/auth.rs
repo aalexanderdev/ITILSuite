@@ -127,31 +127,41 @@ impl FromRequestParts<AppState> for Claims {
             .get(header::AUTHORIZATION)
             .and_then(|h| h.to_str().ok());
 
-        let Some(auth_header) = auth_header else {
+        let token = if let Some(auth) = auth_header {
+            if auth.starts_with("Bearer ") {
+                Some(auth["Bearer ".len()..].trim().to_string())
+            } else {
+                None
+            }
+        } else {
+            None
+        };
+
+        let token = token.or_else(|| {
+            let cookie_header = parts.headers.get(header::COOKIE)?.to_str().ok()?;
+            for part in cookie_header.split(';') {
+                let mut kv = part.trim().splitn(2, '=');
+                if let (Some(k), Some(v)) = (kv.next(), kv.next()) {
+                    if k == "itilsuite_session" {
+                        return Some(v.trim().to_string());
+                    }
+                }
+            }
+            None
+        });
+
+        let Some(token) = token else {
             let error_response = ErrorResponse {
                 error: ErrorDetail {
                     code: "UNAUTHORIZED".to_string(),
-                    message: "Missing Authorization header with Bearer token".to_string(),
+                    message: "Missing Authorization Bearer token or valid session cookie".to_string(),
                     details: None,
                 },
             };
             return Err((StatusCode::UNAUTHORIZED, Json(error_response)).into_response());
         };
 
-        if !auth_header.starts_with("Bearer ") {
-            let error_response = ErrorResponse {
-                error: ErrorDetail {
-                    code: "UNAUTHORIZED".to_string(),
-                    message: "Authorization header must use Bearer scheme".to_string(),
-                    details: None,
-                },
-            };
-            return Err((StatusCode::UNAUTHORIZED, Json(error_response)).into_response());
-        }
-
-        let token = &auth_header["Bearer ".len()..];
         let secret = &state.config.jwt_secret;
-
-        verify_jwt(token, secret).map_err(|e| e.into_response())
+        verify_jwt(&token, secret).map_err(|e| e.into_response())
     }
 }

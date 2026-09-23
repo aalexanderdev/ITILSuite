@@ -1,0 +1,292 @@
+{% extends "layouts/base.html" %}
+
+{% block title %}Nuevo Incidente o Solicitud - ITILSuite{% endblock %}
+
+{% block content %}
+<div class="new-ticket-page-container" style="max-width: 900px; margin: 0 auto; display: flex; flex-direction: column; gap: 1.5rem;">
+  <!-- Header -->
+  <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0.5rem;">
+    <div>
+      <div style="display: flex; align-items: center; gap: 0.5rem; font-size: 0.82rem; color: var(--text-muted); margin-bottom: 0.25rem;">
+        <a href="/tickets" style="color: var(--accent-blue); text-decoration: none;">Service Desk</a>
+        <span>/</span>
+        <span style="color: var(--text-primary); font-weight: 500;">Nuevo Ticket</span>
+      </div>
+      <h1 style="margin: 0; font-size: 1.5rem; font-weight: 800; color: var(--text-primary); display: flex; align-items: center; gap: 0.6rem;">
+        <span>🎫</span>
+        <span>Registrar Incidente o Solicitud de Servicio</span>
+      </h1>
+    </div>
+
+    <a href="/tickets" class="btn btn-secondary">
+      <span>←</span>
+      <span>Cancelar y Volver</span>
+    </a>
+  </div>
+
+  <!-- Predefined Templates Banner -->
+  <div style="background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: var(--radius-md); padding: 1.25rem; box-shadow: var(--shadow-sm);">
+    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.75rem;">
+      <div style="display: flex; align-items: center; gap: 0.5rem; font-weight: 700; font-size: 0.9rem; color: var(--text-primary);">
+        <span>⚡</span>
+        <span>Plantillas de Servicio Preconfiguradas</span>
+      </div>
+      <span style="font-size: 0.75rem; color: var(--text-muted);">Haga clic en una plantilla para auto-completar el formulario</span>
+    </div>
+
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 0.6rem;">
+      {% for tpl in templates %}
+        <button
+          type="button"
+          class="template-card-btn"
+          onclick="applyTemplate('{{ tpl.name|escape }}', '{{ tpl.ticket_type|escape }}', '{{ tpl.category.as_deref().unwrap_or("General")|escape }}', '{{ tpl.predefined_title.as_deref().unwrap_or("")|escape }}', '{{ tpl.predefined_content.as_deref().unwrap_or("")|escape }}', {{ tpl.predefined_urgency.unwrap_or(3) }}, {{ tpl.predefined_impact.unwrap_or(3) }})"
+          style="text-align: left; padding: 0.75rem 0.85rem; background: var(--input-bg); border: 1px solid var(--border-subtle); border-radius: var(--radius-sm); cursor: pointer; transition: all 0.15s ease;"
+        >
+          <div style="font-weight: 700; font-size: 0.82rem; color: var(--text-primary); margin-bottom: 0.2rem;">
+            {{ tpl.name }}
+          </div>
+          <div style="display: flex; align-items: center; gap: 0.4rem; font-size: 0.72rem; color: var(--text-muted);">
+            <span>🏷️ {{ tpl.category.as_deref().unwrap_or("General") }}</span>
+            <span>•</span>
+            <span style="color: var(--accent-coral);">P{{ tpl.predefined_urgency.unwrap_or(3) }}</span>
+          </div>
+        </button>
+      {% endfor %}
+    </div>
+  </div>
+
+  <style>
+    .template-card-btn:hover {
+      border-color: var(--accent-coral) !important;
+      background: rgba(235, 77, 61, 0.08) !important;
+      transform: translateY(-1px);
+    }
+  </style>
+
+  <!-- Main Ticket Form Card -->
+  <div style="background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: var(--radius-md); padding: 1.75rem; box-shadow: var(--shadow-sm);">
+    <form method="POST" action="/tickets" id="full-create-ticket-form">
+      <div style="display: flex; flex-direction: column; gap: 1.25rem;">
+        <!-- Tipo de Ticket -->
+        <div class="form-group">
+          <label style="display: block; font-size: 0.82rem; font-weight: 700; margin-bottom: 0.4rem; color: var(--text-secondary);">
+            Tipo de Ticket ITIL
+          </label>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+            <label style="display: flex; align-items: center; gap: 0.6rem; padding: 0.75rem 1rem; border: 1px solid var(--border-subtle); border-radius: var(--radius-sm); cursor: pointer; background: var(--input-bg);">
+              <input type="radio" name="ticket_type" id="type-incident" value="incident" checked>
+              <div>
+                <span style="font-weight: 700; font-size: 0.88rem; color: #ef4444;">🚨 Incidente</span>
+                <span style="display: block; font-size: 0.75rem; color: var(--text-muted);">Interrupción o degradación no planificada del servicio</span>
+              </div>
+            </label>
+            <label style="display: flex; align-items: center; gap: 0.6rem; padding: 0.75rem 1rem; border: 1px solid var(--border-subtle); border-radius: var(--radius-sm); cursor: pointer; background: var(--input-bg);">
+              <input type="radio" name="ticket_type" id="type-request" value="request">
+              <div>
+                <span style="font-weight: 700; font-size: 0.88rem; color: #3b82f6;">📋 Solicitud de Servicio</span>
+                <span style="display: block; font-size: 0.75rem; color: var(--text-muted);">Petición de usuario para nuevo acceso, hardware o cambio estándar</span>
+              </div>
+            </label>
+          </div>
+        </div>
+
+        <!-- Asunto / Título -->
+        <div class="form-group">
+          <label for="ticket-name-field" style="display: block; font-size: 0.82rem; font-weight: 700; margin-bottom: 0.4rem; color: var(--text-secondary);">
+            Asunto / Título del Ticket <span style="color: var(--accent-coral);">*</span>
+          </label>
+          <input
+            type="text"
+            id="ticket-name-field"
+            name="name"
+            class="input-field"
+            placeholder="Ej: Falla en enlace principal de fibra óptica o Solicitud de acceso a VPN"
+            required
+            style="width: 100%; box-sizing: border-box; font-size: 0.95rem; padding: 0.75rem 1rem;"
+          >
+        </div>
+
+        <!-- Categoría & Asignaciones -->
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1rem;">
+          <div class="form-group">
+            <label for="ticket-cat-field" style="display: block; font-size: 0.82rem; font-weight: 700; margin-bottom: 0.4rem; color: var(--text-secondary);">
+              Categoría del Servicio
+            </label>
+            <select id="ticket-cat-field" name="category" class="input-field" style="width: 100%; box-sizing: border-box;">
+              <option value="Hardware / Equipos">🖥️ Hardware / Equipos</option>
+              <option value="Sistemas / Correo">💿 Sistemas & Correo</option>
+              <option value="Redes / Infraestructura">🌐 Redes & Infraestructura</option>
+              <option value="Cuentas y Accesos">🔐 Cuentas y Accesos VPN</option>
+              <option value="Gestión de Personal">👥 Gestión de Personal / Onboarding</option>
+              <option value="General" selected>💼 Soporte General</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label for="ticket-tech-field" style="display: block; font-size: 0.82rem; font-weight: 700; margin-bottom: 0.4rem; color: var(--text-secondary);">
+              Técnico Asignado (Despacho)
+            </label>
+            <select id="ticket-tech-field" name="assigned_technician_id" class="input-field" style="width: 100%; box-sizing: border-box;">
+              <option value="">-- Sin Asignar (Bandeja General) --</option>
+              {% for tech in technicians %}
+                <option value="{{ tech.id }}">{{ tech.name }}</option>
+              {% endfor %}
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label for="ticket-group-field" style="display: block; font-size: 0.82rem; font-weight: 700; margin-bottom: 0.4rem; color: var(--text-secondary);">
+              Grupo Resolutor
+            </label>
+            <select id="ticket-group-field" name="assigned_group_id" class="input-field" style="width: 100%; box-sizing: border-box;">
+              <option value="">-- Sin Grupo Asignado --</option>
+              {% for grp in groups %}
+                <option value="{{ grp.id }}">{{ grp.name }}</option>
+              {% endfor %}
+            </select>
+          </div>
+        </div>
+
+        <!-- Matriz ITIL: Urgencia x Impacto -->
+        <div style="background: var(--card-subtle-bg); border: 1px solid var(--border-subtle); border-radius: var(--radius-md); padding: 1.25rem;">
+          <div style="font-weight: 700; font-size: 0.88rem; color: var(--text-primary); margin-bottom: 0.75rem; display: flex; align-items: center; justify-content: space-between;">
+            <span>Matriz ITIL de Prioridad (Urgencia × Impacto)</span>
+            <span id="priority-calc-badge" class="table-priority-badge" style="background: rgba(245, 158, 11, 0.15); color: #f59e0b; border-color: rgba(245, 158, 11, 0.3);">
+              🟡 P3 Media
+            </span>
+          </div>
+
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+            <div>
+              <label for="new-urgency-select" style="display: block; font-size: 0.8rem; font-weight: 600; margin-bottom: 0.3rem; color: var(--text-secondary);">
+                Urgencia (Velocidad Requerida)
+              </label>
+              <select id="new-urgency-select" name="urgency" class="input-field" style="width: 100%; box-sizing: border-box;" onchange="recalcPriority()">
+                <option value="1">1 - Muy Baja</option>
+                <option value="2">2 - Baja</option>
+                <option value="3" selected>3 - Media</option>
+                <option value="4">4 - Alta</option>
+                <option value="5">5 - Crítica / Inmediata</option>
+              </select>
+            </div>
+
+            <div>
+              <label for="new-impact-select" style="display: block; font-size: 0.8rem; font-weight: 600; margin-bottom: 0.3rem; color: var(--text-secondary);">
+                Impacto (Alcance Organizacional)
+              </label>
+              <select id="new-impact-select" name="impact" class="input-field" style="width: 100%; box-sizing: border-box;" onchange="recalcPriority()">
+                <option value="1">1 - Muy Bajo (Individual)</option>
+                <option value="2">2 - Bajo (Grupo Pequeño)</option>
+                <option value="3" selected>3 - Medio (Departamento)</option>
+                <option value="4">4 - Alto (Sede / Sucursal)</option>
+                <option value="5">5 - Crítico (Empresa Completa)</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <!-- Descripción Detallada -->
+        <div class="form-group">
+          <label for="ticket-content-field" style="display: block; font-size: 0.82rem; font-weight: 700; margin-bottom: 0.4rem; color: var(--text-secondary);">
+            Descripción Detallada del Incidente o Solicitud <span style="color: var(--accent-coral);">*</span>
+          </label>
+          <textarea
+            id="ticket-content-field"
+            name="content"
+            rows="6"
+            class="input-field"
+            placeholder="Describa el comportamiento anómalo presentado, pasos para reproducir o detalles del requerimiento..."
+            required
+            style="width: 100%; box-sizing: border-box; resize: vertical; line-height: 1.6; font-size: 0.9rem;"
+          ></textarea>
+        </div>
+
+        <!-- Submit Button Row -->
+        <div style="display: flex; align-items: center; justify-content: flex-end; gap: 0.75rem; border-top: 1px solid var(--border-subtle); padding-top: 1.25rem;">
+          <a href="/tickets" class="btn btn-secondary">
+            Cancelar
+          </a>
+          <button type="submit" class="btn btn-primary" style="padding: 0.75rem 2rem; font-size: 0.95rem;">
+            <span>💾</span>
+            <span>Registrar y Crear Ticket</span>
+          </button>
+        </div>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+  function applyTemplate(name, type, category, title, content, urgency, impact) {
+    if (type === 'request') {
+      document.getElementById('type-request').checked = true;
+    } else {
+      document.getElementById('type-incident').checked = true;
+    }
+
+    if (title && title.length > 0) {
+      document.getElementById('ticket-name-field').value = title;
+    } else {
+      document.getElementById('ticket-name-field').value = name;
+    }
+
+    if (content && content.length > 0) {
+      document.getElementById('ticket-content-field').value = content;
+    }
+
+    var catSelect = document.getElementById('ticket-cat-field');
+    for (var i = 0; i < catSelect.options.length; i++) {
+      if (catSelect.options[i].value === category) {
+        catSelect.selectedIndex = i;
+        break;
+      }
+    }
+
+    document.getElementById('new-urgency-select').value = urgency;
+    document.getElementById('new-impact-select').value = impact;
+    recalcPriority();
+  }
+
+  function recalcPriority() {
+    var u = parseInt(document.getElementById('new-urgency-select').value) || 3;
+    var i = parseInt(document.getElementById('new-impact-select').value) || 3;
+    var matrix = [
+      [1, 1, 2, 3, 4],
+      [1, 2, 2, 3, 4],
+      [2, 2, 3, 4, 5],
+      [3, 3, 4, 5, 5],
+      [4, 4, 5, 5, 5]
+    ];
+    var p = matrix[u - 1][i - 1];
+    var badge = document.getElementById('priority-calc-badge');
+    if (!badge) return;
+
+    if (p === 5) {
+      badge.textContent = '⚡ P5 Crítica';
+      badge.style.background = 'rgba(239, 68, 68, 0.15)';
+      badge.style.color = '#ef4444';
+      badge.style.borderColor = 'rgba(239, 68, 68, 0.3)';
+    } else if (p === 4) {
+      badge.textContent = '🔥 P4 Alta';
+      badge.style.background = 'rgba(249, 115, 22, 0.15)';
+      badge.style.color = '#f97316';
+      badge.style.borderColor = 'rgba(249, 115, 22, 0.3)';
+    } else if (p === 3) {
+      badge.textContent = '🟡 P3 Media';
+      badge.style.background = 'rgba(245, 158, 11, 0.15)';
+      badge.style.color = '#f59e0b';
+      badge.style.borderColor = 'rgba(245, 158, 11, 0.3)';
+    } else if (p === 2) {
+      badge.textContent = '🟢 P2 Baja';
+      badge.style.background = 'rgba(59, 130, 246, 0.15)';
+      badge.style.color = '#3b82f6';
+      badge.style.borderColor = 'rgba(59, 130, 246, 0.3)';
+    } else {
+      badge.textContent = '⚪ P1 Muy Baja';
+      badge.style.background = 'rgba(148, 163, 184, 0.15)';
+      badge.style.color = '#94a3b8';
+      badge.style.borderColor = 'rgba(148, 163, 184, 0.3)';
+    }
+  }
+</script>
+{% endblock %}
