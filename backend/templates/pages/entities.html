@@ -1,0 +1,210 @@
+{% extends "layouts/base.html" %}
+
+{% block title %}Jerarquía Multi-Inquilino de Entidades - ITILSuite{% endblock %}
+
+{% block content %}
+<div class="tickets-page-container" style="display: flex; flex-direction: column; gap: 1.25rem;">
+  <!-- Header & Actions -->
+  <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 1rem;">
+    <div>
+      <div style="display: flex; align-items: center; gap: 0.5rem; font-size: 0.8rem; color: var(--text-muted); margin-bottom: 0.25rem;">
+        <span>Administración</span>
+        <span>/</span>
+        <span style="color: var(--text-primary); font-weight: 500;">Multi-Tenancy</span>
+      </div>
+      <h1 style="margin: 0; font-size: 1.5rem; font-weight: 700; color: var(--text-primary); display: flex; align-items: center; gap: 0.6rem;">
+        <span>🏢</span>
+        <span>Jerarquía Multi-Inquilino de Entidades</span>
+      </h1>
+      <p style="margin: 0.25rem 0 0; font-size: 0.85rem; color: var(--text-secondary);">
+        Estructura organizacional recursiva compatible con GLPI que gobierna el aislamiento de tickets, activos y usuarios.
+      </p>
+    </div>
+
+    <div style="display: flex; align-items: center; gap: 0.75rem;">
+      <a href="/entities" class="btn btn-secondary" title="Actualizar">
+        <span>🔄</span>
+        <span>Refrescar</span>
+      </a>
+      <button type="button" class="btn btn-primary" onclick="openNewEntityModal()">
+        <span>➕</span>
+        <span>Nueva Entidad</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- KPI Cards -->
+  <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 0.75rem;">
+    <div class="dashboard-kpi-card" style="padding: 0.85rem 1rem;">
+      <div style="font-size: 0.72rem; color: var(--text-muted); font-weight: 600; text-transform: uppercase;">Total Entidades</div>
+      <div style="font-size: 1.5rem; font-weight: 800; color: var(--text-primary); margin-top: 0.2rem;">
+        {{ total_entities }}
+      </div>
+    </div>
+    <div class="dashboard-kpi-card" style="padding: 0.85rem 1rem;">
+      <div style="font-size: 0.72rem; color: var(--text-muted); font-weight: 600; text-transform: uppercase;">Entidad Activa</div>
+      <div style="font-size: 1.1rem; font-weight: 700; color: var(--accent-coral); margin-top: 0.35rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+        {{ active_entity_name }}
+      </div>
+    </div>
+    <div class="dashboard-kpi-card" style="padding: 0.85rem 1rem;">
+      <div style="font-size: 0.72rem; color: var(--text-muted); font-weight: 600; text-transform: uppercase;">Profundidad de Árbol</div>
+      <div style="font-size: 1.5rem; font-weight: 800; color: #3b82f6; margin-top: 0.2rem;">
+        {{ max_level }} Niveles
+      </div>
+    </div>
+    <div class="dashboard-kpi-card" style="padding: 0.85rem 1rem;">
+      <div style="font-size: 0.72rem; color: var(--text-muted); font-weight: 600; text-transform: uppercase;">Aislamiento de Datos</div>
+      <div style="font-size: 1.1rem; font-weight: 700; color: #10b981; margin-top: 0.35rem;">
+        Estricto Recursivo
+      </div>
+    </div>
+  </div>
+
+  <!-- Dual Layout: Tree View & Flat Table -->
+  <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem; align-items: start;">
+    <!-- Visual Entity Tree -->
+    <div class="card" style="display: flex; flex-direction: column; gap: 1rem;">
+      <div style="border-bottom: 1px solid var(--border-subtle); padding-bottom: 0.75rem;">
+        <h3 style="margin: 0; font-size: 1rem; font-weight: 700; color: var(--text-primary); display: flex; align-items: center; gap: 0.5rem;">
+          <span>🌳</span>
+          <span>Árbol Jerárquico Visual</span>
+        </h3>
+        <p style="margin: 0.25rem 0 0; font-size: 0.78rem; color: var(--text-muted);">
+          Navegación estructural de sedes, filiales y departamentos con niveles de herencia.
+        </p>
+      </div>
+
+      <div class="tree-container" style="display: flex; flex-direction: column; gap: 0.5rem;">
+        {% for entity in entities %}
+          <div style="padding-left: {{ (entity.level - 1) * 28 }}px; position: relative;">
+            <div style="display: flex; align-items: center; gap: 0.6rem; padding: 0.65rem 0.85rem; background: var(--bg-elevated); border-radius: var(--radius-sm); border: 1px solid var(--border-subtle);">
+              <span style="font-size: 1.1rem;">
+                {% if entity.level == 1 %}🏛️
+                {% else if entity.level == 2 %}🏢
+                {% else %}📂
+                {% endif %}
+              </span>
+              <div style="flex: 1;">
+                <div style="font-size: 0.85rem; font-weight: 600; color: var(--text-primary);">
+                  {{ entity.name }}
+                </div>
+                <div style="font-size: 0.72rem; color: var(--text-muted);">
+                  {{ entity.completeness }}
+                </div>
+              </div>
+              <span style="font-size: 0.7rem; font-weight: 600; padding: 0.15rem 0.5rem; border-radius: 999px; background: rgba(59, 130, 246, 0.15); color: #60a5fa; border: 1px solid rgba(59, 130, 246, 0.3);">
+                Nivel {{ entity.level }}
+              </span>
+            </div>
+          </div>
+        {% endfor %}
+      </div>
+    </div>
+
+    <!-- Administrative Entities Table -->
+    <div class="card" style="display: flex; flex-direction: column; gap: 1rem;">
+      <div style="border-bottom: 1px solid var(--border-subtle); padding-bottom: 0.75rem;">
+        <h3 style="margin: 0; font-size: 1rem; font-weight: 700; color: var(--text-primary); display: flex; align-items: center; gap: 0.5rem;">
+          <span>📋</span>
+          <span>Catálogo Administrativo</span>
+        </h3>
+        <p style="margin: 0.25rem 0 0; font-size: 0.78rem; color: var(--text-muted);">
+          Listado de entidades registradas para auditoría y asignación de políticas.
+        </p>
+      </div>
+
+      <div style="overflow-x: auto;">
+        <table class="tickets-table" style="width: 100%; border-collapse: collapse; font-size: 0.82rem;">
+          <thead>
+            <tr style="border-bottom: 1px solid var(--border-subtle); color: var(--text-muted); font-size: 0.72rem; text-transform: uppercase;">
+              <th style="padding: 0.6rem 0.75rem;">Nivel</th>
+              <th style="padding: 0.6rem 0.75rem;">Nombre</th>
+              <th style="padding: 0.6rem 0.75rem;">Ruta Calificada</th>
+              <th style="padding: 0.6rem 0.75rem;">Fecha Alta</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for entity in entities %}
+              <tr style="border-bottom: 1px solid var(--border-subtle);">
+                <td style="padding: 0.6rem 0.75rem;">
+                  <span style="font-family: var(--font-mono); font-size: 0.75rem; color: var(--text-secondary);">
+                    L{{ entity.level }}
+                  </span>
+                </td>
+                <td style="padding: 0.6rem 0.75rem; font-weight: 600; color: var(--text-primary);">
+                  {{ entity.name }}
+                </td>
+                <td style="padding: 0.6rem 0.75rem; color: var(--text-secondary); font-size: 0.75rem;">
+                  {{ entity.completeness }}
+                </td>
+                <td style="padding: 0.6rem 0.75rem; color: var(--text-muted); font-size: 0.72rem;">
+                  {{ entity.created_at.format("%d/%m/%Y") }}
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Nueva Entidad -->
+<div id="modal-new-entity" style="display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.7); z-index: 1000; align-items: center; justify-content: center; backdrop-filter: blur(4px);">
+  <div class="card" style="width: 100%; max-width: 500px; margin: 1rem; display: flex; flex-direction: column; gap: 1.25rem;">
+    <div style="display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--border-subtle); padding-bottom: 0.75rem;">
+      <h3 style="margin: 0; font-size: 1.1rem; font-weight: 700; color: var(--text-primary); display: flex; align-items: center; gap: 0.5rem;">
+        <span>🏢</span>
+        <span>Crear Nueva Entidad</span>
+      </h3>
+      <button type="button" class="btn btn-secondary btn-sm" onclick="closeNewEntityModal()">✕</button>
+    </div>
+
+    <form action="/entities" method="POST" style="display: flex; flex-direction: column; gap: 1rem;">
+      <div class="form-group">
+        <label class="form-label">Nombre de la Entidad / Sede / Dpto *</label>
+        <input
+          type="text"
+          name="name"
+          required
+          placeholder="Ej: Sede Norte / Soporte TI / Finanzas"
+          class="form-input"
+          style="width: 100%;"
+        />
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Entidad Padre (Jerarquía)</label>
+        <select name="parent_id" class="form-select" style="width: 100%;">
+          {% for entity in entities %}
+            <option value="{{ entity.id }}">{{ entity.completeness }}</option>
+          {% endfor %}
+        </select>
+        <span style="font-size: 0.72rem; color: var(--text-muted); margin-top: 0.25rem; display: block;">
+          La nueva entidad heredará la jerarquía y se posicionará como rama subordinada.
+        </span>
+      </div>
+
+      <div style="display: flex; justify-content: flex-end; gap: 0.75rem; border-top: 1px solid var(--border-subtle); padding-top: 1rem;">
+        <button type="button" class="btn btn-secondary" onclick="closeNewEntityModal()">Cancelar</button>
+        <button type="submit" class="btn btn-primary">
+          <span>➕</span>
+          <span>Crear Entidad</span>
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+function openNewEntityModal() {
+  const modal = document.getElementById('modal-new-entity');
+  if (modal) modal.style.display = 'flex';
+}
+function closeNewEntityModal() {
+  const modal = document.getElementById('modal-new-entity');
+  if (modal) modal.style.display = 'none';
+}
+</script>
+{% endblock %}

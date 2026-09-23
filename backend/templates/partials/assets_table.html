@@ -1,0 +1,126 @@
+{% if assets.is_empty() %}
+<tr>
+  <td colspan="8">
+    <div class="tickets-empty-state" style="padding: 3rem 1rem; text-align: center;">
+      <div class="empty-icon" style="font-size: 2.5rem; margin-bottom: 0.5rem;">🖥️</div>
+      <h3 style="margin-bottom: 0.25rem;">No se encontraron activos tecnológicos</h3>
+      <p style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 1.25rem;">No hay equipos o dispositivos que coincidan con los filtros seleccionados.</p>
+      <div class="empty-actions" style="display: flex; gap: 0.75rem; justify-content: center;">
+        <a href="/assets" class="btn btn-secondary" style="font-size: 0.85rem;">Limpiar Filtros</a>
+        <a href="/computers/new" class="btn btn-primary" style="font-size: 0.85rem;">
+          <span>➕</span>
+          <span>Registrar Activo</span>
+        </a>
+      </div>
+    </div>
+  </td>
+</tr>
+{% else %}
+  {% for asset in assets %}
+  <tr class="ticket-row" onclick="window.location.href='/assets/{{ asset.id }}'" style="cursor: pointer;">
+    <td>
+      <div style="display: flex; align-items: center; gap: 0.6rem;">
+        <div style="font-size: 1.25rem; width: 32px; height: 32px; border-radius: 6px; display: flex; align-items: center; justify-content: center; background: rgba(247, 242, 236, 0.05); border: 1px solid var(--border-subtle);">
+          {% if asset.asset_type.as_str() == "computer" %}💻
+          {% else if asset.asset_type.as_str() == "server" %}🗄️
+          {% else if asset.asset_type.as_str() == "network_equipment" %}🌐
+          {% else if asset.asset_type.as_str() == "monitor" %}🖥️
+          {% else if asset.asset_type.as_str() == "printer" %}🖨️
+          {% else if asset.asset_type.as_str() == "phone" %}📱
+          {% else %}📦
+          {% endif %}
+        </div>
+        <div>
+          <a href="/assets/{{ asset.id }}" class="table-ticket-name" style="font-weight: 600; color: var(--text-primary);" onclick="event.stopPropagation()">
+            {{ asset.name }}
+          </a>
+          <div style="font-size: 0.72rem; color: var(--text-muted); display: flex; gap: 0.4rem; align-items: center; margin-top: 0.15rem;">
+            {% if let Some(sn) = asset.serial_number %}
+              <span>S/N: <code>{{ sn }}</code></span>
+            {% endif %}
+            {% if let Some(inv) = asset.inventory_number %}
+              <span>• Inv: <code>{{ inv }}</code></span>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+    </td>
+    <td>
+      <div style="font-size: 0.82rem; color: var(--text-primary); font-weight: 500;">
+        {% if let Some(mfg) = asset.manufacturer %}
+          {{ mfg }}
+        {% else %}
+          <span style="color: var(--text-muted);">-</span>
+        {% endif %}
+      </div>
+      <div style="font-size: 0.75rem; color: var(--text-secondary);">
+        {% if let Some(mdl) = asset.model %}
+          {{ mdl }}
+        {% endif %}
+      </div>
+    </td>
+    <td>
+      <span class="meta-entity-badge" style="font-size: 0.72rem;">🏢 {{ asset.entity_name }}</span>
+    </td>
+    <td>
+      {% if let Some(loc) = asset.location %}
+        <span style="font-size: 0.8rem; color: var(--text-secondary); display: inline-flex; align-items: center; gap: 0.25rem;">
+          📍 {{ loc }}
+        </span>
+      {% else %}
+        <span style="color: var(--text-muted); font-size: 0.75rem;">Sin ubicación</span>
+      {% endif %}
+    </td>
+    <td>
+      {% if let Some(user) = asset.user_name %}
+        <div style="display: flex; align-items: center; gap: 0.35rem; font-size: 0.8rem; color: var(--text-primary);">
+          <span>👤</span>
+          <span>{{ user }}</span>
+        </div>
+      {% else if let Some(tech) = asset.technician_name %}
+        <div style="display: flex; align-items: center; gap: 0.35rem; font-size: 0.8rem; color: var(--accent-blue);">
+          <span>🛠️</span>
+          <span>{{ tech }}</span>
+        </div>
+      {% else %}
+        <span style="color: var(--text-muted); font-size: 0.75rem;">Sin asignar</span>
+      {% endif %}
+    </td>
+    <td>
+      {% if asset.status.as_str() == "active" %}
+        <span class="status-pill status-solved" style="font-size: 0.72rem;">● Activo</span>
+      {% else if asset.status.as_str() == "in_stock" %}
+        <span class="status-pill status-assigned" style="font-size: 0.72rem;">📦 En Stock</span>
+      {% else if asset.status.as_str() == "in_repair" %}
+        <span class="status-pill status-pending" style="font-size: 0.72rem;">🛠️ En Reparación</span>
+      {% else if asset.status.as_str() == "reserved" %}
+        <span class="status-pill status-planned" style="font-size: 0.72rem;">🔒 Reservado</span>
+      {% else %}
+        <span class="status-pill status-closed" style="font-size: 0.72rem;">✕ Decomisado</span>
+      {% endif %}
+    </td>
+    <td>
+      {% if let Some(last_inv) = asset.last_inventory_at %}
+        <div style="display: flex; flex-direction: column; gap: 0.15rem;">
+          <span style="display: inline-flex; align-items: center; gap: 0.25rem; font-size: 0.72rem; color: var(--accent-emerald); font-weight: 600;">
+            <span style="width: 6px; height: 6px; border-radius: 50%; background: var(--accent-emerald);"></span>
+            Sincronizado
+          </span>
+          <span style="font-size: 0.68rem; color: var(--text-muted);">
+            {{ last_inv.format("%d/%m/%Y %H:%M") }}
+          </span>
+        </div>
+      {% else %}
+        <span style="font-size: 0.72rem; color: var(--text-muted);">Manual</span>
+      {% endif %}
+    </td>
+    <td style="text-align: right;" onclick="event.stopPropagation()">
+      <div style="display: inline-flex; gap: 0.4rem;">
+        <a href="/assets/{{ asset.id }}" class="btn btn-secondary" style="padding: 0.25rem 0.5rem; font-size: 0.75rem;" title="Ver Ficha Técnica">
+          👁️
+        </a>
+      </div>
+    </td>
+  </tr>
+  {% endfor %}
+{% endif %}

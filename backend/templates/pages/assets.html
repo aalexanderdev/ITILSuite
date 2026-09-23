@@ -1,0 +1,201 @@
+{% extends "layouts/base.html" %}
+
+{% block title %}Inventario & CMDB Tecnológico - ITILSuite{% endblock %}
+
+{% block content %}
+<div class="tickets-page-container" style="display: flex; flex-direction: column; gap: 1.25rem;">
+  <!-- Header & Actions -->
+  <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 1rem;">
+    <div>
+      <div style="display: flex; align-items: center; gap: 0.5rem; font-size: 0.8rem; color: var(--text-muted); margin-bottom: 0.25rem;">
+        <span>Inventario</span>
+        <span>/</span>
+        <span style="color: var(--text-primary); font-weight: 500;">Gestión de Activos & CMDB</span>
+      </div>
+      <h1 style="margin: 0; font-size: 1.5rem; font-weight: 700; color: var(--text-primary); display: flex; align-items: center; gap: 0.6rem;">
+        <span>🖥️</span>
+        <span>Parque Tecnológico & Activos</span>
+      </h1>
+    </div>
+
+    <div style="display: flex; align-items: center; gap: 0.75rem;">
+      <a href="/assets" class="btn btn-secondary" title="Actualizar tabla">
+        <span>🔄</span>
+        <span>Refrescar</span>
+      </a>
+      <a href="/computers/new" class="btn btn-primary" id="btn-open-create-asset">
+        <span>➕</span>
+        <span>Registrar Activo</span>
+      </a>
+    </div>
+  </div>
+
+  <!-- KPI Mini Cards -->
+  <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 0.75rem;">
+    <div class="dashboard-kpi-card" style="padding: 0.85rem 1rem;">
+      <div style="font-size: 0.7rem; color: var(--text-muted); font-weight: 600; text-transform: uppercase;">Total Activos</div>
+      <div style="font-size: 1.4rem; font-weight: 800; color: var(--text-primary); margin-top: 0.2rem;">
+        {{ metrics.total_assets }}
+      </div>
+    </div>
+    <div class="dashboard-kpi-card" style="padding: 0.85rem 1rem;">
+      <div style="font-size: 0.7rem; color: var(--text-muted); font-weight: 600; text-transform: uppercase;">Computadores</div>
+      <div style="font-size: 1.4rem; font-weight: 800; color: #3b82f6; margin-top: 0.2rem;">
+        {{ metrics.computers_count }}
+      </div>
+    </div>
+    <div class="dashboard-kpi-card" style="padding: 0.85rem 1rem;">
+      <div style="font-size: 0.7rem; color: var(--text-muted); font-weight: 600; text-transform: uppercase;">Servidores</div>
+      <div style="font-size: 1.4rem; font-weight: 800; color: #8b5cf6; margin-top: 0.2rem;">
+        {{ metrics.servers_count }}
+      </div>
+    </div>
+    <div class="dashboard-kpi-card" style="padding: 0.85rem 1rem;">
+      <div style="font-size: 0.7rem; color: var(--text-muted); font-weight: 600; text-transform: uppercase;">Equipos Red</div>
+      <div style="font-size: 1.4rem; font-weight: 800; color: #06b6d4; margin-top: 0.2rem;">
+        {{ metrics.network_equipment_count }}
+      </div>
+    </div>
+    <div class="dashboard-kpi-card" style="padding: 0.85rem 1rem;">
+      <div style="font-size: 0.7rem; color: var(--text-muted); font-weight: 600; text-transform: uppercase;">Monitores</div>
+      <div style="font-size: 1.4rem; font-weight: 800; color: #eab308; margin-top: 0.2rem;">
+        {{ metrics.monitors_count }}
+      </div>
+    </div>
+    <div class="dashboard-kpi-card" style="padding: 0.85rem 1rem;">
+      <div style="font-size: 0.7rem; color: var(--text-muted); font-weight: 600; text-transform: uppercase;">En Stock</div>
+      <div style="font-size: 1.4rem; font-weight: 800; color: #10b981; margin-top: 0.2rem;">
+        {{ metrics.in_stock_count }}
+      </div>
+    </div>
+    <div class="dashboard-kpi-card" style="padding: 0.85rem 1rem;">
+      <div style="font-size: 0.7rem; color: var(--text-muted); font-weight: 600; text-transform: uppercase;">En Reparación</div>
+      <div style="font-size: 1.4rem; font-weight: 800; color: #f97316; margin-top: 0.2rem;">
+        {{ metrics.in_repair_count }}
+      </div>
+    </div>
+    <div class="dashboard-kpi-card" style="padding: 0.85rem 1rem;">
+      <div style="font-size: 0.7rem; color: var(--text-muted); font-weight: 600; text-transform: uppercase;">Vía Agente</div>
+      <div style="font-size: 1.4rem; font-weight: 800; color: #a855f7; margin-top: 0.2rem;">
+        {{ metrics.agent_inventoried_count }}
+      </div>
+    </div>
+  </div>
+
+  <!-- Filters Bar -->
+  <form id="assets-filter-form" class="tickets-filter-bar" style="display: flex; flex-direction: column; gap: 0.75rem; background: var(--bg-card); padding: 1rem; border-radius: var(--radius-md); border: 1px solid var(--border-subtle);" onsubmit="return false;">
+    <div style="display: flex; gap: 0.75rem; flex-wrap: wrap; align-items: center;">
+      <!-- Search -->
+      <div style="flex: 1; min-width: 240px; position: relative;">
+        <span style="position: absolute; left: 0.75rem; top: 50%; transform: translateY(-50%); color: var(--text-muted);">🔍</span>
+        <input
+          type="text"
+          name="search"
+          value="{{ current_search }}"
+          placeholder="Buscar por nombre, serial, modelo, ubicación..."
+          class="form-input"
+          style="padding-left: 2.25rem; width: 100%;"
+          hx-get="/assets/table"
+          hx-target="#assets-table-body"
+          hx-trigger="keyup changed delay:250ms, search"
+          hx-include="#assets-filter-form"
+        />
+      </div>
+
+      <!-- Status Filter -->
+      <div style="width: 170px;">
+        <select
+          name="status"
+          class="form-select"
+          style="width: 100%;"
+          hx-get="/assets/table"
+          hx-target="#assets-table-body"
+          hx-trigger="change"
+          hx-include="#assets-filter-form"
+        >
+          <option value="all" {% if current_status == "all" || current_status == "" %}selected{% endif %}>Todos los Estados</option>
+          <option value="active" {% if current_status == "active" %}selected{% endif %}>Activo</option>
+          <option value="in_stock" {% if current_status == "in_stock" %}selected{% endif %}>En Stock</option>
+          <option value="in_repair" {% if current_status == "in_repair" %}selected{% endif %}>En Reparación</option>
+          <option value="reserved" {% if current_status == "reserved" %}selected{% endif %}>Reservado</option>
+          <option value="decommissioned" {% if current_status == "decommissioned" %}selected{% endif %}>Decomisado</option>
+        </select>
+      </div>
+
+      <a href="/assets" class="btn btn-secondary" style="font-size: 0.82rem;">
+        Limpiar
+      </a>
+    </div>
+
+    <!-- Category Pills -->
+    <div style="display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: center; border-top: 1px solid var(--border-subtle); padding-top: 0.65rem;">
+      <span style="font-size: 0.75rem; color: var(--text-muted); font-weight: 600; margin-right: 0.25rem;">TIPO:</span>
+      <input type="hidden" name="asset_type" id="filter-asset-type" value="{{ current_asset_type }}">
+
+      <button type="button" class="btn btn-secondary btn-sm asset-type-btn {% if current_asset_type == "" || current_asset_type == "all" %}active-pill{% endif %}" onclick="selectAssetType('')">
+        Todos
+      </button>
+      <button type="button" class="btn btn-secondary btn-sm asset-type-btn {% if current_asset_type == "computer" %}active-pill{% endif %}" onclick="selectAssetType('computer')">
+        💻 Computadores
+      </button>
+      <button type="button" class="btn btn-secondary btn-sm asset-type-btn {% if current_asset_type == "server" %}active-pill{% endif %}" onclick="selectAssetType('server')">
+        🗄️ Servidores
+      </button>
+      <button type="button" class="btn btn-secondary btn-sm asset-type-btn {% if current_asset_type == "network_equipment" %}active-pill{% endif %}" onclick="selectAssetType('network_equipment')">
+        🌐 Redes & Conmutación
+      </button>
+      <button type="button" class="btn btn-secondary btn-sm asset-type-btn {% if current_asset_type == "monitor" %}active-pill{% endif %}" onclick="selectAssetType('monitor')">
+        🖥️ Monitores
+      </button>
+      <button type="button" class="btn btn-secondary btn-sm asset-type-btn {% if current_asset_type == "printer" %}active-pill{% endif %}" onclick="selectAssetType('printer')">
+        🖨️ Impresoras
+      </button>
+      <button type="button" class="btn btn-secondary btn-sm asset-type-btn {% if current_asset_type == "phone" %}active-pill{% endif %}" onclick="selectAssetType('phone')">
+        📱 Telefonía
+      </button>
+    </div>
+  </form>
+
+  <!-- Assets Table -->
+  <div class="tickets-table-container" style="background: var(--bg-card); border-radius: var(--radius-md); border: 1px solid var(--border-subtle); overflow-x: auto;">
+    <table class="tickets-table" style="width: 100%; border-collapse: collapse; text-align: left;">
+      <thead>
+        <tr style="border-bottom: 1px solid var(--border-subtle); color: var(--text-muted); font-size: 0.75rem; text-transform: uppercase;">
+          <th style="padding: 0.75rem 1rem;">Activo & Identificador</th>
+          <th style="padding: 0.75rem 1rem;">Fabricante / Modelo</th>
+          <th style="padding: 0.75rem 1rem;">Entidad</th>
+          <th style="padding: 0.75rem 1rem;">Ubicación</th>
+          <th style="padding: 0.75rem 1rem;">Asignación</th>
+          <th style="padding: 0.75rem 1rem;">Estado</th>
+          <th style="padding: 0.75rem 1rem;">Agente GLPI</th>
+          <th style="padding: 0.75rem 1rem; text-align: right;">Acciones</th>
+        </tr>
+      </thead>
+      <tbody id="assets-table-body">
+        {% include "partials/assets_table.html" %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<script>
+function selectAssetType(type) {
+  document.getElementById('filter-asset-type').value = type;
+  document.querySelectorAll('.asset-type-btn').forEach(btn => {
+    btn.classList.remove('active-pill');
+  });
+  if (event && event.currentTarget) {
+    event.currentTarget.classList.add('active-pill');
+  }
+  htmx.trigger('#assets-filter-form', 'submit');
+}
+</script>
+
+<style>
+.active-pill {
+  background: var(--btn-primary-from) !important;
+  color: #fff !important;
+  border-color: var(--btn-primary-to) !important;
+}
+</style>
+{% endblock %}

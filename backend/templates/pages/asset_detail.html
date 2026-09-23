@@ -1,0 +1,373 @@
+{% extends "layouts/base.html" %}
+
+{% block title %}{{ asset.name }} - Ficha Técnica CMDB - ITILSuite{% endblock %}
+
+{% block content %}
+<div class="ticket-detail-container" style="display: flex; flex-direction: column; gap: 1.25rem;">
+  <!-- Header & Back Navigation -->
+  <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 1rem;">
+    <div>
+      <div style="display: flex; align-items: center; gap: 0.5rem; font-size: 0.8rem; color: var(--text-muted); margin-bottom: 0.25rem;">
+        <a href="/assets" style="color: var(--accent-coral); text-decoration: none;">← Volver al Inventario</a>
+        <span>/</span>
+        <span style="color: var(--text-primary); font-weight: 500;">Ficha de Activo</span>
+      </div>
+      <div style="display: flex; align-items: center; gap: 0.75rem;">
+        <span style="font-size: 1.75rem;">
+          {% if asset.asset_type.as_str() == "computer" %}💻
+          {% else if asset.asset_type.as_str() == "server" %}🗄️
+          {% else if asset.asset_type.as_str() == "network_equipment" %}🌐
+          {% else if asset.asset_type.as_str() == "monitor" %}🖥️
+          {% else if asset.asset_type.as_str() == "printer" %}🖨️
+          {% else if asset.asset_type.as_str() == "phone" %}📱
+          {% else %}📦
+          {% endif %}
+        </span>
+        <div>
+          <h1 style="margin: 0; font-size: 1.5rem; font-weight: 700; color: var(--text-primary);">
+            {{ asset.name }}
+          </h1>
+          <div style="display: flex; align-items: center; gap: 0.5rem; margin-top: 0.2rem; font-size: 0.8rem; color: var(--text-secondary);">
+            {% if let Some(mfg) = asset.manufacturer %}
+              <span>{{ mfg }}</span>
+            {% endif %}
+            {% if let Some(mdl) = asset.model %}
+              <span>{{ mdl }}</span>
+            {% endif %}
+            {% if let Some(sn) = asset.serial_number %}
+              <span>• Serial: <code>{{ sn }}</code></span>
+            {% endif %}
+            {% if let Some(inv) = asset.inventory_number %}
+              <span>• Placa Inv: <code>{{ inv }}</code></span>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Status Badges -->
+    <div style="display: flex; align-items: center; gap: 0.6rem;">
+      {% if asset.status.as_str() == "active" %}
+        <span class="status-pill status-solved" style="font-size: 0.85rem; padding: 0.35rem 0.75rem;">● Activo</span>
+      {% else if asset.status.as_str() == "in_stock" %}
+        <span class="status-pill status-assigned" style="font-size: 0.85rem; padding: 0.35rem 0.75rem;">📦 En Stock</span>
+      {% else if asset.status.as_str() == "in_repair" %}
+        <span class="status-pill status-pending" style="font-size: 0.85rem; padding: 0.35rem 0.75rem;">🛠️ En Reparación</span>
+      {% else if asset.status.as_str() == "reserved" %}
+        <span class="status-pill status-planned" style="font-size: 0.85rem; padding: 0.35rem 0.75rem;">🔒 Reservado</span>
+      {% else %}
+        <span class="status-pill status-closed" style="font-size: 0.85rem; padding: 0.35rem 0.75rem;">✕ Decomisado</span>
+      {% endif %}
+
+      {% if let Some(agent) = asset.agent_version %}
+        <span style="background: rgba(168, 85, 247, 0.15); color: #c084fc; border: 1px solid rgba(168, 85, 247, 0.3); padding: 0.35rem 0.75rem; border-radius: var(--radius-sm); font-size: 0.8rem; display: inline-flex; align-items: center; gap: 0.35rem;">
+          <span>🤖</span>
+          <span>GLPI-Agent {{ agent }}</span>
+        </span>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- Main Detail Grid -->
+  <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 1.25rem; align-items: start;">
+    <!-- Left Column: Specs & Connected Hardware -->
+    <div style="display: flex; flex-direction: column; gap: 1.25rem;">
+      <!-- Hardware Specs Card -->
+      <div class="card" style="display: flex; flex-direction: column; gap: 1rem;">
+        <div style="display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--border-subtle); padding-bottom: 0.75rem;">
+          <h3 style="margin: 0; font-size: 1rem; font-weight: 700; color: var(--text-primary); display: flex; align-items: center; gap: 0.5rem;">
+            <span>⚙️</span>
+            <span>Especificaciones Técnicas & Hardware</span>
+          </h3>
+          {% if let Some(last_inv) = asset.last_inventory_at %}
+            <span style="font-size: 0.75rem; color: var(--accent-emerald);">
+              Último inventario: {{ last_inv.format("%d/%m/%Y %H:%M UTC") }}
+            </span>
+          {% endif %}
+        </div>
+
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 0.85rem;">
+          <div style="background: var(--bg-elevated); padding: 0.85rem; border-radius: var(--radius-sm); border: 1px solid var(--border-subtle);">
+            <div style="font-size: 0.72rem; color: var(--text-muted); font-weight: 600; text-transform: uppercase;">Procesador (CPU)</div>
+            <div style="font-size: 0.9rem; font-weight: 600; color: var(--text-primary); margin-top: 0.25rem;">
+              {{ self.cpu_display() }}
+            </div>
+            {% if let Some(cores) = self.cpu_cores_display() %}
+              <div style="font-size: 0.75rem; color: var(--text-secondary); margin-top: 0.15rem;">{{ cores }}</div>
+            {% endif %}
+          </div>
+
+          <div style="background: var(--bg-elevated); padding: 0.85rem; border-radius: var(--radius-sm); border: 1px solid var(--border-subtle);">
+            <div style="font-size: 0.72rem; color: var(--text-muted); font-weight: 600; text-transform: uppercase;">Memoria RAM</div>
+            <div style="font-size: 0.9rem; font-weight: 600; color: var(--text-primary); margin-top: 0.25rem;">
+              {{ self.ram_display() }}
+            </div>
+            {% if let Some(slots) = self.ram_slots_display() %}
+              <div style="font-size: 0.75rem; color: var(--text-secondary); margin-top: 0.15rem;">{{ slots }}</div>
+            {% endif %}
+          </div>
+
+          <div style="background: var(--bg-elevated); padding: 0.85rem; border-radius: var(--radius-sm); border: 1px solid var(--border-subtle);">
+            <div style="font-size: 0.72rem; color: var(--text-muted); font-weight: 600; text-transform: uppercase;">Almacenamiento (Discos)</div>
+            <div style="font-size: 0.9rem; font-weight: 600; color: var(--text-primary); margin-top: 0.25rem;">
+              {{ self.storage_display() }}
+            </div>
+          </div>
+
+          <div style="background: var(--bg-elevated); padding: 0.85rem; border-radius: var(--radius-sm); border: 1px solid var(--border-subtle);">
+            <div style="font-size: 0.72rem; color: var(--text-muted); font-weight: 600; text-transform: uppercase;">Sistema Operativo</div>
+            <div style="font-size: 0.9rem; font-weight: 600; color: var(--text-primary); margin-top: 0.25rem;">
+              {{ self.os_display() }}
+            </div>
+            {% if let Some(details) = self.os_details_display() %}
+              <div style="font-size: 0.75rem; color: var(--text-secondary); margin-top: 0.15rem;">{{ details }}</div>
+            {% endif %}
+          </div>
+
+          <div style="background: var(--bg-elevated); padding: 0.85rem; border-radius: var(--radius-sm); border: 1px solid var(--border-subtle);">
+            <div style="font-size: 0.72rem; color: var(--text-muted); font-weight: 600; text-transform: uppercase;">Red (Dirección IP & MAC)</div>
+            <div style="font-size: 0.9rem; font-weight: 600; color: var(--text-primary); margin-top: 0.25rem;">
+              <code>{{ self.network_ip_display() }}</code>
+            </div>
+            <div style="font-size: 0.75rem; color: var(--text-secondary); margin-top: 0.15rem;">
+              MAC: <code>{{ self.network_mac_display() }}</code>
+              {% if let Some(iface) = self.network_interface_display() %}
+                • {{ iface }}
+              {% endif %}
+            </div>
+          </div>
+
+          <div style="background: var(--bg-elevated); padding: 0.85rem; border-radius: var(--radius-sm); border: 1px solid var(--border-subtle);">
+            <div style="font-size: 0.72rem; color: var(--text-muted); font-weight: 600; text-transform: uppercase;">UUID de Sistema BIOS</div>
+            <div style="font-size: 0.82rem; font-family: var(--font-mono); color: var(--text-primary); margin-top: 0.25rem; word-break: break-all;">
+              {% if let Some(u) = asset.uuid %}
+                {{ u }}
+              {% else %}
+                <span style="color: var(--text-muted); font-family: var(--font-sans);">No registrado</span>
+              {% endif %}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Connected Peripherals & Displays -->
+      <div class="card" style="display: flex; flex-direction: column; gap: 1rem;">
+        <div style="display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--border-subtle); padding-bottom: 0.75rem;">
+          <h3 style="margin: 0; font-size: 1rem; font-weight: 700; color: var(--text-primary); display: flex; align-items: center; gap: 0.5rem;">
+            <span>🔌</span>
+            <span>Periféricos & Monitores Conectados ({{ asset.connections.len() }})</span>
+          </h3>
+        </div>
+
+        {% if asset.connections.is_empty() %}
+          <div style="text-align: center; padding: 1.5rem; color: var(--text-muted); font-size: 0.85rem;">
+            No hay periféricos o pantallas directamente vinculadas a este activo.
+          </div>
+        {% else %}
+          <div style="display: flex; flex-direction: column; gap: 0.65rem;">
+            {% for conn in asset.connections %}
+              <div style="display: flex; align-items: center; justify-content: space-between; padding: 0.75rem; background: var(--bg-elevated); border-radius: var(--radius-sm); border: 1px solid var(--border-subtle);">
+                <div style="display: flex; align-items: center; gap: 0.6rem;">
+                  <span style="font-size: 1.25rem;">
+                    {% if conn.asset_type.as_str() == "monitor" %}🖥️
+                    {% else if conn.asset_type.as_str() == "printer" %}🖨️
+                    {% else %}🔌
+                    {% endif %}
+                  </span>
+                  <div>
+                    <a href="/assets/{{ conn.connected_asset_id }}" style="font-weight: 600; font-size: 0.85rem; color: var(--text-primary); text-decoration: none;">
+                      {{ conn.name }}
+                    </a>
+                    <div style="font-size: 0.75rem; color: var(--text-secondary);">
+                      {% if let Some(m) = conn.model %}
+                        Modelo: {{ m }} •
+                      {% endif %}
+                      Tipo de enlace: {{ conn.connection_type }}
+                    </div>
+                  </div>
+                </div>
+
+                <a href="/assets/{{ conn.connected_asset_id }}" class="btn btn-secondary btn-sm">
+                  Ver Dispositivo
+                </a>
+              </div>
+            {% endfor %}
+          </div>
+        {% endif %}
+      </div>
+
+      <!-- Software Inventory (GLPI Agent) -->
+      {% if !self.softwares_list().is_empty() %}
+      <div class="card" style="display: flex; flex-direction: column; gap: 0.85rem;">
+        <div style="display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--border-subtle); padding-bottom: 0.75rem;">
+          <h3 style="margin: 0; font-size: 1rem; font-weight: 700; color: var(--text-primary); display: flex; align-items: center; gap: 0.5rem;">
+            <span>📦</span>
+            <span>Software & Paquetes Detectados ({{ self.softwares_list().len() }})</span>
+          </h3>
+          <span style="font-size: 0.75rem; color: var(--text-muted);">Inventariado automáticamente</span>
+        </div>
+        <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 0.65rem;">
+          {% for sw in self.softwares_list() %}
+            <div style="padding: 0.65rem 0.85rem; background: var(--bg-elevated); border-radius: var(--radius-sm); border: 1px solid var(--border-subtle);">
+              <div style="font-weight: 600; font-size: 0.85rem; color: var(--text-primary);">{{ sw.0 }}</div>
+              <div style="font-size: 0.75rem; color: var(--text-secondary); margin-top: 0.15rem;">
+                Versión: <span style="color: var(--text-primary); font-family: var(--font-mono);">{{ sw.1 }}</span>
+                {% if !sw.2.is_empty() %}
+                  • {{ sw.2 }}
+                {% endif %}
+              </div>
+            </div>
+          {% endfor %}
+        </div>
+      </div>
+      {% endif %}
+
+      <!-- Field Locks Card (GLPI Compatibility) -->
+      <div class="card" style="display: flex; flex-direction: column; gap: 0.75rem;">
+        <div style="display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--border-subtle); padding-bottom: 0.5rem;">
+          <h3 style="margin: 0; font-size: 0.95rem; font-weight: 700; color: var(--text-primary); display: flex; align-items: center; gap: 0.5rem;">
+            <span>🛡️</span>
+            <span>Protección de Campos (GLPI Field Locks)</span>
+          </h3>
+          {% if asset.is_locked %}
+            <span style="font-size: 0.75rem; background: rgba(239, 68, 68, 0.15); color: #ef4444; padding: 0.2rem 0.5rem; border-radius: var(--radius-sm); font-weight: 600;">
+              Bloqueo Activo
+            </span>
+          {% else %}
+            <span style="font-size: 0.75rem; color: var(--text-muted);">
+              Sin campos bloqueados
+            </span>
+          {% endif %}
+        </div>
+        <p style="font-size: 0.8rem; color: var(--text-muted); margin: 0;">
+          Los campos protegidos están blindados contra sobrescrituras automáticas del GLPI-Agent cuando se ejecutan sincronizaciones de inventario.
+        </p>
+        {% if !asset.locked_fields.is_empty() %}
+          <div style="display: flex; gap: 0.4rem; flex-wrap: wrap; margin-top: 0.25rem;">
+            {% for field in asset.locked_fields %}
+              <span style="background: rgba(245, 158, 11, 0.15); color: #f59e0b; border: 1px solid rgba(245, 158, 11, 0.3); font-size: 0.72rem; padding: 0.15rem 0.45rem; border-radius: var(--radius-sm); font-family: var(--font-mono);">
+                🔒 {{ field }}
+              </span>
+            {% endfor %}
+          </div>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- Right Column: Editing Form & Governance -->
+    <div style="display: flex; flex-direction: column; gap: 1.25rem;">
+      <!-- Edit Properties Form -->
+      <form action="/assets/{{ asset.id }}" method="POST" class="card" style="display: flex; flex-direction: column; gap: 1rem;">
+        <div style="border-bottom: 1px solid var(--border-subtle); padding-bottom: 0.5rem;">
+          <h3 style="margin: 0; font-size: 1rem; font-weight: 700; color: var(--text-primary); display: flex; align-items: center; gap: 0.5rem;">
+            <span>✏️</span>
+            <span>Edición de Propiedades</span>
+          </h3>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Estado Operativo</label>
+          <select name="status" class="form-select" style="width: 100%;">
+            <option value="active" {% if self.is_status_selected("active") %}selected{% endif %}>Activo (En uso)</option>
+            <option value="in_stock" {% if self.is_status_selected("in_stock") %}selected{% endif %}>En Stock (Disponible)</option>
+            <option value="in_repair" {% if self.is_status_selected("in_repair") %}selected{% endif %}>En Reparación / Taller</option>
+            <option value="reserved" {% if self.is_status_selected("reserved") %}selected{% endif %}>Reservado</option>
+            <option value="decommissioned" {% if self.is_status_selected("decommissioned") %}selected{% endif %}>Decomisado / Retirado</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Ubicación Física</label>
+          <input
+            type="text"
+            name="location"
+            value="{% if let Some(loc) = asset.location %}{{ loc }}{% endif %}"
+            placeholder="Ej: Sala Servidores Rack 2 / Piso 3 Oficina 302"
+            class="form-input"
+            style="width: 100%;"
+          />
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Técnico Responsable</label>
+          <select name="technician_id" class="form-select" style="width: 100%;">
+            <option value="">Sin Asignar</option>
+            {% for tech in technicians %}
+              <option value="{{ tech.id }}" {% if self.is_technician_selected(tech.id) %}selected{% endif %}>
+                {{ tech.name }}
+              </option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Usuario Asignado</label>
+          <select name="user_id" class="form-select" style="width: 100%;">
+            <option value="">Sin Asignar</option>
+            {% for usr in users %}
+              <option value="{{ usr.id }}" {% if self.is_user_selected(usr.id) %}selected{% endif %}>
+                {{ usr.name }}
+              </option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Grupo a Cargo</label>
+          <input
+            type="text"
+            name="group_in_charge"
+            value="{% if let Some(grp) = asset.group_in_charge %}{{ grp }}{% endif %}"
+            placeholder="Ej: Soporte TI Nivel 1"
+            class="form-input"
+            style="width: 100%;"
+          />
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Comentarios / Observaciones</label>
+          <textarea
+            name="comments"
+            rows="3"
+            class="form-input"
+            style="width: 100%; resize: vertical;"
+            placeholder="Notas técnicas sobre este activo..."
+          >{% if let Some(c) = asset.comments %}{{ c }}{% endif %}</textarea>
+        </div>
+
+        <button type="submit" class="btn btn-primary" style="width: 100%; justify-content: center;">
+          <span>💾</span>
+          <span>Guardar Cambios</span>
+        </button>
+      </form>
+
+      <!-- Governance & Auditing Card -->
+      <div class="card" style="display: flex; flex-direction: column; gap: 0.75rem; font-size: 0.8rem;">
+        <h4 style="margin: 0; font-size: 0.85rem; font-weight: 700; color: var(--text-primary); border-bottom: 1px solid var(--border-subtle); padding-bottom: 0.4rem;">
+          Auditoría & Entidad
+        </h4>
+
+        <div style="display: flex; justify-content: space-between; color: var(--text-secondary);">
+          <span>Entidad Propietaria:</span>
+          <strong style="color: var(--text-primary);">{{ asset.entity_name }}</strong>
+        </div>
+
+        <div style="display: flex; justify-content: space-between; color: var(--text-secondary);">
+          <span>Fecha de Registro:</span>
+          <span>{{ asset.created_at.format("%d/%m/%Y") }}</span>
+        </div>
+
+        <div style="display: flex; justify-content: space-between; color: var(--text-secondary);">
+          <span>Última Actualización:</span>
+          <span>{{ asset.updated_at.format("%d/%m/%Y %H:%M") }}</span>
+        </div>
+
+        <div style="display: flex; justify-content: space-between; color: var(--text-secondary);">
+          <span>ID Interno (UUID):</span>
+          <code style="font-size: 0.7rem;">{{ asset.id }}</code>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,325 @@
+{% extends "layouts/base.html" %}
+
+{% block title %}Directorio de Usuarios & Gobierno RBAC - ITILSuite{% endblock %}
+
+{% block content %}
+<div class="tickets-page-container" style="display: flex; flex-direction: column; gap: 1.25rem;">
+  <!-- Header & Actions -->
+  <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 1rem;">
+    <div>
+      <div style="display: flex; align-items: center; gap: 0.5rem; font-size: 0.8rem; color: var(--text-muted); margin-bottom: 0.25rem;">
+        <span>Administración</span>
+        <span>/</span>
+        <span style="color: var(--text-primary); font-weight: 500;">Control de Acceso (RBAC)</span>
+      </div>
+      <h1 style="margin: 0; font-size: 1.5rem; font-weight: 700; color: var(--text-primary); display: flex; align-items: center; gap: 0.6rem;">
+        <span>👥</span>
+        <span>Directorio de Usuarios & Gobierno RBAC</span>
+      </h1>
+      <p style="margin: 0.25rem 0 0; font-size: 0.85rem; color: var(--text-secondary);">
+        Gestión de cuentas, perfiles de autorización ITIL, pertenencia a grupos de trabajo y credenciales.
+      </p>
+    </div>
+
+    <div style="display: flex; align-items: center; gap: 0.75rem;">
+      <a href="/users" class="btn btn-secondary" title="Actualizar">
+        <span>🔄</span>
+        <span>Refrescar</span>
+      </a>
+      <button type="button" class="btn btn-primary" onclick="openNewUserModal()">
+        <span>➕</span>
+        <span>Registrar Usuario</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- KPI Cards -->
+  <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 0.75rem;">
+    <div class="dashboard-kpi-card" style="padding: 0.85rem 1rem;">
+      <div style="font-size: 0.72rem; color: var(--text-muted); font-weight: 600; text-transform: uppercase;">Total Usuarios</div>
+      <div style="font-size: 1.5rem; font-weight: 800; color: var(--text-primary); margin-top: 0.2rem;">
+        {{ total_users }}
+      </div>
+    </div>
+    <div class="dashboard-kpi-card" style="padding: 0.85rem 1rem;">
+      <div style="font-size: 0.72rem; color: var(--text-muted); font-weight: 600; text-transform: uppercase;">Usuarios Activos</div>
+      <div style="font-size: 1.5rem; font-weight: 800; color: #10b981; margin-top: 0.2rem;">
+        {{ active_users_count }}
+      </div>
+    </div>
+    <div class="dashboard-kpi-card" style="padding: 0.85rem 1rem;">
+      <div style="font-size: 0.72rem; color: var(--text-muted); font-weight: 600; text-transform: uppercase;">Técnicos TI</div>
+      <div style="font-size: 1.5rem; font-weight: 800; color: #3b82f6; margin-top: 0.2rem;">
+        {{ technicians_count }}
+      </div>
+    </div>
+    <div class="dashboard-kpi-card" style="padding: 0.85rem 1rem;">
+      <div style="font-size: 0.72rem; color: var(--text-muted); font-weight: 600; text-transform: uppercase;">Administradores</div>
+      <div style="font-size: 1.5rem; font-weight: 800; color: #a855f7; margin-top: 0.2rem;">
+        {{ admins_count }}
+      </div>
+    </div>
+  </div>
+
+  <!-- Filter & Search Bar -->
+  <form action="/users" method="GET" class="tickets-filter-bar" style="display: flex; gap: 0.75rem; flex-wrap: wrap; background: var(--bg-card); padding: 0.85rem 1rem; border-radius: var(--radius-md); border: 1px solid var(--border-subtle); align-items: center;">
+    <div style="flex: 1; min-width: 240px; position: relative;">
+      <span style="position: absolute; left: 0.75rem; top: 50%; transform: translateY(-50%); color: var(--text-muted);">🔍</span>
+      <input
+        type="text"
+        name="search"
+        value="{{ current_search }}"
+        placeholder="Buscar por usuario, nombre o email..."
+        class="form-input"
+        style="padding-left: 2.25rem; width: 100%;"
+      />
+    </div>
+
+    <div style="width: 200px;">
+      <select name="profile" class="form-select" style="width: 100%;" onchange="this.form.submit()">
+        <option value="">Todos los Perfiles</option>
+        {% for p in profiles %}
+          <option value="{{ p.name }}" {% if current_profile == p.name %}selected{% endif %}>{{ p.name }}</option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <div style="width: 160px;">
+      <select name="status" class="form-select" style="width: 100%;" onchange="this.form.submit()">
+        <option value="" {% if current_status == "" %}selected{% endif %}>Todos los Estados</option>
+        <option value="active" {% if current_status == "active" %}selected{% endif %}>Solo Activos</option>
+        <option value="inactive" {% if current_status == "inactive" %}selected{% endif %}>Solo Inactivos</option>
+      </select>
+    </div>
+
+    <button type="submit" class="btn btn-secondary">Filtrar</button>
+    <a href="/users" class="btn btn-secondary">Limpiar</a>
+  </form>
+
+  <!-- Users Table -->
+  <div class="tickets-table-container" style="background: var(--bg-card); border-radius: var(--radius-md); border: 1px solid var(--border-subtle); overflow-x: auto;">
+    <table class="tickets-table" style="width: 100%; border-collapse: collapse; text-align: left;">
+      <thead>
+        <tr style="border-bottom: 1px solid var(--border-subtle); color: var(--text-muted); font-size: 0.75rem; text-transform: uppercase;">
+          <th style="padding: 0.75rem 1rem;">Usuario & Nombre</th>
+          <th style="padding: 0.75rem 1rem;">Correo Electrónico</th>
+          <th style="padding: 0.75rem 1rem;">Perfil ITIL (Rol)</th>
+          <th style="padding: 0.75rem 1rem;">Grupos Transversales</th>
+          <th style="padding: 0.75rem 1rem; text-align: center;">Estado</th>
+          <th style="padding: 0.75rem 1rem; text-align: right;">Acciones</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% if users.is_empty() %}
+          <tr>
+            <td colspan="6" style="padding: 3rem 1rem; text-align: center; color: var(--text-muted);">
+              No se encontraron usuarios que coincidan con los criterios de búsqueda.
+            </td>
+          </tr>
+        {% else %}
+          {% for usr in users %}
+            <tr style="border-bottom: 1px solid var(--border-subtle);">
+              <td style="padding: 0.75rem 1rem;">
+                <div style="display: flex; align-items: center; gap: 0.65rem;">
+                  <div style="width: 32px; height: 32px; border-radius: 50%; background: linear-gradient(135deg, var(--accent-coral), #f97316); color: #fff; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 0.8rem;">
+                    {{ usr.username.chars().next().unwrap_or('U') }}
+                  </div>
+                  <div>
+                    <div style="font-weight: 600; color: var(--text-primary); font-size: 0.88rem;">
+                      {{ usr.display_name }}
+                    </div>
+                    <div style="font-size: 0.75rem; color: var(--text-muted); font-family: var(--font-mono);">
+                      @{{ usr.username }}
+                    </div>
+                  </div>
+                </div>
+              </td>
+              <td style="padding: 0.75rem 1rem; font-size: 0.82rem; color: var(--text-secondary);">
+                {{ usr.email }}
+              </td>
+              <td style="padding: 0.75rem 1rem;">
+                {% if usr.profile_name == "Super-Admin" %}
+                  <span style="background: rgba(168, 85, 247, 0.15); color: #c084fc; border: 1px solid rgba(168, 85, 247, 0.3); font-size: 0.72rem; padding: 0.2rem 0.5rem; border-radius: var(--radius-sm); font-weight: 600;">
+                    👑 {{ usr.profile_name }}
+                  </span>
+                {% else if usr.profile_name == "Technician" %}
+                  <span style="background: rgba(59, 130, 246, 0.15); color: #60a5fa; border: 1px solid rgba(59, 130, 246, 0.3); font-size: 0.72rem; padding: 0.2rem 0.5rem; border-radius: var(--radius-sm); font-weight: 600;">
+                    🛠️ {{ usr.profile_name }}
+                  </span>
+                {% else %}
+                  <span style="background: rgba(16, 185, 129, 0.15); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.3); font-size: 0.72rem; padding: 0.2rem 0.5rem; border-radius: var(--radius-sm); font-weight: 600;">
+                    👤 {{ usr.profile_name }}
+                  </span>
+                {% endif %}
+              </td>
+              <td style="padding: 0.75rem 1rem;">
+                {% if usr.groups.is_empty() %}
+                  <span style="color: var(--text-muted); font-size: 0.75rem;">Sin grupos</span>
+                {% else %}
+                  <div style="display: flex; gap: 0.35rem; flex-wrap: wrap;">
+                    {% for grp in usr.groups %}
+                      <span style="background: rgba(247, 242, 236, 0.06); color: var(--text-secondary); border: 1px solid var(--border-subtle); font-size: 0.7rem; padding: 0.1rem 0.4rem; border-radius: var(--radius-sm);">
+                        👥 {{ grp }}
+                      </span>
+                    {% endfor %}
+                  </div>
+                {% endif %}
+              </td>
+              <td style="padding: 0.75rem 1rem; text-align: center;">
+                <button
+                  type="button"
+                  hx-post="/users/{{ usr.id }}/toggle"
+                  hx-swap="outerHTML"
+                  style="cursor: pointer; background: none; border: none; padding: 0;"
+                  title="Clic para cambiar estado activo/inactivo"
+                >
+                  {% if usr.is_active %}
+                    <span class="status-pill status-solved" style="font-size: 0.72rem;">● Activo</span>
+                  {% else %}
+                    <span class="status-pill status-closed" style="font-size: 0.72rem;">✕ Inactivo</span>
+                  {% endif %}
+                </button>
+              </td>
+              <td style="padding: 0.75rem 1rem; text-align: right;">
+                <button
+                  type="button"
+                  class="btn btn-secondary btn-sm"
+                  hx-post="/users/{{ usr.id }}/toggle"
+                  hx-swap="outerHTML"
+                >
+                  {% if usr.is_active %}Deshabilitar{% else %}Habilitar{% endif %}
+                </button>
+              </td>
+            </tr>
+          {% endfor %}
+        {% endif %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- Modal: Nuevo Usuario -->
+<div id="modal-new-user" style="display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.7); z-index: 1000; align-items: center; justify-content: center; backdrop-filter: blur(4px);">
+  <div class="card" style="width: 100%; max-width: 540px; margin: 1rem; display: flex; flex-direction: column; gap: 1.25rem;">
+    <div style="display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--border-subtle); padding-bottom: 0.75rem;">
+      <h3 style="margin: 0; font-size: 1.1rem; font-weight: 700; color: var(--text-primary); display: flex; align-items: center; gap: 0.5rem;">
+        <span>👤</span>
+        <span>Registrar Nuevo Usuario</span>
+      </h3>
+      <button type="button" class="btn btn-secondary btn-sm" onclick="closeNewUserModal()">✕</button>
+    </div>
+
+    <form action="/users" method="POST" style="display: flex; flex-direction: column; gap: 1rem;">
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem;">
+        <div class="form-group">
+          <label class="form-label">Nombre de Usuario *</label>
+          <input
+            type="text"
+            name="username"
+            required
+            placeholder="ej: jdoe"
+            class="form-input"
+            style="width: 100%;"
+          />
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Correo Electrónico *</label>
+          <input
+            type="email"
+            name="email"
+            required
+            placeholder="jdoe@empresa.com"
+            class="form-input"
+            style="width: 100%;"
+          />
+        </div>
+      </div>
+
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem;">
+        <div class="form-group">
+          <label class="form-label">Nombre</label>
+          <input
+            type="text"
+            name="firstname"
+            placeholder="Juan"
+            class="form-input"
+            style="width: 100%;"
+          />
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Apellido</label>
+          <input
+            type="text"
+            name="realname"
+            placeholder="Pérez"
+            class="form-input"
+            style="width: 100%;"
+          />
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Contraseña Inicial (Opcional, defecto: ITILSuite2026!)</label>
+        <input
+          type="password"
+          name="password"
+          placeholder="Dejar en blanco para clave por defecto"
+          class="form-input"
+          style="width: 100%;"
+        />
+      </div>
+
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem;">
+        <div class="form-group">
+          <label class="form-label">Perfil ITIL (Permisos) *</label>
+          <select name="profile_id" class="form-select" style="width: 100%;">
+            {% for p in profiles %}
+              <option value="{{ p.id }}">{{ p.name }}</option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Entidad Organizacional *</label>
+          <select name="entity_id" class="form-select" style="width: 100%;">
+            {% for ent in entities %}
+              <option value="{{ ent.id }}">{{ ent.completeness }}</option>
+            {% endfor %}
+          </select>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Grupo Transversal Inicial</label>
+        <select name="initial_group_id" class="form-select" style="width: 100%;">
+          <option value="">Sin Asignación a Grupo</option>
+          {% for grp in groups %}
+            <option value="{{ grp.id }}">{{ grp.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div style="display: flex; justify-content: flex-end; gap: 0.75rem; border-top: 1px solid var(--border-subtle); padding-top: 1rem;">
+        <button type="button" class="btn btn-secondary" onclick="closeNewUserModal()">Cancelar</button>
+        <button type="submit" class="btn btn-primary">
+          <span>➕</span>
+          <span>Crear Usuario</span>
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+function openNewUserModal() {
+  const modal = document.getElementById('modal-new-user');
+  if (modal) modal.style.display = 'flex';
+}
+function closeNewUserModal() {
+  const modal = document.getElementById('modal-new-user');
+  if (modal) modal.style.display = 'none';
+}
+</script>
+{% endblock %}

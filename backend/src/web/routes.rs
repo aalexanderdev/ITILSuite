@@ -10,7 +10,13 @@ use chrono::Utc;
 use serde::Deserialize;
 use uuid::Uuid;
 
-use crate::domain::auth::{create_jwt, verify_jwt, verify_password, Claims};
+use crate::domain::asset::{
+    AssetConnectionSummaryDto, AssetDetailDto, AssetMetricsDto, AssetStatus, AssetSummaryDto,
+    AssetType,
+};
+use crate::domain::auth::{create_jwt, hash_password, verify_jwt, verify_password, Claims};
+use crate::domain::entity::{build_entity_tree, Entity};
+use crate::domain::rule::{Rule, RuleAction, RuleCriteria, RuleWithDetails};
 use crate::domain::sla::SlaSummaryDto;
 use crate::domain::survey::{
     CreateSurveyDto, QuestionAnswerInput, SubmitSurveyDto, SurveyPresetDef,
@@ -18,14 +24,17 @@ use crate::domain::survey::{
 use crate::domain::ticket::{
     calculate_priority, TicketDetailDto, TicketFollowupDto, TicketMetricsDto, TicketSummaryDto,
 };
+use crate::domain::user::UserSummaryDto;
 use crate::services::sla_service::SlaService;
 use crate::services::survey_service::SurveyService;
 use crate::state::AppState;
 use crate::web::templates::{
-    ChatAnalyticsTemplate, DashboardTemplate, FollowupPartialTemplate, GroupSelectItem,
-    HtmlTemplate, LoginTemplate, SlasTemplate, SurveyPublicTemplate, SurveysAdminTemplate,
+    AssetDetailTemplate, AssetNewTemplate, AssetsTablePartialTemplate, AssetsTemplate,
+    ChatAnalyticsTemplate, DashboardTemplate, EntitiesTemplate, EntitySelectItem,
+    FollowupPartialTemplate, GroupSelectItem, HtmlTemplate, LoginTemplate, ProfileSelectItem,
+    RuleNewTemplate, RulesTemplate, SlasTemplate, SurveyPublicTemplate, SurveysAdminTemplate,
     TicketDetailTemplate, TicketNewTemplate, TicketTemplateRow, TicketsTablePartialTemplate,
-    TicketsTemplate, UserSelectItem,
+    TicketsTemplate, UserSelectItem, UsersTemplate,
 };
 
 pub fn router() -> Router<AppState> {
@@ -56,6 +65,25 @@ pub fn router() -> Router<AppState> {
         // Phase 2.5: Helpdesk Chat & Analytics
         .route("/chat-analytics", get(show_chat_analytics))
         .route("/chat-analytics/settings", post(handle_update_chat_settings))
+        // Phase 4: CMDB & Inventory
+        .route("/assets", get(show_assets).post(handle_create_asset))
+        .route("/assets/table", get(filter_assets_table))
+        .route("/assets/new", get(show_new_asset))
+        .route("/assets/:id", get(show_asset_detail).post(handle_update_asset))
+        // Aliases for /computers and /network
+        .route("/computers", get(show_assets).post(handle_create_asset))
+        .route("/computers/new", get(show_new_asset))
+        .route("/computers/:id", get(show_asset_detail).post(handle_update_asset))
+        .route("/network", get(show_assets))
+        // Phase 4: Entities
+        .route("/entities", get(show_entities).post(handle_create_entity))
+        // Phase 4: Users & RBAC
+        .route("/users", get(show_users).post(handle_create_user))
+        .route("/users/:id/toggle", post(handle_toggle_user))
+        // Phase 4: Rules & Dictionaries
+        .route("/rules", get(show_rules).post(handle_create_rule))
+        .route("/rules/new", get(show_new_rule))
+        .route("/rules/:id/toggle", post(handle_toggle_rule))
 }
 
 // --- Form & Query Models ---
@@ -128,6 +156,89 @@ pub struct UpdateChatSettingsWebForm {
     pub ticket_conversion_enabled: Option<String>,
     pub allow_attachments: Option<String>,
     pub auto_notify_ticket_events: Option<String>,
+}
+
+// --- Phase 4 Forms & Queries ---
+
+#[derive(Deserialize, Default)]
+pub struct FilterAssetsWebQuery {
+    pub search: Option<String>,
+    pub asset_type: Option<String>,
+    pub status: Option<String>,
+    pub page: Option<i64>,
+    pub limit: Option<i64>,
+}
+
+#[derive(Deserialize)]
+pub struct CreateAssetWebForm {
+    pub name: String,
+    pub asset_type: String,
+    pub entity_id: Option<Uuid>,
+    pub status: Option<String>,
+    pub serial_number: Option<String>,
+    pub inventory_number: Option<String>,
+    pub manufacturer: Option<String>,
+    pub model: Option<String>,
+    pub location: Option<String>,
+    pub technician_id: Option<Uuid>,
+    pub user_id: Option<Uuid>,
+    pub comments: Option<String>,
+}
+
+#[derive(Deserialize)]
+pub struct UpdateAssetWebForm {
+    pub status: Option<String>,
+    pub location: Option<String>,
+    pub technician_id: Option<Uuid>,
+    pub user_id: Option<Uuid>,
+    pub group_in_charge: Option<String>,
+    pub comments: Option<String>,
+}
+
+#[derive(Deserialize)]
+pub struct CreateEntityWebForm {
+    pub name: String,
+    pub parent_id: Option<Uuid>,
+}
+
+#[derive(Deserialize, Default)]
+pub struct FilterUsersWebQuery {
+    pub search: Option<String>,
+    pub profile: Option<String>,
+    pub status: Option<String>,
+}
+
+#[derive(Deserialize)]
+pub struct CreateUserWebForm {
+    pub username: String,
+    pub email: String,
+    pub firstname: Option<String>,
+    pub realname: Option<String>,
+    pub password: Option<String>,
+    pub profile_id: Option<Uuid>,
+    pub entity_id: Option<Uuid>,
+    pub initial_group_id: Option<Uuid>,
+}
+
+#[derive(Deserialize, Default)]
+pub struct RuleTabQuery {
+    pub tab: Option<String>,
+}
+
+#[derive(Deserialize)]
+pub struct CreateRuleWebForm {
+    pub name: String,
+    pub rule_type: String,
+    pub description: Option<String>,
+    pub ranking: Option<i32>,
+    pub match_logic: Option<String>,
+    pub stop_on_first_match: Option<String>,
+    pub criterion_field: String,
+    pub criterion_operator: String,
+    pub criterion_pattern: String,
+    pub action_type: String,
+    pub action_field: String,
+    pub action_value: String,
 }
 
 #[derive(sqlx::FromRow)]
@@ -1456,3 +1567,1050 @@ async fn handle_update_chat_settings(
 
     Redirect::to("/chat-analytics").into_response()
 }
+
+// ----------------------------------------------------------------------------
+// Phase 4 Handlers: CMDB & Assets
+// ----------------------------------------------------------------------------
+
+async fn fetch_assets_list(
+    pool: &sqlx::PgPool,
+    search: Option<&str>,
+    asset_type: Option<&str>,
+    status: Option<&str>,
+    limit: i64,
+    offset: i64,
+) -> Vec<AssetSummaryDto> {
+    let mut sql = String::from(
+        r#"
+        SELECT
+            a.id,
+            a.entity_id,
+            e.name as entity_name,
+            a.name,
+            a.asset_type,
+            a.status,
+            a.serial_number,
+            a.inventory_number,
+            a.uuid,
+            a.manufacturer,
+            a.model,
+            a.location,
+            u.username as user_name,
+            t.username as technician_name,
+            a.last_inventory_at,
+            a.agent_version,
+            a.is_locked,
+            a.created_at,
+            a.updated_at
+        FROM assets a
+        JOIN entities e ON a.entity_id = e.id
+        LEFT JOIN users u ON a.user_id = u.id
+        LEFT JOIN users t ON a.technician_id = t.id
+        WHERE 1=1
+        "#,
+    );
+
+    if let Some(at) = asset_type {
+        if !at.is_empty() && at != "all" {
+            let sanitized = at.replace('\'', "''");
+            sql.push_str(&format!(" AND a.asset_type = '{}'", sanitized));
+        }
+    }
+
+    if let Some(st) = status {
+        if !st.is_empty() && st != "all" {
+            let sanitized = st.replace('\'', "''");
+            sql.push_str(&format!(" AND a.status = '{}'", sanitized));
+        }
+    }
+
+    if let Some(q) = search {
+        if !q.is_empty() {
+            let sanitized = q.replace('\'', "''");
+            sql.push_str(&format!(
+                " AND (a.name ILIKE '%{}%' OR a.serial_number ILIKE '%{}%' OR a.model ILIKE '%{}%' OR a.location ILIKE '%{}%')",
+                sanitized, sanitized, sanitized, sanitized
+            ));
+        }
+    }
+
+    sql.push_str(&format!(" ORDER BY a.updated_at DESC LIMIT {} OFFSET {}", limit, offset));
+
+    let rows = sqlx::query(&sql).fetch_all(pool).await.unwrap_or_default();
+    rows.iter()
+        .map(|r| {
+            use sqlx::Row;
+            let type_str: String = r.get("asset_type");
+            let status_str: String = r.get("status");
+            AssetSummaryDto {
+                id: r.get("id"),
+                entity_id: r.get("entity_id"),
+                entity_name: r.get("entity_name"),
+                name: r.get("name"),
+                asset_type: AssetType::from_str(&type_str),
+                status: AssetStatus::from_str(&status_str),
+                serial_number: r.get("serial_number"),
+                inventory_number: r.get("inventory_number"),
+                uuid: r.get("uuid"),
+                manufacturer: r.get("manufacturer"),
+                model: r.get("model"),
+                location: r.get("location"),
+                user_name: r.get("user_name"),
+                technician_name: r.get("technician_name"),
+                last_inventory_at: r.get("last_inventory_at"),
+                agent_version: r.get("agent_version"),
+                is_locked: r.get("is_locked"),
+                created_at: r.get("created_at"),
+                updated_at: r.get("updated_at"),
+            }
+        })
+        .collect()
+}
+
+async fn fetch_asset_metrics(pool: &sqlx::PgPool) -> AssetMetricsDto {
+    let row_opt = sqlx::query!(
+        r#"
+        SELECT
+            COUNT(*)::bigint as total_assets,
+            COUNT(*) FILTER (WHERE asset_type = 'computer')::bigint as computers_count,
+            COUNT(*) FILTER (WHERE asset_type = 'server')::bigint as servers_count,
+            COUNT(*) FILTER (WHERE asset_type = 'network_equipment')::bigint as network_equipment_count,
+            COUNT(*) FILTER (WHERE asset_type = 'monitor')::bigint as monitors_count,
+            COUNT(*) FILTER (WHERE status = 'active')::bigint as active_count,
+            COUNT(*) FILTER (WHERE status = 'in_stock')::bigint as in_stock_count,
+            COUNT(*) FILTER (WHERE status = 'in_repair')::bigint as in_repair_count,
+            COUNT(*) FILTER (WHERE agent_version IS NOT NULL)::bigint as agent_inventoried_count
+        FROM assets
+        "#
+    )
+    .fetch_optional(pool)
+    .await
+    .unwrap_or(None);
+
+    if let Some(row) = row_opt {
+        AssetMetricsDto {
+            total_assets: row.total_assets.unwrap_or(0),
+            computers_count: row.computers_count.unwrap_or(0),
+            servers_count: row.servers_count.unwrap_or(0),
+            network_equipment_count: row.network_equipment_count.unwrap_or(0),
+            monitors_count: row.monitors_count.unwrap_or(0),
+            active_count: row.active_count.unwrap_or(0),
+            in_stock_count: row.in_stock_count.unwrap_or(0),
+            in_repair_count: row.in_repair_count.unwrap_or(0),
+            agent_inventoried_count: row.agent_inventoried_count.unwrap_or(0),
+        }
+    } else {
+        AssetMetricsDto {
+            total_assets: 0,
+            computers_count: 0,
+            servers_count: 0,
+            network_equipment_count: 0,
+            monitors_count: 0,
+            active_count: 0,
+            in_stock_count: 0,
+            in_repair_count: 0,
+            agent_inventoried_count: 0,
+        }
+    }
+}
+
+async fn show_assets(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Query(filter): Query<FilterAssetsWebQuery>,
+) -> Response {
+    let claims = match extract_claims_from_cookie(&headers, &state.config.jwt_secret) {
+        Some(c) => c,
+        None => return Redirect::to("/login").into_response(),
+    };
+
+    let active_entity_name = get_entity_name(&state.pool, &claims.entity_id).await;
+    let initial = claims.username.chars().next().unwrap_or('U').to_uppercase().to_string();
+
+    let page = filter.page.unwrap_or(1).max(1);
+    let limit = filter.limit.unwrap_or(50).clamp(10, 100);
+    let offset = (page - 1) * limit;
+
+    let assets = fetch_assets_list(
+        &state.pool,
+        filter.search.as_deref(),
+        filter.asset_type.as_deref(),
+        filter.status.as_deref(),
+        limit,
+        offset,
+    )
+    .await;
+
+    let metrics = fetch_asset_metrics(&state.pool).await;
+
+    let total_count = metrics.total_assets;
+    let total_pages = ((total_count as f64) / (limit as f64)).ceil() as i64;
+
+    HtmlTemplate(AssetsTemplate {
+        current_username: claims.username.clone(),
+        current_display_name: claims.username.clone(),
+        current_profile_name: claims.profile_name.clone(),
+        user_initials: initial,
+        active_entity_name,
+        active_nav: "assets".to_string(),
+        assets,
+        metrics,
+        current_search: filter.search.unwrap_or_default(),
+        current_asset_type: filter.asset_type.unwrap_or_default(),
+        current_status: filter.status.unwrap_or_default(),
+        current_page: page,
+        total_pages: total_pages.max(1),
+        total_count,
+        limit,
+    })
+    .into_response()
+}
+
+async fn filter_assets_table(
+    State(state): State<AppState>,
+    Query(filter): Query<FilterAssetsWebQuery>,
+) -> Response {
+    let page = filter.page.unwrap_or(1).max(1);
+    let limit = filter.limit.unwrap_or(50).clamp(10, 100);
+    let offset = (page - 1) * limit;
+
+    let assets = fetch_assets_list(
+        &state.pool,
+        filter.search.as_deref(),
+        filter.asset_type.as_deref(),
+        filter.status.as_deref(),
+        limit,
+        offset,
+    )
+    .await;
+
+    let total_count = assets.len() as i64;
+    let total_pages = ((total_count as f64) / (limit as f64)).ceil() as i64;
+
+    HtmlTemplate(AssetsTablePartialTemplate {
+        assets,
+        current_page: page,
+        total_pages: total_pages.max(1),
+        total_count,
+        limit,
+    })
+    .into_response()
+}
+
+async fn show_new_asset(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Query(filter): Query<FilterAssetsWebQuery>,
+) -> Response {
+    let claims = match extract_claims_from_cookie(&headers, &state.config.jwt_secret) {
+        Some(c) => c,
+        None => return Redirect::to("/login").into_response(),
+    };
+
+    let active_entity_name = get_entity_name(&state.pool, &claims.entity_id).await;
+    let initial = claims.username.chars().next().unwrap_or('U').to_uppercase().to_string();
+
+    let entities: Vec<EntitySelectItem> = sqlx::query_as(
+        "SELECT id, name, completeness, level FROM entities ORDER BY level ASC, completeness ASC"
+    )
+    .fetch_all(&state.pool)
+    .await
+    .unwrap_or_default();
+
+    let technicians: Vec<UserSelectItem> = sqlx::query_as(
+        "SELECT u.id, (COALESCE(NULLIF(TRIM(u.firstname || ' ' || u.realname), ''), u.username)) as name FROM users u JOIN user_profiles_entities upe ON upe.user_id = u.id JOIN profiles p ON p.id = upe.profile_id WHERE p.name IN ('Super-Admin', 'Technician') AND u.is_active = true ORDER BY name ASC"
+    )
+    .fetch_all(&state.pool)
+    .await
+    .unwrap_or_default();
+
+    let users: Vec<UserSelectItem> = sqlx::query_as(
+        "SELECT id, (COALESCE(NULLIF(TRIM(firstname || ' ' || realname), ''), username)) as name FROM users WHERE is_active = true ORDER BY name ASC"
+    )
+    .fetch_all(&state.pool)
+    .await
+    .unwrap_or_default();
+
+    HtmlTemplate(AssetNewTemplate {
+        current_username: claims.username.clone(),
+        current_display_name: claims.username.clone(),
+        current_profile_name: claims.profile_name.clone(),
+        user_initials: initial,
+        active_entity_name,
+        active_nav: "assets".to_string(),
+        entities,
+        technicians,
+        users,
+        preset_type: filter.asset_type.unwrap_or_else(|| "computer".to_string()),
+    })
+    .into_response()
+}
+
+async fn handle_create_asset(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Form(payload): Form<CreateAssetWebForm>,
+) -> Response {
+    let claims = match extract_claims_from_cookie(&headers, &state.config.jwt_secret) {
+        Some(c) => c,
+        None => return Redirect::to("/login").into_response(),
+    };
+
+    let entity_id = payload.entity_id.unwrap_or_else(|| {
+        Uuid::parse_str(&claims.entity_id).unwrap_or_else(|_| Uuid::nil())
+    });
+
+    let asset_id = Uuid::new_v4();
+    let status = payload.status.unwrap_or_else(|| "active".to_string());
+
+    let _ = sqlx::query(
+        r#"
+        INSERT INTO assets (
+            id, entity_id, name, asset_type, status, serial_number, inventory_number,
+            manufacturer, model, location, technician_id, user_id, comments,
+            specifications, locked_fields, is_locked, created_at, updated_at
+        ) VALUES (
+            $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13,
+            '{}'::jsonb, '[]'::jsonb, false, NOW(), NOW()
+        )
+        "#
+    )
+    .bind(asset_id)
+    .bind(entity_id)
+    .bind(&payload.name)
+    .bind(&payload.asset_type)
+    .bind(&status)
+    .bind(payload.serial_number.filter(|s| !s.trim().is_empty()))
+    .bind(payload.inventory_number.filter(|s| !s.trim().is_empty()))
+    .bind(payload.manufacturer.filter(|s| !s.trim().is_empty()))
+    .bind(payload.model.filter(|s| !s.trim().is_empty()))
+    .bind(payload.location.filter(|s| !s.trim().is_empty()))
+    .bind(payload.technician_id)
+    .bind(payload.user_id)
+    .bind(payload.comments.filter(|s| !s.trim().is_empty()))
+    .execute(&state.pool)
+    .await;
+
+    Redirect::to(&format!("/assets/{}", asset_id)).into_response()
+}
+
+async fn show_asset_detail(
+    State(state): State<AppState>,
+    Path(id): Path<Uuid>,
+    headers: HeaderMap,
+) -> Response {
+    let claims = match extract_claims_from_cookie(&headers, &state.config.jwt_secret) {
+        Some(c) => c,
+        None => return Redirect::to("/login").into_response(),
+    };
+
+    use sqlx::Row;
+    let row = match sqlx::query(
+        r#"
+        SELECT
+            a.id,
+            a.entity_id,
+            e.name as entity_name,
+            a.name,
+            a.asset_type,
+            a.status,
+            a.serial_number,
+            a.inventory_number,
+            a.uuid,
+            a.manufacturer,
+            a.model,
+            a.location,
+            a.user_id,
+            u.username as user_name,
+            a.technician_id,
+            t.username as technician_name,
+            a.group_in_charge,
+            a.comments,
+            a.last_inventory_at,
+            a.agent_version,
+            a.is_locked,
+            a.locked_fields,
+            a.specifications,
+            a.created_at,
+            a.updated_at
+        FROM assets a
+        JOIN entities e ON a.entity_id = e.id
+        LEFT JOIN users u ON a.user_id = u.id
+        LEFT JOIN users t ON a.technician_id = t.id
+        WHERE a.id = $1
+        "#
+    )
+    .bind(id)
+    .fetch_optional(&state.pool)
+    .await
+    .unwrap_or(None) {
+        Some(r) => r,
+        None => return Redirect::to("/assets").into_response(),
+    };
+
+    let type_str: String = row.get("asset_type");
+    let status_str: String = row.get("status");
+
+    let conn_rows = sqlx::query(
+        r#"
+        SELECT
+            c.id as connection_id,
+            c.connected_asset_id,
+            c.connection_type,
+            a.name,
+            a.asset_type,
+            a.model
+        FROM asset_connections c
+        JOIN assets a ON c.connected_asset_id = a.id
+        WHERE c.computer_id = $1
+        UNION
+        SELECT
+            c.id as connection_id,
+            c.computer_id as connected_asset_id,
+            c.connection_type,
+            a.name,
+            a.asset_type,
+            a.model
+        FROM asset_connections c
+        JOIN assets a ON c.computer_id = a.id
+        WHERE c.connected_asset_id = $1
+        "#
+    )
+    .bind(id)
+    .fetch_all(&state.pool)
+    .await
+    .unwrap_or_default();
+
+    let connections: Vec<AssetConnectionSummaryDto> = conn_rows
+        .iter()
+        .map(|r| {
+            let conn_type_str: String = r.get("asset_type");
+            AssetConnectionSummaryDto {
+                connection_id: r.get("connection_id"),
+                connected_asset_id: r.get("connected_asset_id"),
+                name: r.get("name"),
+                asset_type: AssetType::from_str(&conn_type_str),
+                connection_type: r.get("connection_type"),
+                model: r.get("model"),
+            }
+        })
+        .collect();
+
+    let locked_fields_val: serde_json::Value = row.get("locked_fields");
+    let locked_fields: Vec<String> = serde_json::from_value(locked_fields_val).unwrap_or_default();
+
+    let asset = AssetDetailDto {
+        id: row.get("id"),
+        entity_id: row.get("entity_id"),
+        entity_name: row.get("entity_name"),
+        name: row.get("name"),
+        asset_type: AssetType::from_str(&type_str),
+        status: AssetStatus::from_str(&status_str),
+        serial_number: row.get("serial_number"),
+        inventory_number: row.get("inventory_number"),
+        uuid: row.get("uuid"),
+        manufacturer: row.get("manufacturer"),
+        model: row.get("model"),
+        location: row.get("location"),
+        user_id: row.get("user_id"),
+        user_name: row.get("user_name"),
+        technician_id: row.get("technician_id"),
+        technician_name: row.get("technician_name"),
+        group_in_charge: row.get("group_in_charge"),
+        comments: row.get("comments"),
+        last_inventory_at: row.get("last_inventory_at"),
+        agent_version: row.get("agent_version"),
+        is_locked: row.get("is_locked"),
+        locked_fields,
+        specifications: row.get("specifications"),
+        connections,
+        created_at: row.get("created_at"),
+        updated_at: row.get("updated_at"),
+    };
+
+    let active_entity_name = get_entity_name(&state.pool, &claims.entity_id).await;
+    let initial = claims.username.chars().next().unwrap_or('U').to_uppercase().to_string();
+
+    let entities: Vec<EntitySelectItem> = sqlx::query_as(
+        "SELECT id, name, completeness, level FROM entities ORDER BY level ASC, completeness ASC"
+    )
+    .fetch_all(&state.pool)
+    .await
+    .unwrap_or_default();
+
+    let technicians: Vec<UserSelectItem> = sqlx::query_as(
+        "SELECT u.id, (COALESCE(NULLIF(TRIM(u.firstname || ' ' || u.realname), ''), u.username)) as name FROM users u JOIN user_profiles_entities upe ON upe.user_id = u.id JOIN profiles p ON p.id = upe.profile_id WHERE p.name IN ('Super-Admin', 'Technician') AND u.is_active = true ORDER BY name ASC"
+    )
+    .fetch_all(&state.pool)
+    .await
+    .unwrap_or_default();
+
+    let users: Vec<UserSelectItem> = sqlx::query_as(
+        "SELECT id, (COALESCE(NULLIF(TRIM(firstname || ' ' || realname), ''), username)) as name FROM users WHERE is_active = true ORDER BY name ASC"
+    )
+    .fetch_all(&state.pool)
+    .await
+    .unwrap_or_default();
+
+    HtmlTemplate(AssetDetailTemplate {
+        current_username: claims.username.clone(),
+        current_display_name: claims.username.clone(),
+        current_profile_name: claims.profile_name.clone(),
+        user_initials: initial,
+        active_entity_name,
+        active_nav: "assets".to_string(),
+        asset,
+        entities,
+        technicians,
+        users,
+    })
+    .into_response()
+}
+
+async fn handle_update_asset(
+    State(state): State<AppState>,
+    Path(id): Path<Uuid>,
+    headers: HeaderMap,
+    Form(payload): Form<UpdateAssetWebForm>,
+) -> Response {
+    if extract_claims_from_cookie(&headers, &state.config.jwt_secret).is_none() {
+        return Redirect::to("/login").into_response();
+    }
+
+    let status = payload.status.unwrap_or_else(|| "active".to_string());
+    let _ = sqlx::query(
+        r#"
+        UPDATE assets
+        SET
+            status = $1,
+            location = $2,
+            technician_id = $3,
+            user_id = $4,
+            group_in_charge = $5,
+            comments = $6,
+            updated_at = NOW()
+        WHERE id = $7
+        "#
+    )
+    .bind(status)
+    .bind(payload.location.filter(|s| !s.trim().is_empty()))
+    .bind(payload.technician_id)
+    .bind(payload.user_id)
+    .bind(payload.group_in_charge.filter(|s| !s.trim().is_empty()))
+    .bind(payload.comments.filter(|s| !s.trim().is_empty()))
+    .bind(id)
+    .execute(&state.pool)
+    .await;
+
+    Redirect::to(&format!("/assets/{}", id)).into_response()
+}
+
+// ----------------------------------------------------------------------------
+// Phase 4 Handlers: Entities Hierarchy
+// ----------------------------------------------------------------------------
+
+async fn show_entities(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+) -> Response {
+    let claims = match extract_claims_from_cookie(&headers, &state.config.jwt_secret) {
+        Some(c) => c,
+        None => return Redirect::to("/login").into_response(),
+    };
+
+    let active_entity_name = get_entity_name(&state.pool, &claims.entity_id).await;
+    let initial = claims.username.chars().next().unwrap_or('U').to_uppercase().to_string();
+
+    let entities: Vec<Entity> = sqlx::query_as(
+        "SELECT id, parent_id, name, completeness, level, created_at, updated_at FROM entities ORDER BY level ASC, completeness ASC"
+    )
+    .fetch_all(&state.pool)
+    .await
+    .unwrap_or_default();
+
+    let tree = build_entity_tree(&entities);
+    let total_entities = entities.len();
+    let max_level = entities.iter().map(|e| e.level).max().unwrap_or(1);
+
+    HtmlTemplate(EntitiesTemplate {
+        current_username: claims.username.clone(),
+        current_display_name: claims.username.clone(),
+        current_profile_name: claims.profile_name.clone(),
+        user_initials: initial,
+        active_entity_name,
+        active_nav: "entities".to_string(),
+        entities,
+        tree,
+        total_entities,
+        max_level,
+    })
+    .into_response()
+}
+
+async fn handle_create_entity(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Form(payload): Form<CreateEntityWebForm>,
+) -> Response {
+    if extract_claims_from_cookie(&headers, &state.config.jwt_secret).is_none() {
+        return Redirect::to("/login").into_response();
+    }
+
+    let (level, completeness) = if let Some(parent_id) = payload.parent_id {
+        let parent_opt: Option<(i32, String)> = sqlx::query_as(
+            "SELECT level, completeness FROM entities WHERE id = $1"
+        )
+        .bind(parent_id)
+        .fetch_optional(&state.pool)
+        .await
+        .unwrap_or(None);
+
+        if let Some((p_level, p_comp)) = parent_opt {
+            (p_level + 1, format!("{} > {}", p_comp, payload.name))
+        } else {
+            (1, payload.name.clone())
+        }
+    } else {
+        (1, payload.name.clone())
+    };
+
+    let _ = sqlx::query(
+        "INSERT INTO entities (id, parent_id, name, completeness, level, created_at, updated_at) VALUES ($1, $2, $3, $4, $5, NOW(), NOW())"
+    )
+    .bind(Uuid::new_v4())
+    .bind(payload.parent_id)
+    .bind(&payload.name)
+    .bind(&completeness)
+    .bind(level)
+    .execute(&state.pool)
+    .await;
+
+    Redirect::to("/entities").into_response()
+}
+
+// ----------------------------------------------------------------------------
+// Phase 4 Handlers: Users & RBAC
+// ----------------------------------------------------------------------------
+
+async fn show_users(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Query(filter): Query<FilterUsersWebQuery>,
+) -> Response {
+    let claims = match extract_claims_from_cookie(&headers, &state.config.jwt_secret) {
+        Some(c) => c,
+        None => return Redirect::to("/login").into_response(),
+    };
+
+    let active_entity_name = get_entity_name(&state.pool, &claims.entity_id).await;
+    let initial = claims.username.chars().next().unwrap_or('U').to_uppercase().to_string();
+
+    let mut sql = String::from(
+        r#"
+        SELECT
+            u.id,
+            u.username,
+            (COALESCE(NULLIF(TRIM(u.firstname || ' ' || u.realname), ''), u.username)) as display_name,
+            u.email,
+            COALESCE(p.name, 'Self-Service') as profile_name,
+            u.is_active,
+            COALESCE(ARRAY_AGG(DISTINCT g.name) FILTER (WHERE g.name IS NOT NULL), '{}') as groups
+        FROM users u
+        LEFT JOIN user_profiles_entities upe ON upe.user_id = u.id AND upe.is_default = true
+        LEFT JOIN profiles p ON p.id = upe.profile_id
+        LEFT JOIN group_users gu ON gu.user_id = u.id
+        LEFT JOIN groups g ON g.id = gu.group_id
+        WHERE 1=1
+        "#
+    );
+
+    if let Some(ref q) = filter.search {
+        if !q.is_empty() {
+            let sanitized = q.replace('\'', "''");
+            sql.push_str(&format!(
+                " AND (u.username ILIKE '%{}%' OR u.firstname ILIKE '%{}%' OR u.realname ILIKE '%{}%' OR u.email ILIKE '%{}%')",
+                sanitized, sanitized, sanitized, sanitized
+            ));
+        }
+    }
+
+    if let Some(ref prof) = filter.profile {
+        if !prof.is_empty() {
+            let sanitized = prof.replace('\'', "''");
+            sql.push_str(&format!(" AND p.name = '{}'", sanitized));
+        }
+    }
+
+    if let Some(ref st) = filter.status {
+        if st == "active" {
+            sql.push_str(" AND u.is_active = true");
+        } else if st == "inactive" {
+            sql.push_str(" AND u.is_active = false");
+        }
+    }
+
+    sql.push_str(" GROUP BY u.id, u.username, u.firstname, u.realname, u.email, p.name, u.is_active ORDER BY u.username ASC");
+
+    use sqlx::Row;
+    let rows = sqlx::query(&sql).fetch_all(&state.pool).await.unwrap_or_default();
+    let users: Vec<UserSummaryDto> = rows
+        .iter()
+        .map(|r| {
+            let groups: Vec<String> = r.get("groups");
+            UserSummaryDto {
+                id: r.get("id"),
+                username: r.get("username"),
+                display_name: r.get("display_name"),
+                email: r.get("email"),
+                profile_name: r.get("profile_name"),
+                is_active: r.get("is_active"),
+                groups,
+            }
+        })
+        .collect();
+
+    let profiles: Vec<ProfileSelectItem> = sqlx::query_as(
+        "SELECT id, name FROM profiles ORDER BY name ASC"
+    )
+    .fetch_all(&state.pool)
+    .await
+    .unwrap_or_default();
+
+    let entities: Vec<EntitySelectItem> = sqlx::query_as(
+        "SELECT id, name, completeness, level FROM entities ORDER BY level ASC, completeness ASC"
+    )
+    .fetch_all(&state.pool)
+    .await
+    .unwrap_or_default();
+
+    let groups: Vec<GroupSelectItem> = sqlx::query_as(
+        "SELECT id, name FROM groups ORDER BY name ASC"
+    )
+    .fetch_all(&state.pool)
+    .await
+    .unwrap_or_default();
+
+    let total_users = users.len();
+    let active_users_count = users.iter().filter(|u| u.is_active).count();
+    let technicians_count = users.iter().filter(|u| u.profile_name == "Technician").count();
+    let admins_count = users.iter().filter(|u| u.profile_name == "Super-Admin" || u.profile_name == "Admin").count();
+
+    HtmlTemplate(UsersTemplate {
+        current_username: claims.username.clone(),
+        current_display_name: claims.username.clone(),
+        current_profile_name: claims.profile_name.clone(),
+        user_initials: initial,
+        active_entity_name,
+        active_nav: "users".to_string(),
+        users,
+        profiles,
+        entities,
+        groups,
+        current_search: filter.search.unwrap_or_default(),
+        current_profile: filter.profile.unwrap_or_default(),
+        current_status: filter.status.unwrap_or_default(),
+        total_users,
+        active_users_count,
+        technicians_count,
+        admins_count,
+    })
+    .into_response()
+}
+
+async fn handle_create_user(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Form(payload): Form<CreateUserWebForm>,
+) -> Response {
+    if extract_claims_from_cookie(&headers, &state.config.jwt_secret).is_none() {
+        return Redirect::to("/login").into_response();
+    }
+
+    let raw_pwd = payload.password.filter(|s| !s.trim().is_empty()).unwrap_or_else(|| "ITILSuite2026!".to_string());
+    let pwd_hash = hash_password(&raw_pwd).unwrap_or_default();
+    let user_id = Uuid::new_v4();
+
+    let insert_res = sqlx::query(
+        r#"
+        INSERT INTO users (id, username, password_hash, email, firstname, realname, is_active, created_at, updated_at)
+        VALUES ($1, $2, $3, $4, $5, $6, true, NOW(), NOW())
+        "#
+    )
+    .bind(user_id)
+    .bind(&payload.username)
+    .bind(&pwd_hash)
+    .bind(&payload.email)
+    .bind(payload.firstname.unwrap_or_default())
+    .bind(payload.realname.unwrap_or_default())
+    .execute(&state.pool)
+    .await;
+
+    if insert_res.is_ok() {
+        if let (Some(prof_id), Some(ent_id)) = (payload.profile_id, payload.entity_id) {
+            let _ = sqlx::query(
+                "INSERT INTO user_profiles_entities (id, user_id, profile_id, entity_id, is_default, is_recursive) VALUES ($1, $2, $3, $4, true, true)"
+            )
+            .bind(Uuid::new_v4())
+            .bind(user_id)
+            .bind(prof_id)
+            .bind(ent_id)
+            .execute(&state.pool)
+            .await;
+        }
+
+        if let Some(grp_id) = payload.initial_group_id {
+            let _ = sqlx::query(
+                "INSERT INTO group_users (id, group_id, user_id, is_manager) VALUES ($1, $2, $3, false)"
+            )
+            .bind(Uuid::new_v4())
+            .bind(grp_id)
+            .bind(user_id)
+            .execute(&state.pool)
+            .await;
+        }
+    }
+
+    Redirect::to("/users").into_response()
+}
+
+async fn handle_toggle_user(
+    State(state): State<AppState>,
+    Path(id): Path<Uuid>,
+    headers: HeaderMap,
+) -> Response {
+    if extract_claims_from_cookie(&headers, &state.config.jwt_secret).is_none() {
+        return (StatusCode::UNAUTHORIZED, "No autorizado").into_response();
+    }
+
+    use sqlx::Row;
+    let row = sqlx::query("UPDATE users SET is_active = NOT is_active, updated_at = NOW() WHERE id = $1 RETURNING is_active")
+        .bind(id)
+        .fetch_optional(&state.pool)
+        .await
+        .unwrap_or(None);
+
+    if let Some(r) = row {
+        let is_active: bool = r.get("is_active");
+        let badge_html = if is_active {
+            format!(
+                r#"<button type="button" hx-post="/users/{}/toggle" hx-swap="outerHTML" style="cursor: pointer; background: none; border: none; padding: 0;" title="Clic para alternar"><span class="status-pill status-solved" style="font-size: 0.72rem;">● Activo</span></button>"#,
+                id
+            )
+        } else {
+            format!(
+                r#"<button type="button" hx-post="/users/{}/toggle" hx-swap="outerHTML" style="cursor: pointer; background: none; border: none; padding: 0;" title="Clic para alternar"><span class="status-pill status-closed" style="font-size: 0.72rem;">✕ Inactivo</span></button>"#,
+                id
+            )
+        };
+        ([(axum::http::header::CONTENT_TYPE, "text/html; charset=utf-8")], badge_html).into_response()
+    } else {
+        (StatusCode::NOT_FOUND, "Usuario no encontrado").into_response()
+    }
+}
+
+// ----------------------------------------------------------------------------
+// Phase 4 Handlers: Rules & Dictionaries
+// ----------------------------------------------------------------------------
+
+async fn show_rules(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Query(query): Query<RuleTabQuery>,
+) -> Response {
+    let claims = match extract_claims_from_cookie(&headers, &state.config.jwt_secret) {
+        Some(c) => c,
+        None => return Redirect::to("/login").into_response(),
+    };
+
+    let active_entity_name = get_entity_name(&state.pool, &claims.entity_id).await;
+    let initial = claims.username.chars().next().unwrap_or('U').to_uppercase().to_string();
+
+    let rules: Vec<Rule> = sqlx::query_as(
+        "SELECT id, rule_type, name, description, is_active, ranking, match_logic, stop_on_first_match, entity_id, is_recursive, created_at, updated_at FROM rules ORDER BY ranking ASC, name ASC"
+    )
+    .fetch_all(&state.pool)
+    .await
+    .unwrap_or_default();
+
+    let criteria: Vec<RuleCriteria> = sqlx::query_as(
+        "SELECT id, rule_id, field, operator, pattern, created_at FROM rule_criteria ORDER BY created_at ASC"
+    )
+    .fetch_all(&state.pool)
+    .await
+    .unwrap_or_default();
+
+    let actions: Vec<RuleAction> = sqlx::query_as(
+        "SELECT id, rule_id, action_type, field, value, created_at FROM rule_actions ORDER BY created_at ASC"
+    )
+    .fetch_all(&state.pool)
+    .await
+    .unwrap_or_default();
+
+    let mut helpdesk_rules = Vec::new();
+    let mut asset_rules = Vec::new();
+    let mut dictionary_rules = Vec::new();
+
+    for r in rules {
+        let rule_criteria = criteria.iter().filter(|c| c.rule_id == r.id).cloned().collect();
+        let rule_actions = actions.iter().filter(|a| a.rule_id == r.id).cloned().collect();
+        let rule_with_details = RuleWithDetails {
+            rule: r.clone(),
+            criteria: rule_criteria,
+            actions: rule_actions,
+        };
+
+        if r.rule_type.starts_with("dict_") {
+            dictionary_rules.push(rule_with_details);
+        } else if r.rule_type == "asset_entity" || r.rule_type == "asset_import_link" {
+            asset_rules.push(rule_with_details);
+        } else {
+            helpdesk_rules.push(rule_with_details);
+        }
+    }
+
+    let entities: Vec<EntitySelectItem> = sqlx::query_as(
+        "SELECT id, name, completeness, level FROM entities ORDER BY level ASC, completeness ASC"
+    )
+    .fetch_all(&state.pool)
+    .await
+    .unwrap_or_default();
+
+    HtmlTemplate(RulesTemplate {
+        current_username: claims.username.clone(),
+        current_display_name: claims.username.clone(),
+        current_profile_name: claims.profile_name.clone(),
+        user_initials: initial,
+        active_entity_name,
+        active_nav: "rules".to_string(),
+        active_tab: query.tab.unwrap_or_else(|| "helpdesk".to_string()),
+        helpdesk_rules,
+        asset_rules,
+        dictionary_rules,
+        entities,
+    })
+    .into_response()
+}
+
+async fn show_new_rule(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+) -> Response {
+    let claims = match extract_claims_from_cookie(&headers, &state.config.jwt_secret) {
+        Some(c) => c,
+        None => return Redirect::to("/login").into_response(),
+    };
+
+    let active_entity_name = get_entity_name(&state.pool, &claims.entity_id).await;
+    let initial = claims.username.chars().next().unwrap_or('U').to_uppercase().to_string();
+
+    let entities: Vec<EntitySelectItem> = sqlx::query_as(
+        "SELECT id, name, completeness, level FROM entities ORDER BY level ASC, completeness ASC"
+    )
+    .fetch_all(&state.pool)
+    .await
+    .unwrap_or_default();
+
+    HtmlTemplate(RuleNewTemplate {
+        current_username: claims.username.clone(),
+        current_display_name: claims.username.clone(),
+        current_profile_name: claims.profile_name.clone(),
+        user_initials: initial,
+        active_entity_name,
+        active_nav: "rules".to_string(),
+        entities,
+    })
+    .into_response()
+}
+
+async fn handle_create_rule(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Form(payload): Form<CreateRuleWebForm>,
+) -> Response {
+    if extract_claims_from_cookie(&headers, &state.config.jwt_secret).is_none() {
+        return Redirect::to("/login").into_response();
+    }
+
+    let rule_id = Uuid::new_v4();
+    let ranking = payload.ranking.unwrap_or(10);
+    let match_logic = payload.match_logic.unwrap_or_else(|| "AND".to_string());
+    let stop_on_first = payload.stop_on_first_match.map(|s| s == "true" || s == "1").unwrap_or(true);
+
+    let insert_res = sqlx::query(
+        r#"
+        INSERT INTO rules (id, rule_type, name, description, is_active, ranking, match_logic, stop_on_first_match, is_recursive, created_at, updated_at)
+        VALUES ($1, $2, $3, $4, true, $5, $6, $7, true, NOW(), NOW())
+        "#
+    )
+    .bind(rule_id)
+    .bind(&payload.rule_type)
+    .bind(&payload.name)
+    .bind(&payload.description)
+    .bind(ranking)
+    .bind(&match_logic)
+    .bind(stop_on_first)
+    .execute(&state.pool)
+    .await;
+
+    if insert_res.is_ok() {
+        let _ = sqlx::query(
+            "INSERT INTO rule_criteria (id, rule_id, field, operator, pattern, created_at) VALUES ($1, $2, $3, $4, $5, NOW())"
+        )
+        .bind(Uuid::new_v4())
+        .bind(rule_id)
+        .bind(&payload.criterion_field)
+        .bind(&payload.criterion_operator)
+        .bind(&payload.criterion_pattern)
+        .execute(&state.pool)
+        .await;
+
+        let _ = sqlx::query(
+            "INSERT INTO rule_actions (id, rule_id, action_type, field, value, created_at) VALUES ($1, $2, $3, $4, $5, NOW())"
+        )
+        .bind(Uuid::new_v4())
+        .bind(rule_id)
+        .bind(&payload.action_type)
+        .bind(&payload.action_field)
+        .bind(&payload.action_value)
+        .execute(&state.pool)
+        .await;
+    }
+
+    Redirect::to("/rules").into_response()
+}
+
+async fn handle_toggle_rule(
+    State(state): State<AppState>,
+    Path(id): Path<Uuid>,
+    headers: HeaderMap,
+) -> Response {
+    if extract_claims_from_cookie(&headers, &state.config.jwt_secret).is_none() {
+        return (StatusCode::UNAUTHORIZED, "No autorizado").into_response();
+    }
+
+    use sqlx::Row;
+    let row = sqlx::query("UPDATE rules SET is_active = NOT is_active, updated_at = NOW() WHERE id = $1 RETURNING is_active")
+        .bind(id)
+        .fetch_optional(&state.pool)
+        .await
+        .unwrap_or(None);
+
+    if let Some(r) = row {
+        let is_active: bool = r.get("is_active");
+        let badge_html = if is_active {
+            format!(
+                r#"<button type="button" hx-post="/rules/{}/toggle" hx-swap="outerHTML" style="cursor: pointer; background: none; border: none; padding: 0;" title="Alternar"><span class="status-pill status-solved" style="font-size: 0.7rem;">● Activa</span></button>"#,
+                id
+            )
+        } else {
+            format!(
+                r#"<button type="button" hx-post="/rules/{}/toggle" hx-swap="outerHTML" style="cursor: pointer; background: none; border: none; padding: 0;" title="Alternar"><span class="status-pill status-closed" style="font-size: 0.7rem;">✕ Pausada</span></button>"#,
+                id
+            )
+        };
+        ([(axum::http::header::CONTENT_TYPE, "text/html; charset=utf-8")], badge_html).into_response()
+    } else {
+        (StatusCode::NOT_FOUND, "Regla no encontrada").into_response()
+    }
+}
+

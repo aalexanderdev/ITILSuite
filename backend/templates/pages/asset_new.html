@@ -1,0 +1,196 @@
+{% extends "layouts/base.html" %}
+
+{% block title %}Registrar Nuevo Activo TI - ITILSuite{% endblock %}
+
+{% block content %}
+<div class="ticket-new-container" style="max-width: 840px; margin: 0 auto; display: flex; flex-direction: column; gap: 1.25rem;">
+  <!-- Header -->
+  <div>
+    <div style="display: flex; align-items: center; gap: 0.5rem; font-size: 0.8rem; color: var(--text-muted); margin-bottom: 0.25rem;">
+      <a href="/assets" style="color: var(--accent-coral); text-decoration: none;">← Volver al Inventario</a>
+      <span>/</span>
+      <span style="color: var(--text-primary); font-weight: 500;">Nuevo Activo</span>
+    </div>
+    <h1 style="margin: 0; font-size: 1.5rem; font-weight: 700; color: var(--text-primary); display: flex; align-items: center; gap: 0.6rem;">
+      <span>🖥️</span>
+      <span>Registrar Activo Tecnológico en CMDB</span>
+    </h1>
+    <p style="margin: 0.25rem 0 0; font-size: 0.85rem; color: var(--text-secondary);">
+      Ingresa los datos de identificación, hardware y asignación del nuevo dispositivo o servidor.
+    </p>
+  </div>
+
+  <form action="/assets" method="POST" class="card" style="display: flex; flex-direction: column; gap: 1.25rem;">
+    <!-- Basic Info -->
+    <div style="border-bottom: 1px solid var(--border-subtle); padding-bottom: 0.5rem;">
+      <h3 style="margin: 0; font-size: 0.95rem; font-weight: 700; color: var(--text-primary);">
+        1. Identificación Principal
+      </h3>
+    </div>
+
+    <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 1rem;">
+      <div class="form-group">
+        <label class="form-label">Nombre del Activo / Hostname *</label>
+        <input
+          type="text"
+          name="name"
+          required
+          placeholder="Ej: PC-ADM-01 o SRV-PROD-DB01"
+          class="form-input"
+          style="width: 100%;"
+        />
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Tipo de Activo *</label>
+        <select name="asset_type" class="form-select" style="width: 100%;">
+          <option value="computer" {% if preset_type == "computer" || preset_type == "" %}selected{% endif %}>💻 Computador / Workstation</option>
+          <option value="server" {% if preset_type == "server" %}selected{% endif %}>🗄️ Servidor</option>
+          <option value="network_equipment" {% if preset_type == "network" || preset_type == "network_equipment" %}selected{% endif %}>🌐 Equipo de Red (Switch/Router)</option>
+          <option value="monitor" {% if preset_type == "monitor" %}selected{% endif %}>🖥️ Monitor / Pantalla</option>
+          <option value="printer" {% if preset_type == "printer" %}selected{% endif %}>🖨️ Impresora</option>
+          <option value="phone" {% if preset_type == "phone" %}selected{% endif %}>📱 Telefonía / Móvil</option>
+          <option value="peripheral">🔌 Periférico</option>
+          <option value="other">📦 Otro</option>
+        </select>
+      </div>
+    </div>
+
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+      <div class="form-group">
+        <label class="form-label">Entidad Organizacional *</label>
+        <select name="entity_id" class="form-select" style="width: 100%;">
+          {% for ent in entities %}
+            <option value="{{ ent.id }}">{{ ent.completeness }}</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Estado Inicial *</label>
+        <select name="status" class="form-select" style="width: 100%;">
+          <option value="active" selected>Activo (En servicio)</option>
+          <option value="in_stock">En Stock (Disponible)</option>
+          <option value="in_repair">En Reparación / Taller</option>
+          <option value="reserved">Reservado</option>
+          <option value="decommissioned">Decomisado / Retirado</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- Technical Hardware Info -->
+    <div style="border-bottom: 1px solid var(--border-subtle); padding-bottom: 0.5rem; margin-top: 0.5rem;">
+      <h3 style="margin: 0; font-size: 0.95rem; font-weight: 700; color: var(--text-primary);">
+        2. Hardware, Fabricante y Números de Control
+      </h3>
+    </div>
+
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+      <div class="form-group">
+        <label class="form-label">Fabricante</label>
+        <input
+          type="text"
+          name="manufacturer"
+          placeholder="Ej: Dell, HP, Lenovo, Apple, Cisco"
+          class="form-input"
+          style="width: 100%;"
+        />
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Modelo</label>
+        <input
+          type="text"
+          name="model"
+          placeholder="Ej: Latitude 5430 / ThinkPad E14"
+          class="form-input"
+          style="width: 100%;"
+        />
+      </div>
+    </div>
+
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+      <div class="form-group">
+        <label class="form-label">Número de Serie (S/N)</label>
+        <input
+          type="text"
+          name="serial_number"
+          placeholder="Ej: 8HG93KD"
+          class="form-input"
+          style="width: 100%;"
+        />
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Placa de Inventario Interno</label>
+        <input
+          type="text"
+          name="inventory_number"
+          placeholder="Ej: INV-2026-0045"
+          class="form-input"
+          style="width: 100%;"
+        />
+      </div>
+    </div>
+
+    <!-- Assignment and Location -->
+    <div style="border-bottom: 1px solid var(--border-subtle); padding-bottom: 0.5rem; margin-top: 0.5rem;">
+      <h3 style="margin: 0; font-size: 0.95rem; font-weight: 700; color: var(--text-primary);">
+        3. Asignación y Ubicación
+      </h3>
+    </div>
+
+    <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1rem;">
+      <div class="form-group">
+        <label class="form-label">Ubicación Física</label>
+        <input
+          type="text"
+          name="location"
+          placeholder="Ej: Edificio Central - Piso 2"
+          class="form-input"
+          style="width: 100%;"
+        />
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Técnico Asignado</label>
+        <select name="technician_id" class="form-select" style="width: 100%;">
+          <option value="">Sin Asignar</option>
+          {% for tech in technicians %}
+            <option value="{{ tech.id }}">{{ tech.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Usuario Asignado</label>
+        <select name="user_id" class="form-select" style="width: 100%;">
+          <option value="">Sin Asignar</option>
+          {% for usr in users %}
+            <option value="{{ usr.id }}">{{ usr.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">Comentarios u Observaciones Iniciales</label>
+      <textarea
+        name="comments"
+        rows="3"
+        class="form-input"
+        style="width: 100%; resize: vertical;"
+        placeholder="Información adicional sobre la compra, garantía o características..."
+      ></textarea>
+    </div>
+
+    <div style="display: flex; justify-content: flex-end; gap: 0.75rem; border-top: 1px solid var(--border-subtle); padding-top: 1rem;">
+      <a href="/assets" class="btn btn-secondary">Cancelar</a>
+      <button type="submit" class="btn btn-primary">
+        <span>💾</span>
+        <span>Guardar Activo</span>
+      </button>
+    </div>
+  </form>
+</div>
+{% endblock %}

@@ -1,0 +1,193 @@
+{% extends "layouts/base.html" %}
+
+{% block title %}Nueva Regla de Negocio - ITILSuite{% endblock %}
+
+{% block content %}
+<div class="ticket-new-container" style="max-width: 840px; margin: 0 auto; display: flex; flex-direction: column; gap: 1.25rem;">
+  <!-- Header -->
+  <div>
+    <div style="display: flex; align-items: center; gap: 0.5rem; font-size: 0.8rem; color: var(--text-muted); margin-bottom: 0.25rem;">
+      <a href="/rules" style="color: var(--accent-coral); text-decoration: none;">← Volver al Motor de Reglas</a>
+      <span>/</span>
+      <span style="color: var(--text-primary); font-weight: 500;">Nueva Automatización</span>
+    </div>
+    <h1 style="margin: 0; font-size: 1.5rem; font-weight: 700; color: var(--text-primary); display: flex; align-items: center; gap: 0.6rem;">
+      <span>⚡</span>
+      <span>Crear Regla de Automatización</span>
+    </h1>
+    <p style="margin: 0.25rem 0 0; font-size: 0.85rem; color: var(--text-secondary);">
+      Configura condiciones lógicas y acciones automatizadas para tickets, inventario o diccionarios.
+    </p>
+  </div>
+
+  <form action="/rules" method="POST" class="card" style="display: flex; flex-direction: column; gap: 1.25rem;">
+    <div style="border-bottom: 1px solid var(--border-subtle); padding-bottom: 0.5rem;">
+      <h3 style="margin: 0; font-size: 0.95rem; font-weight: 700; color: var(--text-primary);">
+        1. Definición General de la Regla
+      </h3>
+    </div>
+
+    <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 1rem;">
+      <div class="form-group">
+        <label class="form-label">Nombre de la Regla *</label>
+        <input
+          type="text"
+          name="name"
+          required
+          placeholder="Ej: Asignar Servidores Críticos a Infraestructura"
+          class="form-input"
+          style="width: 100%;"
+        />
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Área / Tipo de Regla *</label>
+        <select name="rule_type" class="form-select" style="width: 100%;">
+          <option value="ticket_business">🎫 Mesa de Ayuda (Tickets)</option>
+          <option value="ticket_entity">🏢 Enrutamiento de Entidad</option>
+          <option value="asset_entity">🖥️ Asignación de Activos TI</option>
+          <option value="asset_import_link">🔗 Reconciliación e Importación</option>
+          <option value="dict_manufacturer">📖 Diccionario: Fabricantes</option>
+          <option value="dict_software">📖 Diccionario: Software</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">Descripción Operativa</label>
+      <input
+        type="text"
+        name="description"
+        placeholder="Explica qué automatiza esta regla..."
+        class="form-input"
+        style="width: 100%;"
+      />
+    </div>
+
+    <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1rem;">
+      <div class="form-group">
+        <label class="form-label">Orden / Ranking</label>
+        <input
+          type="number"
+          name="ranking"
+          value="10"
+          class="form-input"
+          style="width: 100%;"
+        />
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Lógica de Coincidencia</label>
+        <select name="match_logic" class="form-select" style="width: 100%;">
+          <option value="AND" selected>AND (Cumplir todos los criterios)</option>
+          <option value="OR">OR (Cumplir al menos uno)</option>
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Detener Pipeline</label>
+        <select name="stop_on_first_match" class="form-select" style="width: 100%;">
+          <option value="true" selected>Sí (Detener en primer acierto)</option>
+          <option value="false">No (Continuar evaluando)</option>
+        </select>
+      </div>
+    </div>
+
+    <div style="border-bottom: 1px solid var(--border-subtle); padding-bottom: 0.5rem; margin-top: 0.5rem;">
+      <h3 style="margin: 0; font-size: 0.95rem; font-weight: 700; color: var(--text-primary);">
+        2. Criterio de Evaluación Inicial
+      </h3>
+    </div>
+
+    <div style="display: grid; grid-template-columns: 1fr 1fr 2fr; gap: 1rem;">
+      <div class="form-group">
+        <label class="form-label">Campo a Evaluar</label>
+        <input
+          type="text"
+          name="criterion_field"
+          required
+          value="name"
+          placeholder="ej: name, title, ip_address, etc."
+          class="form-input"
+          style="width: 100%;"
+        />
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Operador</label>
+        <select name="criterion_operator" class="form-select" style="width: 100%;">
+          <option value="contains" selected>Contiene (contains)</option>
+          <option value="equals">Es igual a (equals)</option>
+          <option value="regex_match">Expresión Regular (regex)</option>
+          <option value="starts_with">Comienza con</option>
+          <option value="ends_with">Termina con</option>
+          <option value="in_subnet">En subred CIDR (in_subnet)</option>
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Patrón de Búsqueda / Valor</label>
+        <input
+          type="text"
+          name="criterion_pattern"
+          required
+          placeholder="ej: Servidor / Urgente / 192.168.1.0/24"
+          class="form-input"
+          style="width: 100%;"
+        />
+      </div>
+    </div>
+
+    <div style="border-bottom: 1px solid var(--border-subtle); padding-bottom: 0.5rem; margin-top: 0.5rem;">
+      <h3 style="margin: 0; font-size: 0.95rem; font-weight: 700; color: var(--text-primary);">
+        3. Acción Automatizada
+      </h3>
+    </div>
+
+    <div style="display: grid; grid-template-columns: 1fr 1fr 2fr; gap: 1rem;">
+      <div class="form-group">
+        <label class="form-label">Tipo de Acción</label>
+        <select name="action_type" class="form-select" style="width: 100%;">
+          <option value="assign" selected>Asignar Valor (assign)</option>
+          <option value="assign_regex_match">Asignar con Captura Regex ($1)</option>
+          <option value="append">Concatenar (append)</option>
+          <option value="reject">Rechazar / Descartar</option>
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Campo Destino</label>
+        <input
+          type="text"
+          name="action_field"
+          required
+          value="urgency"
+          placeholder="ej: urgency, category, manufacturer"
+          class="form-input"
+          style="width: 100%;"
+        />
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Valor a Asignar</label>
+        <input
+          type="text"
+          name="action_value"
+          required
+          placeholder="ej: 5 / Soporte Redes / HP"
+          class="form-input"
+          style="width: 100%;"
+        />
+      </div>
+    </div>
+
+    <div style="display: flex; justify-content: flex-end; gap: 0.75rem; border-top: 1px solid var(--border-subtle); padding-top: 1rem;">
+      <a href="/rules" class="btn btn-secondary">Cancelar</a>
+      <button type="submit" class="btn btn-primary">
+        <span>⚡</span>
+        <span>Guardar Regla</span>
+      </button>
+    </div>
+  </form>
+</div>
+{% endblock %}

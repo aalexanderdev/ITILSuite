@@ -1,0 +1,366 @@
+{% extends "layouts/base.html" %}
+
+{% block title %}Motor de Reglas de Negocio & Diccionarios - ITILSuite{% endblock %}
+
+{% block content %}
+<div class="tickets-page-container" style="display: flex; flex-direction: column; gap: 1.25rem;">
+  <!-- Header & Actions -->
+  <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 1rem;">
+    <div>
+      <div style="display: flex; align-items: center; gap: 0.5rem; font-size: 0.8rem; color: var(--text-muted); margin-bottom: 0.25rem;">
+        <span>Administración</span>
+        <span>/</span>
+        <span style="color: var(--text-primary); font-weight: 500;">Automatización</span>
+      </div>
+      <h1 style="margin: 0; font-size: 1.5rem; font-weight: 700; color: var(--text-primary); display: flex; align-items: center; gap: 0.6rem;">
+        <span>⚡</span>
+        <span>Motor de Reglas de Negocio & Normalización</span>
+      </h1>
+      <p style="margin: 0.25rem 0 0; font-size: 0.85rem; color: var(--text-secondary);">
+        Motor reactivo de alto rendimiento en Rust para enrutamiento de tickets, reconciliación CMDB y diccionarios.
+      </p>
+    </div>
+
+    <div style="display: flex; align-items: center; gap: 0.75rem;">
+      <a href="/rules" class="btn btn-secondary" title="Actualizar">
+        <span>🔄</span>
+        <span>Refrescar</span>
+      </a>
+      <a href="/rules/new" class="btn btn-primary">
+        <span>➕</span>
+        <span>Nueva Regla</span>
+      </a>
+    </div>
+  </div>
+
+  <!-- Tabs Navigation -->
+  <div style="display: flex; gap: 0.5rem; border-bottom: 1px solid var(--border-subtle); padding-bottom: 0.5rem; overflow-x: auto;">
+    <button
+      type="button"
+      class="btn btn-secondary btn-sm {% if active_tab == "helpdesk" || active_tab == "" %}active-tab-btn{% endif %}"
+      onclick="switchRuleTab('helpdesk')"
+    >
+      <span>🎫</span>
+      <span>Reglas de Mesa de Ayuda ({{ helpdesk_rules.len() }})</span>
+    </button>
+
+    <button
+      type="button"
+      class="btn btn-secondary btn-sm {% if active_tab == "assets" %}active-tab-btn{% endif %}"
+      onclick="switchRuleTab('assets')"
+    >
+      <span>🖥️</span>
+      <span>Reconciliación e Inventario ({{ asset_rules.len() }})</span>
+    </button>
+
+    <button
+      type="button"
+      class="btn btn-secondary btn-sm {% if active_tab == "dictionaries" %}active-tab-btn{% endif %}"
+      onclick="switchRuleTab('dictionaries')"
+    >
+      <span>📖</span>
+      <span>Diccionarios de Normalización ({{ dictionary_rules.len() }})</span>
+    </button>
+  </div>
+
+  <!-- Tab 1: Helpdesk Rules -->
+  <div id="tab-helpdesk" class="rule-tab-content" style="{% if active_tab != "helpdesk" && active_tab != "" %}display: none;{% endif %}">
+    <div class="card" style="display: flex; flex-direction: column; gap: 1rem;">
+      <div style="display: flex; align-items: center; justify-content: space-between;">
+        <div>
+          <h3 style="margin: 0; font-size: 1rem; font-weight: 700; color: var(--text-primary);">
+            Reglas de Tickets, Incidentes y Asignación
+          </h3>
+          <p style="margin: 0.2rem 0 0; font-size: 0.8rem; color: var(--text-muted);">
+            Evaluadas al recibir correos o crear tickets para asignar técnicos, entidades, categorías y perfiles SLA.
+          </p>
+        </div>
+      </div>
+
+      <div style="overflow-x: auto;">
+        <table class="tickets-table" style="width: 100%; border-collapse: collapse; text-align: left; font-size: 0.82rem;">
+          <thead>
+            <tr style="border-bottom: 1px solid var(--border-subtle); color: var(--text-muted); font-size: 0.72rem; text-transform: uppercase;">
+              <th style="padding: 0.6rem 0.75rem; width: 60px;">Orden</th>
+              <th style="padding: 0.6rem 0.75rem;">Nombre & Descripción</th>
+              <th style="padding: 0.6rem 0.75rem;">Lógica</th>
+              <th style="padding: 0.6rem 0.75rem;">Criterios de Evaluación</th>
+              <th style="padding: 0.6rem 0.75rem;">Acciones Automatizadas</th>
+              <th style="padding: 0.6rem 0.75rem; text-align: center;">Estado</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% if helpdesk_rules.is_empty() %}
+              <tr>
+                <td colspan="6" style="padding: 2rem 1rem; text-align: center; color: var(--text-muted);">
+                  No hay reglas de mesa de ayuda configuradas actualmente.
+                </td>
+              </tr>
+            {% else %}
+              {% for item in helpdesk_rules %}
+                <tr style="border-bottom: 1px solid var(--border-subtle);">
+                  <td style="padding: 0.6rem 0.75rem;">
+                    <span style="background: rgba(247, 242, 236, 0.08); font-family: var(--font-mono); font-size: 0.75rem; padding: 0.15rem 0.4rem; border-radius: 4px; font-weight: 700;">
+                      #{{ item.rule.ranking }}
+                    </span>
+                  </td>
+                  <td style="padding: 0.6rem 0.75rem;">
+                    <div style="font-weight: 600; color: var(--text-primary);">
+                      {{ item.rule.name }}
+                    </div>
+                    {% if let Some(desc) = item.rule.description %}
+                      <div style="font-size: 0.75rem; color: var(--text-muted);">
+                        {{ desc }}
+                      </div>
+                    {% endif %}
+                  </td>
+                  <td style="padding: 0.6rem 0.75rem;">
+                    <span style="font-size: 0.72rem; font-weight: 700; color: {% if item.rule.match_logic == "AND" %}#3b82f6{% else %}#f59e0b{% endif %};">
+                      {{ item.rule.match_logic }}
+                    </span>
+                  </td>
+                  <td style="padding: 0.6rem 0.75rem;">
+                    <div style="display: flex; flex-direction: column; gap: 0.2rem;">
+                      {% for c in item.criteria %}
+                        <span style="font-size: 0.72rem; color: var(--text-secondary); background: var(--bg-elevated); padding: 0.1rem 0.35rem; border-radius: 4px;">
+                          <code>{{ c.field }}</code> {{ c.operator }} <em>"{{ c.pattern }}"</em>
+                        </span>
+                      {% endfor %}
+                    </div>
+                  </td>
+                  <td style="padding: 0.6rem 0.75rem;">
+                    <div style="display: flex; flex-direction: column; gap: 0.2rem;">
+                      {% for a in item.actions %}
+                        <span style="font-size: 0.72rem; color: var(--accent-emerald); background: rgba(16, 185, 129, 0.08); padding: 0.1rem 0.35rem; border-radius: 4px;">
+                          {{ a.action_type }}: <code>{{ a.field }}</code> = {{ a.value }}
+                        </span>
+                      {% endfor %}
+                    </div>
+                  </td>
+                  <td style="padding: 0.6rem 0.75rem; text-align: center;">
+                    <button
+                      type="button"
+                      hx-post="/rules/{{ item.rule.id }}/toggle"
+                      hx-swap="outerHTML"
+                      style="cursor: pointer; background: none; border: none; padding: 0;"
+                      title="Alternar estado de la regla"
+                    >
+                      {% if item.rule.is_active %}
+                        <span class="status-pill status-solved" style="font-size: 0.7rem;">● Activa</span>
+                      {% else %}
+                        <span class="status-pill status-closed" style="font-size: 0.7rem;">✕ Pausada</span>
+                      {% endif %}
+                    </button>
+                  </td>
+                </tr>
+              {% endfor %}
+            {% endif %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- Tab 2: Asset Rules -->
+  <div id="tab-assets" class="rule-tab-content" style="{% if active_tab != "assets" %}display: none;{% endif %}">
+    <div class="card" style="display: flex; flex-direction: column; gap: 1rem;">
+      <div style="display: flex; align-items: center; justify-content: space-between;">
+        <div>
+          <h3 style="margin: 0; font-size: 1rem; font-weight: 700; color: var(--text-primary);">
+            Reglas de Reconciliación e Importación de Activos
+          </h3>
+          <p style="margin: 0.2rem 0 0; font-size: 0.8rem; color: var(--text-muted);">
+            Procesadas durante la recepción de inventario GLPI-Agent para vincular hardware existente o crear activos en la entidad adecuada.
+          </p>
+        </div>
+      </div>
+
+      <div style="overflow-x: auto;">
+        <table class="tickets-table" style="width: 100%; border-collapse: collapse; text-align: left; font-size: 0.82rem;">
+          <thead>
+            <tr style="border-bottom: 1px solid var(--border-subtle); color: var(--text-muted); font-size: 0.72rem; text-transform: uppercase;">
+              <th style="padding: 0.6rem 0.75rem; width: 60px;">Orden</th>
+              <th style="padding: 0.6rem 0.75rem;">Nombre & Tipo</th>
+              <th style="padding: 0.6rem 0.75rem;">Lógica</th>
+              <th style="padding: 0.6rem 0.75rem;">Criterios</th>
+              <th style="padding: 0.6rem 0.75rem;">Acciones</th>
+              <th style="padding: 0.6rem 0.75rem; text-align: center;">Estado</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% if asset_rules.is_empty() %}
+              <tr>
+                <td colspan="6" style="padding: 2rem 1rem; text-align: center; color: var(--text-muted);">
+                  No hay reglas de inventario configuradas.
+                </td>
+              </tr>
+            {% else %}
+              {% for item in asset_rules %}
+                <tr style="border-bottom: 1px solid var(--border-subtle);">
+                  <td style="padding: 0.6rem 0.75rem;">
+                    <span style="background: rgba(247, 242, 236, 0.08); font-family: var(--font-mono); font-size: 0.75rem; padding: 0.15rem 0.4rem; border-radius: 4px; font-weight: 700;">
+                      #{{ item.rule.ranking }}
+                    </span>
+                  </td>
+                  <td style="padding: 0.6rem 0.75rem;">
+                    <div style="font-weight: 600; color: var(--text-primary);">
+                      {{ item.rule.name }}
+                    </div>
+                    <div style="font-size: 0.72rem; color: var(--accent-coral);">
+                      {{ item.rule.rule_type }}
+                    </div>
+                  </td>
+                  <td style="padding: 0.6rem 0.75rem;">
+                    <span style="font-size: 0.72rem; font-weight: 700; color: #3b82f6;">
+                      {{ item.rule.match_logic }}
+                    </span>
+                  </td>
+                  <td style="padding: 0.6rem 0.75rem;">
+                    <div style="display: flex; flex-direction: column; gap: 0.2rem;">
+                      {% for c in item.criteria %}
+                        <span style="font-size: 0.72rem; color: var(--text-secondary); background: var(--bg-elevated); padding: 0.1rem 0.35rem; border-radius: 4px;">
+                          <code>{{ c.field }}</code> {{ c.operator }} <em>"{{ c.pattern }}"</em>
+                        </span>
+                      {% endfor %}
+                    </div>
+                  </td>
+                  <td style="padding: 0.6rem 0.75rem;">
+                    <div style="display: flex; flex-direction: column; gap: 0.2rem;">
+                      {% for a in item.actions %}
+                        <span style="font-size: 0.72rem; color: var(--accent-emerald); background: rgba(16, 185, 129, 0.08); padding: 0.1rem 0.35rem; border-radius: 4px;">
+                          {{ a.action_type }}: <code>{{ a.field }}</code> = {{ a.value }}
+                        </span>
+                      {% endfor %}
+                    </div>
+                  </td>
+                  <td style="padding: 0.6rem 0.75rem; text-align: center;">
+                    <button
+                      type="button"
+                      hx-post="/rules/{{ item.rule.id }}/toggle"
+                      hx-swap="outerHTML"
+                      style="cursor: pointer; background: none; border: none; padding: 0;"
+                    >
+                      {% if item.rule.is_active %}
+                        <span class="status-pill status-solved" style="font-size: 0.7rem;">● Activa</span>
+                      {% else %}
+                        <span class="status-pill status-closed" style="font-size: 0.7rem;">✕ Pausada</span>
+                      {% endif %}
+                    </button>
+                  </td>
+                </tr>
+              {% endfor %}
+            {% endif %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- Tab 3: Normalization Dictionaries -->
+  <div id="tab-dictionaries" class="rule-tab-content" style="{% if active_tab != "dictionaries" %}display: none;{% endif %}">
+    <div class="card" style="display: flex; flex-direction: column; gap: 1rem;">
+      <div style="display: flex; align-items: center; justify-content: space-between;">
+        <div>
+          <h3 style="margin: 0; font-size: 1rem; font-weight: 700; color: var(--text-primary);">
+            Diccionarios de Normalización
+          </h3>
+          <p style="margin: 0.2rem 0 0; font-size: 0.8rem; color: var(--text-muted);">
+            Estandarizan nombres de fabricantes (ej: "Hewlett Packard" → "HP"), modelos de equipos y versiones de SO reportadas por los agentes.
+          </p>
+        </div>
+      </div>
+
+      <div style="overflow-x: auto;">
+        <table class="tickets-table" style="width: 100%; border-collapse: collapse; text-align: left; font-size: 0.82rem;">
+          <thead>
+            <tr style="border-bottom: 1px solid var(--border-subtle); color: var(--text-muted); font-size: 0.72rem; text-transform: uppercase;">
+              <th style="padding: 0.6rem 0.75rem; width: 60px;">Orden</th>
+              <th style="padding: 0.6rem 0.75rem;">Diccionario / Subtipo</th>
+              <th style="padding: 0.6rem 0.75rem;">Regla</th>
+              <th style="padding: 0.6rem 0.75rem;">Patrón de Búsqueda</th>
+              <th style="padding: 0.6rem 0.75rem;">Valor Normalizado Resultante</th>
+              <th style="padding: 0.6rem 0.75rem; text-align: center;">Estado</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% if dictionary_rules.is_empty() %}
+              <tr>
+                <td colspan="6" style="padding: 2rem 1rem; text-align: center; color: var(--text-muted);">
+                  No hay diccionarios de normalización activos.
+                </td>
+              </tr>
+            {% else %}
+              {% for item in dictionary_rules %}
+                <tr style="border-bottom: 1px solid var(--border-subtle);">
+                  <td style="padding: 0.6rem 0.75rem;">
+                    <span style="background: rgba(247, 242, 236, 0.08); font-family: var(--font-mono); font-size: 0.75rem; padding: 0.15rem 0.4rem; border-radius: 4px; font-weight: 700;">
+                      #{{ item.rule.ranking }}
+                    </span>
+                  </td>
+                  <td style="padding: 0.6rem 0.75rem;">
+                    <span style="background: rgba(168, 85, 247, 0.15); color: #c084fc; border: 1px solid rgba(168, 85, 247, 0.3); font-size: 0.72rem; padding: 0.15rem 0.45rem; border-radius: 4px; font-weight: 600;">
+                      📖 {{ item.rule.rule_type }}
+                    </span>
+                  </td>
+                  <td style="padding: 0.6rem 0.75rem; font-weight: 600; color: var(--text-primary);">
+                    {{ item.rule.name }}
+                  </td>
+                  <td style="padding: 0.6rem 0.75rem;">
+                    {% for c in item.criteria %}
+                      <span style="font-size: 0.72rem; color: var(--text-secondary);">
+                        {{ c.operator }}: <code>{{ c.pattern }}</code>
+                      </span>
+                    {% endfor %}
+                  </td>
+                  <td style="padding: 0.6rem 0.75rem;">
+                    {% for a in item.actions %}
+                      <span style="font-size: 0.72rem; color: var(--accent-emerald); font-weight: 600;">
+                        → {{ a.value }}
+                      </span>
+                    {% endfor %}
+                  </td>
+                  <td style="padding: 0.6rem 0.75rem; text-align: center;">
+                    <button
+                      type="button"
+                      hx-post="/rules/{{ item.rule.id }}/toggle"
+                      hx-swap="outerHTML"
+                      style="cursor: pointer; background: none; border: none; padding: 0;"
+                    >
+                      {% if item.rule.is_active %}
+                        <span class="status-pill status-solved" style="font-size: 0.7rem;">● Activa</span>
+                      {% else %}
+                        <span class="status-pill status-closed" style="font-size: 0.7rem;">✕ Pausada</span>
+                      {% endif %}
+                    </button>
+                  </td>
+                </tr>
+              {% endfor %}
+            {% endif %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+function switchRuleTab(tabId) {
+  document.querySelectorAll('.rule-tab-content').forEach(el => el.style.display = 'none');
+  const target = document.getElementById('tab-' + tabId);
+  if (target) target.style.display = 'block';
+
+  document.querySelectorAll('.btn-sm').forEach(btn => btn.classList.remove('active-tab-btn'));
+  if (event && event.currentTarget) {
+    event.currentTarget.classList.add('active-tab-btn');
+  }
+}
+</script>
+
+<style>
+.active-tab-btn {
+  background: var(--btn-primary-from) !important;
+  color: #fff !important;
+  border-color: var(--btn-primary-to) !important;
+}
+</style>
+{% endblock %}
