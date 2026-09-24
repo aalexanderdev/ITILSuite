@@ -1,0 +1,748 @@
+{% extends "layouts/base.html" %}
+
+{% block title %}Marketing & Automatización de Campañas - ITILSuite{% endblock %}
+
+{% block content %}
+<div class="tickets-page-container" style="display: flex; flex-direction: column; gap: 1.25rem;">
+  <!-- Header & Actions -->
+  <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 1rem;">
+    <div>
+      <div style="display: flex; align-items: center; gap: 0.5rem; font-size: 0.8rem; color: var(--text-muted); margin-bottom: 0.25rem;">
+        <span>Comunicaciones</span>
+        <span>/</span>
+        <span style="color: var(--text-primary); font-weight: 500;">Marketing & Automatización</span>
+      </div>
+      <h1 style="margin: 0; font-size: 1.5rem; font-weight: 700; color: var(--text-primary); display: flex; align-items: center; gap: 0.6rem;">
+        <span>📢</span>
+        <span>Marketing & Automatización de Campañas</span>
+      </h1>
+      <p style="margin: 0.25rem 0 0; font-size: 0.85rem; color: var(--text-secondary);">
+        Segmentación de audiencias, difusión de boletines con tracking de aperturas/clics y flujos automatizados inspirados en Mautic.
+      </p>
+    </div>
+
+    <div style="display: flex; align-items: center; gap: 0.75rem;">
+      <a href="http://localhost:8025" target="_blank" rel="noopener noreferrer" class="btn btn-secondary" title="Ver envíos en Mailpit">
+        <span>📬</span>
+        <span>Buzón Mailpit</span>
+      </a>
+      <a href="/campaigns?tab={{ active_tab }}" class="btn btn-secondary" title="Refrescar vista">
+        <span>🔄</span>
+        <span>Refrescar</span>
+      </a>
+      {% if active_tab == "campaigns" || active_tab == "" %}
+        <button type="button" class="btn btn-primary" onclick="openModal('modal-create-campaign')">
+          <span>➕</span>
+          <span>Nueva Campaña</span>
+        </button>
+      {% else if active_tab == "segments" %}
+        <button type="button" class="btn btn-primary" onclick="openModal('modal-create-segment')">
+          <span>➕</span>
+          <span>Nuevo Segmento</span>
+        </button>
+      {% else if active_tab == "contacts" %}
+        <button type="button" class="btn btn-primary" onclick="openModal('modal-create-contact')">
+          <span>➕</span>
+          <span>Nuevo Contacto / Lead</span>
+        </button>
+      {% else if active_tab == "templates" %}
+        <button type="button" class="btn btn-primary" onclick="openModal('modal-create-template')">
+          <span>➕</span>
+          <span>Nueva Plantilla</span>
+        </button>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- Flash Messages -->
+  {% if let Some(msg) = message %}
+    <div style="padding: 0.75rem 1rem; background: rgba(16, 185, 129, 0.15); border: 1px solid rgba(16, 185, 129, 0.3); border-radius: var(--radius-sm); color: #10b981; font-size: 0.85rem; display: flex; align-items: center; gap: 0.5rem;">
+      <span>✅</span>
+      <span>{{ msg }}</span>
+    </div>
+  {% endif %}
+  {% if let Some(err) = error_message %}
+    <div style="padding: 0.75rem 1rem; background: rgba(239, 68, 68, 0.15); border: 1px solid rgba(239, 68, 68, 0.3); border-radius: var(--radius-sm); color: #ef4444; font-size: 0.85rem; display: flex; align-items: center; gap: 0.5rem;">
+      <span>⚠️</span>
+      <span>{{ err }}</span>
+    </div>
+  {% endif %}
+
+  <!-- KPI Overview Metrics -->
+  <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem;">
+    <div class="card" style="padding: 1rem 1.25rem; background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: var(--radius-md);">
+      <div style="font-size: 0.75rem; text-transform: uppercase; color: var(--text-muted); font-weight: 600; margin-bottom: 0.25rem;">Total Campañas</div>
+      <div style="display: flex; align-items: baseline; gap: 0.5rem;">
+        <span style="font-size: 1.6rem; font-weight: 700; color: var(--text-primary);">{{ metrics.total_campaigns }}</span>
+        <span style="font-size: 0.8rem; color: #10b981;">({{ metrics.active_campaigns }} activas)</span>
+      </div>
+    </div>
+
+    <div class="card" style="padding: 1rem 1.25rem; background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: var(--radius-md);">
+      <div style="font-size: 0.75rem; text-transform: uppercase; color: var(--text-muted); font-weight: 600; margin-bottom: 0.25rem;">Audiencia Total</div>
+      <div style="font-size: 1.6rem; font-weight: 700; color: var(--text-primary);">
+        {{ metrics.total_contacts }} <span style="font-size: 0.85rem; font-weight: 400; color: var(--text-secondary);">contactos</span>
+      </div>
+    </div>
+
+    <div class="card" style="padding: 1rem 1.25rem; background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: var(--radius-md);">
+      <div style="font-size: 0.75rem; text-transform: uppercase; color: var(--text-muted); font-weight: 600; margin-bottom: 0.25rem;">Envíos Realizados</div>
+      <div style="font-size: 1.6rem; font-weight: 700; color: #3b82f6;">
+        {{ metrics.total_sent }} <span style="font-size: 0.85rem; font-weight: 400; color: var(--text-secondary);">mensajes</span>
+      </div>
+    </div>
+
+    <div class="card" style="padding: 1rem 1.25rem; background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: var(--radius-md);">
+      <div style="font-size: 0.75rem; text-transform: uppercase; color: var(--text-muted); font-weight: 600; margin-bottom: 0.25rem;">Aperturas (Open Rate)</div>
+      <div style="display: flex; align-items: baseline; gap: 0.5rem;">
+        <span style="font-size: 1.6rem; font-weight: 700; color: #f59e0b;">{{ metrics.total_opened }}</span>
+        <span style="font-size: 0.85rem; font-weight: 600; color: #f59e0b;">({{ self.format_rate(metrics.avg_open_rate) }})</span>
+      </div>
+    </div>
+
+    <div class="card" style="padding: 1rem 1.25rem; background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: var(--radius-md);">
+      <div style="font-size: 0.75rem; text-transform: uppercase; color: var(--text-muted); font-weight: 600; margin-bottom: 0.25rem;">Clics (CTR)</div>
+      <div style="display: flex; align-items: baseline; gap: 0.5rem;">
+        <span style="font-size: 1.6rem; font-weight: 700; color: #8b5cf6;">{{ metrics.total_clicked }}</span>
+        <span style="font-size: 0.85rem; font-weight: 600; color: #8b5cf6;">({{ self.format_rate(metrics.avg_click_rate) }})</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Tab Navigation -->
+  <div style="display: flex; gap: 0.5rem; border-bottom: 1px solid var(--border-subtle); padding-bottom: 0.5rem; flex-wrap: wrap;">
+    <a href="/campaigns?tab=campaigns" class="btn {% if active_tab == "campaigns" || active_tab == "" %}btn-primary{% else %}btn-secondary{% endif %}" style="padding: 0.5rem 1rem; font-size: 0.85rem;">
+      <span>📣</span>
+      <span>Campañas ({{ campaigns.len() }})</span>
+    </a>
+    <a href="/campaigns?tab=segments" class="btn {% if active_tab == "segments" %}btn-primary{% else %}btn-secondary{% endif %}" style="padding: 0.5rem 1rem; font-size: 0.85rem;">
+      <span>🎯</span>
+      <span>Segmentos & Listas ({{ segments.len() }})</span>
+    </a>
+    <a href="/campaigns?tab=contacts" class="btn {% if active_tab == "contacts" %}btn-primary{% else %}btn-secondary{% endif %}" style="padding: 0.5rem 1rem; font-size: 0.85rem;">
+      <span>👥</span>
+      <span>Contactos & Leads ({{ contacts.len() }})</span>
+    </a>
+    <a href="/campaigns?tab=templates" class="btn {% if active_tab == "templates" %}btn-primary{% else %}btn-secondary{% endif %}" style="padding: 0.5rem 1rem; font-size: 0.85rem;">
+      <span>📝</span>
+      <span>Plantillas de Email ({{ email_templates.len() }})</span>
+    </a>
+    <a href="/campaigns?tab=automations" class="btn {% if active_tab == "automations" %}btn-primary{% else %}btn-secondary{% endif %}" style="padding: 0.5rem 1rem; font-size: 0.85rem;">
+      <span>⚡</span>
+      <span>Automatizaciones & Flujos</span>
+    </a>
+    <a href="/campaigns?tab=analytics" class="btn {% if active_tab == "analytics" %}btn-primary{% else %}btn-secondary{% endif %}" style="padding: 0.5rem 1rem; font-size: 0.85rem;">
+      <span>📊</span>
+      <span>Métricas & Rendimiento</span>
+    </a>
+  </div>
+
+  <!-- TAB 1: CAMPAIGNS LIST -->
+  {% if active_tab == "campaigns" || active_tab == "" %}
+    <div class="card" style="background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: var(--radius-md); overflow: hidden;">
+      <div style="padding: 1rem 1.25rem; border-bottom: 1px solid var(--border-subtle); display: flex; justify-content: space-between; align-items: center;">
+        <h2 style="margin: 0; font-size: 1.1rem; font-weight: 600; color: var(--text-primary); display: flex; align-items: center; gap: 0.5rem;">
+          <span>📣</span>
+          <span>Campañas Registradas</span>
+        </h2>
+        <span style="font-size: 0.8rem; color: var(--text-muted);">Muestran aperturas verificadas por pixel 1x1 y clics redirigidos</span>
+      </div>
+
+      <div style="overflow-x: auto;">
+        <table class="table" style="width: 100%; border-collapse: collapse; text-align: left; font-size: 0.85rem;">
+          <thead>
+            <tr style="background: var(--bg-secondary); border-bottom: 1px solid var(--border-subtle); color: var(--text-secondary);">
+              <th style="padding: 0.75rem 1rem;">Campaña</th>
+              <th style="padding: 0.75rem 1rem;">Tipo</th>
+              <th style="padding: 0.75rem 1rem;">Estado</th>
+              <th style="padding: 0.75rem 1rem;">Destinatarios</th>
+              <th style="padding: 0.75rem 1rem;">Aperturas (Pixel)</th>
+              <th style="padding: 0.75rem 1rem;">Clics (CTR)</th>
+              <th style="padding: 0.75rem 1rem; text-align: right;">Acciones</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for c in campaigns %}
+              <tr style="border-bottom: 1px solid var(--border-subtle);">
+                <td style="padding: 0.75rem 1rem;">
+                  <div style="font-weight: 600; color: var(--text-primary);">{{ c.name }}</div>
+                  <div style="font-size: 0.75rem; color: var(--text-muted);">{{ c.description }}</div>
+                </td>
+                <td style="padding: 0.75rem 1rem;">
+                  <span style="padding: 0.2rem 0.5rem; background: var(--bg-secondary); border-radius: 4px; font-size: 0.75rem; font-family: monospace;">
+                    {{ c.campaign_type }}
+                  </span>
+                </td>
+                <td style="padding: 0.75rem 1rem;">
+                  {% if c.status == "completed" %}
+                    <span style="padding: 0.25rem 0.6rem; background: rgba(16, 185, 129, 0.15); color: #10b981; border-radius: 9999px; font-weight: 600; font-size: 0.75rem;">Completada</span>
+                  {% else if c.status == "active" %}
+                    <span style="padding: 0.25rem 0.6rem; background: rgba(59, 130, 246, 0.15); color: #3b82f6; border-radius: 9999px; font-weight: 600; font-size: 0.75rem;">Enviando</span>
+                  {% else if c.status == "scheduled" %}
+                    <span style="padding: 0.25rem 0.6rem; background: rgba(245, 158, 11, 0.15); color: #f59e0b; border-radius: 9999px; font-weight: 600; font-size: 0.75rem;">Programada</span>
+                  {% else %}
+                    <span style="padding: 0.25rem 0.6rem; background: var(--bg-secondary); color: var(--text-muted); border-radius: 9999px; font-weight: 600; font-size: 0.75rem;">Borrador</span>
+                  {% endif %}
+                </td>
+                <td style="padding: 0.75rem 1rem; color: var(--text-secondary);">
+                  <strong>{{ c.total_delivered }}</strong> / {{ c.total_recipients }}
+                </td>
+                <td style="padding: 0.75rem 1rem;">
+                  <div style="display: flex; align-items: center; gap: 0.5rem;">
+                    <span style="font-weight: 600; color: #f59e0b;">{{ c.total_opened }}</span>
+                    {% if c.total_delivered > 0 %}
+                      <span style="font-size: 0.75rem; color: var(--text-muted);">
+                        ({{ self.calc_rate(c.total_opened, c.total_delivered) }})
+                      </span>
+                    {% endif %}
+                  </div>
+                </td>
+                <td style="padding: 0.75rem 1rem;">
+                  <div style="display: flex; align-items: center; gap: 0.5rem;">
+                    <span style="font-weight: 600; color: #8b5cf6;">{{ c.total_clicked }}</span>
+                    {% if c.total_delivered > 0 %}
+                      <span style="font-size: 0.75rem; color: var(--text-muted);">
+                        ({{ self.calc_rate(c.total_clicked, c.total_delivered) }})
+                      </span>
+                    {% endif %}
+                  </div>
+                </td>
+                <td style="padding: 0.75rem 1rem; text-align: right;">
+                  <form method="POST" action="/campaigns/{{ c.id }}/launch" style="display: inline;">
+                    <button type="submit" class="btn btn-secondary" style="padding: 0.3rem 0.6rem; font-size: 0.75rem;" title="Lanzar envío masivo inmediato" onclick="return confirm('¿Confirmas el lanzamiento inmediato de esta campaña?');">
+                      <span>🚀</span>
+                      <span>Lanzar Ahora</span>
+                    </button>
+                  </form>
+                </td>
+              </tr>
+            {% endfor %}
+            {% if campaigns.is_empty() %}
+              <tr>
+                <td colspan="7" style="padding: 2rem; text-align: center; color: var(--text-muted);">
+                  No hay campañas registradas aún. Haz clic en "Nueva Campaña" para crear tu primera difusión.
+                </td>
+              </tr>
+            {% endif %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  {% endif %}
+
+  <!-- TAB 2: AUDIENCE SEGMENTS -->
+  {% if active_tab == "segments" %}
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 1rem;">
+      {% for s in segments %}
+        <div class="card" style="background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: var(--radius-md); padding: 1.25rem; display: flex; flex-direction: column; justify-content: space-between;">
+          <div>
+            <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 0.5rem;">
+              <h3 style="margin: 0; font-size: 1.05rem; font-weight: 600; color: var(--text-primary); display: flex; align-items: center; gap: 0.4rem;">
+                <span>🎯</span>
+                <span>{{ s.name }}</span>
+              </h3>
+              {% if s.is_dynamic %}
+                <span style="padding: 0.2rem 0.5rem; background: rgba(59, 130, 246, 0.15); color: #3b82f6; border-radius: 4px; font-size: 0.7rem; font-weight: 600;">Dinámico</span>
+              {% else %}
+                <span style="padding: 0.2rem 0.5rem; background: var(--bg-secondary); color: var(--text-muted); border-radius: 4px; font-size: 0.7rem; font-weight: 600;">Estático</span>
+              {% endif %}
+            </div>
+            <p style="font-size: 0.85rem; color: var(--text-secondary); margin: 0 0 1rem; line-height: 1.4;">
+              {{ s.description }}
+            </p>
+
+            <div style="margin-bottom: 1rem;">
+              <span style="font-size: 0.75rem; text-transform: uppercase; color: var(--text-muted); font-weight: 600;">Reglas de Filtrado:</span>
+              <div style="margin-top: 0.35rem; padding: 0.5rem; background: var(--bg-secondary); border-radius: var(--radius-sm); font-family: monospace; font-size: 0.75rem; color: var(--text-primary); overflow-x: auto;">
+                {{ s.filter_criteria }}
+              </div>
+            </div>
+          </div>
+
+          <div style="display: flex; justify-content: space-between; align-items: center; padding-top: 0.75rem; border-top: 1px solid var(--border-subtle);">
+            <div>
+              <span style="font-size: 0.75rem; color: var(--text-muted);">Audiencia Calculada:</span>
+              <div style="font-size: 1.2rem; font-weight: 700; color: #10b981;">
+                {{ s.cached_count }} <span style="font-size: 0.75rem; font-weight: 400; color: var(--text-secondary);">contactos</span>
+              </div>
+            </div>
+            <span style="font-size: 0.75rem; color: var(--text-muted);">
+              Actualizado: {{ self.format_dt(s.updated_at) }}
+            </span>
+          </div>
+        </div>
+      {% endfor %}
+      {% if segments.is_empty() %}
+        <div style="grid-column: 1 / -1; padding: 3rem; text-align: center; color: var(--text-muted); background: var(--bg-card); border-radius: var(--radius-md); border: 1px solid var(--border-subtle);">
+          No hay segmentos configurados. Crea un segmento para agrupar contactos por puntuación, empresa o etiquetas.
+        </div>
+      {% endif %}
+    </div>
+  {% endif %}
+
+  <!-- TAB 3: CONTACTS DIRECTORY -->
+  {% if active_tab == "contacts" %}
+    <div class="card" style="background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: var(--radius-md); overflow: hidden;">
+      <div style="padding: 1rem 1.25rem; border-bottom: 1px solid var(--border-subtle); display: flex; justify-content: space-between; align-items: center;">
+        <h2 style="margin: 0; font-size: 1.1rem; font-weight: 600; color: var(--text-primary); display: flex; align-items: center; gap: 0.5rem;">
+          <span>👥</span>
+          <span>Directorio de Contactos & Leads</span>
+        </h2>
+        <span style="font-size: 0.8rem; color: var(--text-muted);">Puntuación de engagement se actualiza al abrir correos (+2) o hacer clic (+5)</span>
+      </div>
+
+      <div style="overflow-x: auto;">
+        <table class="table" style="width: 100%; border-collapse: collapse; text-align: left; font-size: 0.85rem;">
+          <thead>
+            <tr style="background: var(--bg-secondary); border-bottom: 1px solid var(--border-subtle); color: var(--text-secondary);">
+              <th style="padding: 0.75rem 1rem;">Contacto</th>
+              <th style="padding: 0.75rem 1rem;">Empresa</th>
+              <th style="padding: 0.75rem 1rem;">Etapa</th>
+              <th style="padding: 0.75rem 1rem;">Puntos</th>
+              <th style="padding: 0.75rem 1rem;">Etiquetas (Tags)</th>
+              <th style="padding: 0.75rem 1rem;">Suscripción</th>
+              <th style="padding: 0.75rem 1rem;">Registro</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for ct in contacts %}
+              <tr style="border-bottom: 1px solid var(--border-subtle);">
+                <td style="padding: 0.75rem 1rem;">
+                  <div style="font-weight: 600; color: var(--text-primary);">{{ ct.first_name }} {{ ct.last_name }}</div>
+                  <div style="font-size: 0.75rem; color: var(--text-secondary); font-family: monospace;">{{ ct.email }}</div>
+                </td>
+                <td style="padding: 0.75rem 1rem; color: var(--text-secondary);">
+                  {{ ct.company }}
+                </td>
+                <td style="padding: 0.75rem 1rem;">
+                  <span style="padding: 0.2rem 0.5rem; background: var(--bg-secondary); border-radius: 4px; font-size: 0.75rem; font-weight: 600; text-transform: uppercase;">
+                    {{ ct.stage }}
+                  </span>
+                </td>
+                <td style="padding: 0.75rem 1rem;">
+                  <span style="display: inline-block; padding: 0.2rem 0.5rem; background: rgba(245, 158, 11, 0.15); color: #f59e0b; border-radius: 9999px; font-weight: 700; font-size: 0.8rem;">
+                    ★ {{ ct.points }} pts
+                  </span>
+                </td>
+                <td style="padding: 0.75rem 1rem;">
+                  <div style="display: flex; gap: 0.25rem; flex-wrap: wrap;">
+                    {% for tag in ct.tags %}
+                      <span style="padding: 0.15rem 0.4rem; background: var(--bg-secondary); border: 1px solid var(--border-subtle); border-radius: 3px; font-size: 0.7rem; color: var(--text-secondary);">
+                        #{{ tag }}
+                      </span>
+                    {% endfor %}
+                  </div>
+                </td>
+                <td style="padding: 0.75rem 1rem;">
+                  {% if ct.is_unsubscribed %}
+                    <span style="padding: 0.2rem 0.5rem; background: rgba(239, 68, 68, 0.15); color: #ef4444; border-radius: 4px; font-size: 0.75rem; font-weight: 600;">Desuscrito</span>
+                  {% else %}
+                    <span style="padding: 0.2rem 0.5rem; background: rgba(16, 185, 129, 0.15); color: #10b981; border-radius: 4px; font-size: 0.75rem; font-weight: 600;">Activo</span>
+                  {% endif %}
+                </td>
+                <td style="padding: 0.75rem 1rem; color: var(--text-muted); font-size: 0.75rem;">
+                  {{ self.format_dt(ct.created_at) }}
+                </td>
+              </tr>
+            {% endfor %}
+            {% if contacts.is_empty() %}
+              <tr>
+                <td colspan="7" style="padding: 2rem; text-align: center; color: var(--text-muted);">
+                  No hay contactos registrados. Haz clic en "Nuevo Contacto / Lead" para comenzar.
+                </td>
+              </tr>
+            {% endif %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  {% endif %}
+
+  <!-- TAB 4: EMAIL TEMPLATES -->
+  {% if active_tab == "templates" %}
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(360px, 1fr)); gap: 1rem;">
+      {% for t in email_templates %}
+        <div class="card" style="background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: var(--radius-md); padding: 1.25rem; display: flex; flex-direction: column; justify-content: space-between;">
+          <div>
+            <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 0.5rem;">
+              <h3 style="margin: 0; font-size: 1.05rem; font-weight: 600; color: var(--text-primary); display: flex; align-items: center; gap: 0.4rem;">
+                <span>📝</span>
+                <span>{{ t.name }}</span>
+              </h3>
+            </div>
+
+            <div style="padding: 0.5rem 0.75rem; background: var(--bg-secondary); border-radius: var(--radius-sm); margin-bottom: 1rem; font-size: 0.8rem; color: var(--text-primary);">
+              <strong>Asunto:</strong> {{ t.subject }}
+            </div>
+
+            <div style="font-size: 0.75rem; color: var(--text-muted); margin-bottom: 0.5rem;">
+              <strong>Remitente:</strong> {{ t.from_name }} &lt;{{ t.from_email }}&gt;
+            </div>
+
+            <div style="padding: 0.75rem; background: var(--bg-primary); border: 1px solid var(--border-subtle); border-radius: var(--radius-sm); font-size: 0.75rem; color: var(--text-secondary); max-height: 120px; overflow-y: auto; font-family: monospace;">
+              {{ t.body_html }}
+            </div>
+          </div>
+
+          <div style="margin-top: 1rem; padding-top: 0.75rem; border-top: 1px solid var(--border-subtle); font-size: 0.75rem; color: var(--text-muted); display: flex; justify-content: space-between; align-items: center;">
+            <span>Tokens: {% raw %}<code>{{contact.first_name}}</code>, <code>{{tracking_pixel}}</code>{% endraw %}</span>
+            <span>{{ self.format_dt(t.created_at) }}</span>
+          </div>
+        </div>
+      {% endfor %}
+      {% if email_templates.is_empty() %}
+        <div style="grid-column: 1 / -1; padding: 3rem; text-align: center; color: var(--text-muted); background: var(--bg-card); border-radius: var(--radius-md); border: 1px solid var(--border-subtle);">
+          No hay plantillas de correo registradas. Crea una plantilla de boletín o aviso de soporte.
+        </div>
+      {% endif %}
+    </div>
+  {% endif %}
+
+  <!-- TAB 5: AUTOMATIONS & WORKFLOWS -->
+  {% if active_tab == "automations" %}
+    <div style="display: flex; flex-direction: column; gap: 1.25rem;">
+      <div class="card" style="padding: 1.25rem; background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: var(--radius-md);">
+        <h2 style="margin: 0 0 0.5rem; font-size: 1.15rem; font-weight: 700; color: var(--text-primary); display: flex; align-items: center; gap: 0.5rem;">
+          <span>⚡</span>
+          <span>Flujos de Automatización Activos (Estilo Mautic)</span>
+        </h2>
+        <p style="margin: 0; font-size: 0.85rem; color: var(--text-secondary);">
+          Los flujos automatizados encadenan <strong>Disparadores</strong>, <strong>Tiempos de Espera</strong>, <strong>Condiciones</strong> y <strong>Acciones</strong> de forma autónoma con el worker de Tokio.
+        </p>
+      </div>
+
+      <!-- Flow Example 1 -->
+      <div class="card" style="padding: 1.25rem; background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: var(--radius-md);">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+          <div>
+            <h3 style="margin: 0; font-size: 1rem; font-weight: 600; color: var(--text-primary);">
+              Secuencia 1: Bienvenida & Guía de Autoservicio para Nuevos Empleados
+            </h3>
+            <span style="font-size: 0.75rem; color: var(--text-muted);">Disparador: Alta de nuevo usuario o contacto con tag #nuevo-ingreso</span>
+          </div>
+          <span style="padding: 0.25rem 0.6rem; background: rgba(16, 185, 129, 0.15); color: #10b981; border-radius: 9999px; font-weight: 600; font-size: 0.75rem;">Activo</span>
+        </div>
+
+        <div style="display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; font-size: 0.8rem;">
+          <div style="padding: 0.6rem 0.8rem; background: var(--bg-secondary); border-radius: var(--radius-sm); border-left: 3px solid #3b82f6;">
+            <strong>1. Disparador</strong><br>Contacto entra a segmento "Nuevos Ingresos"
+          </div>
+          <span>➔</span>
+          <div style="padding: 0.6rem 0.8rem; background: var(--bg-secondary); border-radius: var(--radius-sm); border-left: 3px solid #f59e0b;">
+            <strong>2. Acción Inmediata</strong><br>Enviar email "Bienvenida y Guía TI"
+          </div>
+          <span>➔</span>
+          <div style="padding: 0.6rem 0.8rem; background: var(--bg-secondary); border-radius: var(--radius-sm); border-left: 3px solid #8b5cf6;">
+            <strong>3. Espera</strong><br>Esperar 48 Horas
+          </div>
+          <span>➔</span>
+          <div style="padding: 0.6rem 0.8rem; background: var(--bg-secondary); border-radius: var(--radius-sm); border-left: 3px solid #10b981;">
+            <strong>4. Condición</strong><br>¿Abrió el correo? (Pixel)<br>
+            <span style="color: #10b981;">Sí: +10 Puntos</span> | <span style="color: #ef4444;">No: Reenvío con asunto reforzado</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Flow Example 2 -->
+      <div class="card" style="padding: 1.25rem; background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: var(--radius-md);">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+          <div>
+            <h3 style="margin: 0; font-size: 1rem; font-weight: 600; color: var(--text-primary);">
+              Secuencia 2: Renovación de Equipos & Fin de Garantía (Hardware Refresh)
+            </h3>
+            <span style="font-size: 0.75rem; color: var(--text-muted);">Disparador: Activo de CMDB con garantía por vencer en &lt; 30 días</span>
+          </div>
+          <span style="padding: 0.25rem 0.6rem; background: rgba(16, 185, 129, 0.15); color: #10b981; border-radius: 9999px; font-weight: 600; font-size: 0.75rem;">Activo</span>
+        </div>
+
+        <div style="display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; font-size: 0.8rem;">
+          <div style="padding: 0.6rem 0.8rem; background: var(--bg-secondary); border-radius: var(--radius-sm); border-left: 3px solid #3b82f6;">
+            <strong>1. Disparador CMDB</strong><br>Garantía de Computador expira
+          </div>
+          <span>➔</span>
+          <div style="padding: 0.6rem 0.8rem; background: var(--bg-secondary); border-radius: var(--radius-sm); border-left: 3px solid #f59e0b;">
+            <strong>2. Acción</strong><br>Enviar formulario de selección de equipo
+          </div>
+          <span>➔</span>
+          <div style="padding: 0.6rem 0.8rem; background: var(--bg-secondary); border-radius: var(--radius-sm); border-left: 3px solid #10b981;">
+            <strong>3. Enlace Clickeado</strong><br>Crear automáticamente Solicitud de Servicio (Ticket)
+          </div>
+        </div>
+      </div>
+    </div>
+  {% endif %}
+
+  <!-- TAB 6: ANALYTICS & PERFORMANCE -->
+  {% if active_tab == "analytics" %}
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1.25rem;">
+      <div class="card" style="padding: 1.25rem; background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: var(--radius-md);">
+        <h3 style="margin: 0 0 1rem; font-size: 1.05rem; font-weight: 600; color: var(--text-primary);">
+          🎯 Embudo de Entrega de Campañas
+        </h3>
+        <div style="display: flex; flex-direction: column; gap: 0.75rem; font-size: 0.85rem;">
+          <div>
+            <div style="display: flex; justify-content: space-between; margin-bottom: 0.25rem;">
+              <span>Enviados Exitosamente</span>
+              <strong style="color: #3b82f6;">{{ metrics.total_sent }} (100%)</strong>
+            </div>
+            <div style="height: 8px; background: var(--bg-secondary); border-radius: 4px; overflow: hidden;">
+              <div style="height: 100%; width: 100%; background: #3b82f6;"></div>
+            </div>
+          </div>
+
+          <div>
+            <div style="display: flex; justify-content: space-between; margin-bottom: 0.25rem;">
+              <span>Aperturas Registradas (Pixel)</span>
+              <strong style="color: #f59e0b;">{{ metrics.total_opened }} ({{ self.format_rate(metrics.avg_open_rate) }})</strong>
+            </div>
+            <div style="height: 8px; background: var(--bg-secondary); border-radius: 4px; overflow: hidden;">
+              <div style="height: 100%; width: 50%; background: #f59e0b;"></div>
+            </div>
+          </div>
+
+          <div>
+            <div style="display: flex; justify-content: space-between; margin-bottom: 0.25rem;">
+              <span>Clics en Enlaces (CTR)</span>
+              <strong style="color: #8b5cf6;">{{ metrics.total_clicked }} ({{ self.format_rate(metrics.avg_click_rate) }})</strong>
+            </div>
+            <div style="height: 8px; background: var(--bg-secondary); border-radius: 4px; overflow: hidden;">
+              <div style="height: 100%; width: 25%; background: #8b5cf6;"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card" style="padding: 1.25rem; background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: var(--radius-md);">
+        <h3 style="margin: 0 0 1rem; font-size: 1.05rem; font-weight: 600; color: var(--text-primary);">
+          🛡️ Infraestructura & Reputación SMTP
+        </h3>
+        <ul style="margin: 0; padding-left: 1.2rem; font-size: 0.85rem; color: var(--text-secondary); line-height: 1.6;">
+          <li>Servidor de salida: <strong>Localhost / Mailpit (1025)</strong></li>
+          <li>Cabecera de desuscripción: <strong>List-Unsubscribe RFC 2369</strong> activa</li>
+          <li>Pixel de apertura: <strong>1x1 PNG Transparente</strong> con cabeceras no-cache</li>
+          <li>Redirección de enlaces: <strong>302 Found</strong> con registro de IP y User-Agent</li>
+          <li>Protección de rebotes: Descarte automático de direcciones no válidas</li>
+        </ul>
+      </div>
+    </div>
+  {% endif %}
+</div>
+
+<!-- ========================================================================= -->
+<!-- MODALS -->
+<!-- ========================================================================= -->
+
+<!-- Modal Create Campaign -->
+<div id="modal-create-campaign" class="modal-backdrop" style="display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 1000; align-items: center; justify-content: center;">
+  <div class="modal-content" style="background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: var(--radius-lg); width: 100%; max-width: 520px; padding: 1.5rem; box-shadow: var(--shadow-lg);">
+    <h3 style="margin: 0 0 1rem; font-size: 1.15rem; font-weight: 700; color: var(--text-primary);">Nueva Campaña de Comunicación</h3>
+    <form method="POST" action="/campaigns" style="display: flex; flex-direction: column; gap: 1rem;">
+      <div>
+        <label style="display: block; font-size: 0.8rem; font-weight: 600; color: var(--text-secondary); margin-bottom: 0.25rem;">Nombre de la Campaña *</label>
+        <input type="text" name="name" required class="input" style="width: 100%;" placeholder="ej. Actualización de Seguridad VPN Q4">
+      </div>
+
+      <div>
+        <label style="display: block; font-size: 0.8rem; font-weight: 600; color: var(--text-secondary); margin-bottom: 0.25rem;">Descripción</label>
+        <textarea name="description" rows="2" class="input" style="width: 100%;" placeholder="Objetivo y alcance de la comunicación"></textarea>
+      </div>
+
+      <div>
+        <label style="display: block; font-size: 0.8rem; font-weight: 600; color: var(--text-secondary); margin-bottom: 0.25rem;">Segmento de Audiencia *</label>
+        <select name="segment_id" required class="input" style="width: 100%;">
+          {% for s in segments %}
+            <option value="{{ s.id }}">{{ s.name }} ({{ s.cached_count }} contactos)</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div>
+        <label style="display: block; font-size: 0.8rem; font-weight: 600; color: var(--text-secondary); margin-bottom: 0.25rem;">Plantilla de Correo *</label>
+        <select name="email_id" required class="input" style="width: 100%;">
+          {% for em in email_templates %}
+            <option value="{{ em.id }}">{{ em.name }} - &quot;{{ em.subject }}&quot;</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div>
+        <label style="display: block; font-size: 0.8rem; font-weight: 600; color: var(--text-secondary); margin-bottom: 0.25rem;">Tipo de Campaña</label>
+        <select name="campaign_type" class="input" style="width: 100%;">
+          <option value="broadcast">Difusión Masiva (Broadcast)</option>
+          <option value="drip_sequence">Secuencia Automatizada (Drip)</option>
+          <option value="event_triggered">Disparada por Evento de Ticket</option>
+        </select>
+      </div>
+
+      <div style="display: flex; justify-content: flex-end; gap: 0.5rem; margin-top: 0.5rem;">
+        <button type="button" class="btn btn-secondary" onclick="closeModal('modal-create-campaign')">Cancelar</button>
+        <button type="submit" class="btn btn-primary">Guardar Campaña</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Modal Create Segment -->
+<div id="modal-create-segment" class="modal-backdrop" style="display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 1000; align-items: center; justify-content: center;">
+  <div class="modal-content" style="background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: var(--radius-lg); width: 100%; max-width: 520px; padding: 1.5rem; box-shadow: var(--shadow-lg);">
+    <h3 style="margin: 0 0 1rem; font-size: 1.15rem; font-weight: 700; color: var(--text-primary);">Nuevo Segmento de Audiencia</h3>
+    <form method="POST" action="/campaigns/segments" style="display: flex; flex-direction: column; gap: 1rem;">
+      <div>
+        <label style="display: block; font-size: 0.8rem; font-weight: 600; color: var(--text-secondary); margin-bottom: 0.25rem;">Nombre del Segmento *</label>
+        <input type="text" name="name" required class="input" style="width: 100%;" placeholder="ej. Usuarios con Más de 20 Puntos">
+      </div>
+
+      <div>
+        <label style="display: block; font-size: 0.8rem; font-weight: 600; color: var(--text-secondary); margin-bottom: 0.25rem;">Descripción</label>
+        <textarea name="description" rows="2" class="input" style="width: 100%;" placeholder="Finalidad del segmento"></textarea>
+      </div>
+
+      <div>
+        <label style="display: block; font-size: 0.8rem; font-weight: 600; color: var(--text-secondary); margin-bottom: 0.25rem;">Campo de Filtrado</label>
+        <select name="rule_field" class="input" style="width: 100%;">
+          <option value="points">Puntos de Engagement (Lead Score)</option>
+          <option value="stage">Etapa (lead, prospect, customer, champion)</option>
+          <option value="tags">Etiquetas (Tags)</option>
+          <option value="company">Empresa / Departamento</option>
+        </select>
+      </div>
+
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem;">
+        <div>
+          <label style="display: block; font-size: 0.8rem; font-weight: 600; color: var(--text-secondary); margin-bottom: 0.25rem;">Operador</label>
+          <select name="rule_operator" class="input" style="width: 100%;">
+            <option value="gte">Mayor o igual (&gt;=)</option>
+            <option value="lte">Menor o igual (&lt;=)</option>
+            <option value="equals">Igual a (=)</option>
+            <option value="contains">Contiene texto</option>
+          </select>
+        </div>
+        <div>
+          <label style="display: block; font-size: 0.8rem; font-weight: 600; color: var(--text-secondary); margin-bottom: 0.25rem;">Valor</label>
+          <input type="text" name="rule_value" class="input" style="width: 100%;" placeholder="ej. 20 o vip">
+        </div>
+      </div>
+
+      <div style="display: flex; justify-content: flex-end; gap: 0.5rem; margin-top: 0.5rem;">
+        <button type="button" class="btn btn-secondary" onclick="closeModal('modal-create-segment')">Cancelar</button>
+        <button type="submit" class="btn btn-primary">Crear Segmento</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Modal Create Contact -->
+<div id="modal-create-contact" class="modal-backdrop" style="display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 1000; align-items: center; justify-content: center;">
+  <div class="modal-content" style="background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: var(--radius-lg); width: 100%; max-width: 520px; padding: 1.5rem; box-shadow: var(--shadow-lg);">
+    <h3 style="margin: 0 0 1rem; font-size: 1.15rem; font-weight: 700; color: var(--text-primary);">Nuevo Contacto o Lead</h3>
+    <form method="POST" action="/campaigns/contacts" style="display: flex; flex-direction: column; gap: 1rem;">
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem;">
+        <div>
+          <label style="display: block; font-size: 0.8rem; font-weight: 600; color: var(--text-secondary); margin-bottom: 0.25rem;">Nombre *</label>
+          <input type="text" name="first_name" required class="input" style="width: 100%;" placeholder="ej. Sofía">
+        </div>
+        <div>
+          <label style="display: block; font-size: 0.8rem; font-weight: 600; color: var(--text-secondary); margin-bottom: 0.25rem;">Apellido</label>
+          <input type="text" name="last_name" class="input" style="width: 100%;" placeholder="ej. Rossi">
+        </div>
+      </div>
+
+      <div>
+        <label style="display: block; font-size: 0.8rem; font-weight: 600; color: var(--text-secondary); margin-bottom: 0.25rem;">Email Corporativo *</label>
+        <input type="email" name="email" required class="input" style="width: 100%;" placeholder="sofia.rossi@empresa.com">
+      </div>
+
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem;">
+        <div>
+          <label style="display: block; font-size: 0.8rem; font-weight: 600; color: var(--text-secondary); margin-bottom: 0.25rem;">Empresa</label>
+          <input type="text" name="company" class="input" style="width: 100%;" placeholder="ej. Acme Corp">
+        </div>
+        <div>
+          <label style="display: block; font-size: 0.8rem; font-weight: 600; color: var(--text-secondary); margin-bottom: 0.25rem;">Teléfono</label>
+          <input type="text" name="phone" class="input" style="width: 100%;" placeholder="+54 11 ...">
+        </div>
+      </div>
+
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem;">
+        <div>
+          <label style="display: block; font-size: 0.8rem; font-weight: 600; color: var(--text-secondary); margin-bottom: 0.25rem;">Etapa</label>
+          <select name="stage" class="input" style="width: 100%;">
+            <option value="lead">Lead (Inicial)</option>
+            <option value="prospect">Prospecto</option>
+            <option value="customer" selected>Cliente / Empleado</option>
+            <option value="champion">Champion / VIP</option>
+          </select>
+        </div>
+        <div>
+          <label style="display: block; font-size: 0.8rem; font-weight: 600; color: var(--text-secondary); margin-bottom: 0.25rem;">Puntos Iniciales</label>
+          <input type="number" name="points" value="10" class="input" style="width: 100%;">
+        </div>
+      </div>
+
+      <div>
+        <label style="display: block; font-size: 0.8rem; font-weight: 600; color: var(--text-secondary); margin-bottom: 0.25rem;">Etiquetas (separadas por coma)</label>
+        <input type="text" name="tags" class="input" style="width: 100%;" placeholder="ej. vip, finanzas, dev">
+      </div>
+
+      <div style="display: flex; justify-content: flex-end; gap: 0.5rem; margin-top: 0.5rem;">
+        <button type="button" class="btn btn-secondary" onclick="closeModal('modal-create-contact')">Cancelar</button>
+        <button type="submit" class="btn btn-primary">Registrar Contacto</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Modal Create Template -->
+<div id="modal-create-template" class="modal-backdrop" style="display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 1000; align-items: center; justify-content: center;">
+  <div class="modal-content" style="background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: var(--radius-lg); width: 100%; max-width: 580px; padding: 1.5rem; box-shadow: var(--shadow-lg);">
+    <h3 style="margin: 0 0 1rem; font-size: 1.15rem; font-weight: 700; color: var(--text-primary);">Nueva Plantilla de Email</h3>
+    <form method="POST" action="/campaigns/templates" style="display: flex; flex-direction: column; gap: 1rem;">
+      <div>
+        <label style="display: block; font-size: 0.8rem; font-weight: 600; color: var(--text-secondary); margin-bottom: 0.25rem;">Nombre Interno de la Plantilla *</label>
+        <input type="text" name="name" required class="input" style="width: 100%;" placeholder="ej. Comunicado de Ciberseguridad Phishing">
+      </div>
+
+      <div>
+        <label style="display: block; font-size: 0.8rem; font-weight: 600; color: var(--text-secondary); margin-bottom: 0.25rem;">Asunto del Mensaje *</label>
+        <input type="text" name="subject" required class="input" style="width: 100%;" placeholder="ej. 🔒 Alerta de Seguridad: Cómo identificar correos fraudulentos">
+      </div>
+
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem;">
+        <div>
+          <label style="display: block; font-size: 0.8rem; font-weight: 600; color: var(--text-secondary); margin-bottom: 0.25rem;">Nombre Remitente</label>
+          <input type="text" name="from_name" value="ITILSuite Seguridad TI" class="input" style="width: 100%;">
+        </div>
+        <div>
+          <label style="display: block; font-size: 0.8rem; font-weight: 600; color: var(--text-secondary); margin-bottom: 0.25rem;">Email Remitente</label>
+          <input type="email" name="from_email" value="seguridad@itilsuite.local" class="input" style="width: 100%;">
+        </div>
+      </div>
+
+      <div>
+        <label style="display: block; font-size: 0.8rem; font-weight: 600; color: var(--text-secondary); margin-bottom: 0.25rem;">Cuerpo del Mensaje (HTML) *</label>
+        <textarea name="body_html" required rows="6" class="input" style="width: 100%; font-family: monospace; font-size: 0.8rem;" placeholder="Escribe el cuerpo HTML de la plantilla..."></textarea>
+      </div>
+
+      <div style="padding: 0.5rem; background: var(--bg-secondary); border-radius: 4px; font-size: 0.75rem; color: var(--text-muted);">
+        Tokens disponibles: {% raw %}<code>{{contact.first_name}}</code>, <code>{{contact.company}}</code>, <code>{{contact.points}}</code>, <code>{{unsubscribe_url}}</code>, <code>{{tracking_pixel}}</code>{% endraw %}.
+      </div>
+
+      <div style="display: flex; justify-content: flex-end; gap: 0.5rem; margin-top: 0.5rem;">
+        <button type="button" class="btn btn-secondary" onclick="closeModal('modal-create-template')">Cancelar</button>
+        <button type="submit" class="btn btn-primary">Guardar Plantilla</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+  function openModal(id) {
+    var m = document.getElementById(id);
+    if (m) m.style.display = 'flex';
+  }
+  function closeModal(id) {
+    var m = document.getElementById(id);
+    if (m) m.style.display = 'none';
+  }
+</script>
+{% endblock %}

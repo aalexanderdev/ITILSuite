@@ -29,6 +29,7 @@ chrono = { version = "0.4", features = ["serde"] }
 uuid = { version = "1.10", features = ["v4", "serde"] }
 regex = "1.10"
 ipnet = "2.10"
+urlencoding = "2.1"
 
 # Logging & Observability
 tracing = "0.1"

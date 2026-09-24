@@ -22,6 +22,9 @@ use crate::domain::ticket::{
     TicketDetailDto, TicketFollowupDto, TicketMetricsDto, TicketSummaryDto,
 };
 use crate::domain::user::UserSummaryDto;
+use crate::domain::marketing::{
+    MarketingCampaign, MarketingContact, MarketingEmail, MarketingMetricsSummary, MarketingSegment,
+};
 
 pub struct HtmlTemplate<T>(pub T);
 
@@ -633,5 +636,63 @@ pub struct ContractsTemplate {
     pub active_licenses_count: i64,
     pub expiring_soon_count: i64,
 }
+
+// ----------------------------------------------------------------------------
+// Marketing & Campaign Automation Templates (Mautic-Inspired)
+// ----------------------------------------------------------------------------
+
+#[derive(Template)]
+#[template(path = "pages/campaigns.html")]
+pub struct CampaignsTemplate {
+    pub current_username: String,
+    pub current_display_name: String,
+    pub current_profile_name: String,
+    pub user_initials: String,
+    pub active_entity_name: String,
+    pub active_nav: String,
+    pub active_tab: String,
+    pub metrics: MarketingMetricsSummary,
+    pub campaigns: Vec<MarketingCampaign>,
+    pub segments: Vec<MarketingSegment>,
+    pub contacts: Vec<MarketingContact>,
+    pub email_templates: Vec<MarketingEmail>,
+    pub entities: Vec<EntitySelectItem>,
+    pub message: Option<String>,
+    pub error_message: Option<String>,
+}
+
+impl CampaignsTemplate {
+    pub fn format_opt_dt(&self, dt: &Option<DateTime<Utc>>) -> String {
+        match dt {
+            Some(d) => d.format("%Y-%m-%d %H:%M").to_string(),
+            None => "-".to_string(),
+        }
+    }
+
+    pub fn format_dt(&self, dt: &DateTime<Utc>) -> String {
+        dt.format("%Y-%m-%d %H:%M").to_string()
+    }
+
+    pub fn calc_rate(&self, part: &i32, total: &i32) -> String {
+        if *total > 0 {
+            format!("{:.1}%", (*part as f64 / *total as f64) * 100.0)
+        } else {
+            "0.0%".to_string()
+        }
+    }
+
+    pub fn format_rate(&self, rate: &f64) -> String {
+        format!("{:.1}%", rate)
+    }
+}
+
+#[derive(Template)]
+#[template(path = "pages/unsubscribe.html")]
+pub struct UnsubscribeTemplate {
+    pub contact_email: Option<String>,
+    pub is_success: bool,
+    pub message: String,
+}
+
 
 

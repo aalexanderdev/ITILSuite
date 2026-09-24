@@ -29,19 +29,24 @@ use crate::domain::ticket::{
     calculate_priority, TicketDetailDto, TicketFollowupDto, TicketMetricsDto, TicketSummaryDto,
 };
 use crate::domain::user::UserSummaryDto;
+use crate::domain::marketing::{
+    CampaignDelivery, CreateCampaignDto, CreateContactDto, CreateEmailTemplateDto, CreateSegmentDto,
+};
 use crate::services::mail_service::MailService;
+use crate::services::marketing_service::MarketingService;
 use crate::services::receiver_service::ReceiverService;
 use crate::services::sla_service::SlaService;
 use crate::services::survey_service::SurveyService;
 use crate::state::AppState;
 use crate::web::templates::{
     AssetDetailTemplate, AssetNewTemplate, AssetsTablePartialTemplate, AssetsTemplate,
-    ChatAnalyticsTemplate, CollectResultPartialTemplate, ContractsTemplate, DashboardTemplate,
-    EntitiesTemplate, EntitySelectItem, FollowupPartialTemplate, GroupSelectItem, HtmlTemplate,
-    LoginTemplate, MailConfigTemplate, ProfileSelectItem, RuleNewTemplate, RulesTemplate,
-    SlasTemplate, SmtpTestResultPartialTemplate, SurveyPublicTemplate, SurveysAdminTemplate,
-    TicketDetailTemplate, TicketNewTemplate, TicketTemplateRow, TicketsTablePartialTemplate,
-    TicketsTemplate, UserSelectItem, UsersTemplate,
+    CampaignsTemplate, ChatAnalyticsTemplate, CollectResultPartialTemplate, ContractsTemplate,
+    DashboardTemplate, EntitiesTemplate, EntitySelectItem, FollowupPartialTemplate,
+    GroupSelectItem, HtmlTemplate, LoginTemplate, MailConfigTemplate, ProfileSelectItem,
+    RuleNewTemplate, RulesTemplate, SlasTemplate, SmtpTestResultPartialTemplate,
+    SurveyPublicTemplate, SurveysAdminTemplate, TicketDetailTemplate, TicketNewTemplate,
+    TicketTemplateRow, TicketsTablePartialTemplate, TicketsTemplate, UnsubscribeTemplate,
+    UserSelectItem, UsersTemplate,
 };
 
 pub fn router() -> Router<AppState> {
@@ -103,6 +108,16 @@ pub fn router() -> Router<AppState> {
         .route("/mail-config/queue/:id/retry", post(handle_retry_queue))
         .route("/contracts", get(show_contracts))
         .route("/surveys/new", get(handle_survey_new_redirect))
+        // Marketing & Campaign Automation (Mautic-Inspired)
+        .route("/campaigns", get(show_campaigns).post(handle_create_campaign))
+        .route("/campaigns/:id/launch", post(handle_launch_campaign))
+        .route("/campaigns/contacts", post(handle_create_marketing_contact))
+        .route("/campaigns/segments", post(handle_create_marketing_segment))
+        .route("/campaigns/templates", post(handle_create_marketing_template))
+        // Public Tracking Endpoints (No Session Required)
+        .route("/m/pixel/:token_png", get(handle_tracking_pixel))
+        .route("/m/click/:token", get(handle_tracking_click))
+        .route("/m/unsubscribe/:token", get(show_unsubscribe).post(handle_unsubscribe))
 }
 
 // --- Form & Query Models ---
@@ -111,6 +126,57 @@ pub fn router() -> Router<AppState> {
 pub struct LoginForm {
     pub username: String,
     pub password: String,
+}
+
+#[derive(Deserialize, Default)]
+pub struct CampaignsQuery {
+    pub tab: Option<String>,
+    pub message: Option<String>,
+    pub error: Option<String>,
+}
+
+#[derive(Deserialize)]
+pub struct CreateCampaignWebForm {
+    pub name: String,
+    pub description: Option<String>,
+    pub segment_id: Option<Uuid>,
+    pub email_id: Option<Uuid>,
+    pub campaign_type: Option<String>,
+}
+
+#[derive(Deserialize)]
+pub struct CreateSegmentWebForm {
+    pub name: String,
+    pub description: Option<String>,
+    pub rule_field: Option<String>,
+    pub rule_operator: Option<String>,
+    pub rule_value: Option<String>,
+}
+
+#[derive(Deserialize)]
+pub struct CreateContactWebForm {
+    pub email: String,
+    pub first_name: String,
+    pub last_name: Option<String>,
+    pub company: Option<String>,
+    pub phone: Option<String>,
+    pub stage: Option<String>,
+    pub points: Option<i32>,
+    pub tags: Option<String>,
+}
+
+#[derive(Deserialize)]
+pub struct CreateEmailTemplateWebForm {
+    pub name: String,
+    pub subject: String,
+    pub body_html: String,
+    pub from_name: Option<String>,
+    pub from_email: Option<String>,
+}
+
+#[derive(Deserialize)]
+pub struct TrackingClickQuery {
+    pub url: Option<String>,
 }
 
 #[derive(Deserialize, Default)]
@@ -3127,5 +3193,343 @@ async fn show_contracts(
 async fn handle_survey_new_redirect() -> Response {
     Redirect::to("/surveys").into_response()
 }
+
+// ----------------------------------------------------------------------------
+// Marketing & Campaign Automation Handlers (Mautic-Inspired)
+// ----------------------------------------------------------------------------
+
+async fn show_campaigns(
+    State(state): State<AppState>,
+    Query(query): Query<CampaignsQuery>,
+    headers: HeaderMap,
+) -> Response {
+    let claims = match extract_claims_from_cookie(&headers, &state.config.jwt_secret) {
+        Some(c) => c,
+        None => return Redirect::to("/login").into_response(),
+    };
+
+    let user_initials = claims.display_name.chars().take(2).collect::<String>().to_uppercase();
+    let active_entity_name = get_entity_name(&state.pool, &claims.entity_id).await;
+
+    let active_tab = query.tab.unwrap_or_else(|| "campaigns".to_string());
+    let entity_uuid = Uuid::parse_str(&claims.entity_id).ok();
+
+    let metrics = MarketingService::get_metrics_summary(&state.pool, entity_uuid)
+        .await
+        .unwrap_or_default();
+
+    let campaigns = MarketingService::list_campaigns(&state.pool, entity_uuid)
+        .await
+        .unwrap_or_default();
+
+    let segments = MarketingService::list_segments(&state.pool, entity_uuid)
+        .await
+        .unwrap_or_default();
+
+    let contacts = MarketingService::list_contacts(&state.pool, entity_uuid, None, 100, 0)
+        .await
+        .unwrap_or_default();
+
+    let email_templates = MarketingService::list_email_templates(&state.pool, entity_uuid)
+        .await
+        .unwrap_or_default();
+
+    let entities: Vec<EntitySelectItem> = sqlx::query_as(
+        "SELECT id, name, completeness, level FROM entities ORDER BY completeness ASC",
+    )
+    .fetch_all(&state.pool)
+    .await
+    .unwrap_or_default();
+
+    HtmlTemplate(CampaignsTemplate {
+        current_username: claims.username,
+        current_display_name: claims.display_name,
+        current_profile_name: claims.profile_name,
+        user_initials,
+        active_entity_name,
+        active_nav: "campaigns".into(),
+        active_tab,
+        metrics,
+        campaigns,
+        segments,
+        contacts,
+        email_templates,
+        entities,
+        message: query.message,
+        error_message: query.error,
+    })
+    .into_response()
+}
+
+async fn handle_create_campaign(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Form(form): Form<CreateCampaignWebForm>,
+) -> Response {
+    let claims = match extract_claims_from_cookie(&headers, &state.config.jwt_secret) {
+        Some(c) => c,
+        None => return Redirect::to("/login").into_response(),
+    };
+
+    let entity_uuid = Uuid::parse_str(&claims.entity_id).ok();
+
+    let dto = CreateCampaignDto {
+        entity_id: entity_uuid,
+        name: form.name,
+        description: form.description,
+        segment_id: form.segment_id,
+        email_id: form.email_id,
+        campaign_type: form.campaign_type,
+        scheduled_at: None,
+    };
+
+    match MarketingService::create_campaign(&state.pool, dto).await {
+        Ok(_) => Redirect::to("/campaigns?tab=campaigns&message=Campa%C3%B1a+creada+con+%C3%A9xito").into_response(),
+        Err(e) => {
+            let err_text = format!("Error al crear campaña: {}", e);
+            let err_msg = urlencoding::encode(&err_text);
+            Redirect::to(&format!("/campaigns?tab=campaigns&error={}", err_msg)).into_response()
+        }
+    }
+}
+
+async fn handle_launch_campaign(
+    State(state): State<AppState>,
+    Path(id): Path<Uuid>,
+    headers: HeaderMap,
+) -> Response {
+    if extract_claims_from_cookie(&headers, &state.config.jwt_secret).is_none() {
+        return Redirect::to("/login").into_response();
+    }
+
+    let base_url = format!("http://{}:{}", state.config.server_host, state.config.server_port);
+
+    match MarketingService::dispatch_campaign(&state.pool, id, &base_url).await {
+        Ok(count) => {
+            let msg_text = format!("Campaña despachada exitosamente a {} contactos", count);
+            let msg = urlencoding::encode(&msg_text);
+            Redirect::to(&format!("/campaigns?tab=campaigns&message={}", msg)).into_response()
+        }
+        Err(e) => {
+            let err_text = format!("Error al lanzar campaña: {}", e);
+            let err_msg = urlencoding::encode(&err_text);
+            Redirect::to(&format!("/campaigns?tab=campaigns&error={}", err_msg)).into_response()
+        }
+    }
+}
+
+async fn handle_create_marketing_contact(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Form(form): Form<CreateContactWebForm>,
+) -> Response {
+    let claims = match extract_claims_from_cookie(&headers, &state.config.jwt_secret) {
+        Some(c) => c,
+        None => return Redirect::to("/login").into_response(),
+    };
+
+    let entity_uuid = Uuid::parse_str(&claims.entity_id).ok();
+
+    let tags = form
+        .tags
+        .unwrap_or_default()
+        .split(',')
+        .map(|s| s.trim().to_lowercase())
+        .filter(|s| !s.is_empty())
+        .collect();
+
+    let dto = CreateContactDto {
+        entity_id: entity_uuid,
+        email: form.email,
+        first_name: Some(form.first_name),
+        last_name: form.last_name,
+        company: form.company,
+        phone: form.phone,
+        stage: form.stage,
+        points: form.points,
+        tags: Some(tags),
+    };
+
+    match MarketingService::create_contact(&state.pool, dto).await {
+        Ok(_) => Redirect::to("/campaigns?tab=contacts&message=Contacto+registrado+con+%C3%A9xito").into_response(),
+        Err(e) => {
+            let err_text = format!("Error al registrar contacto: {}", e);
+            let err_msg = urlencoding::encode(&err_text);
+            Redirect::to(&format!("/campaigns?tab=contacts&error={}", err_msg)).into_response()
+        }
+    }
+}
+
+async fn handle_create_marketing_segment(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Form(form): Form<CreateSegmentWebForm>,
+) -> Response {
+    let claims = match extract_claims_from_cookie(&headers, &state.config.jwt_secret) {
+        Some(c) => c,
+        None => return Redirect::to("/login").into_response(),
+    };
+
+    let entity_uuid = Uuid::parse_str(&claims.entity_id).ok();
+
+    let mut rules = Vec::new();
+    if let (Some(field), Some(op), Some(val)) = (form.rule_field, form.rule_operator, form.rule_value) {
+        if !val.trim().is_empty() {
+            rules.push(serde_json::json!({
+                "field": field,
+                "operator": op,
+                "value": val.trim(),
+            }));
+        }
+    }
+
+    let dto = CreateSegmentDto {
+        entity_id: entity_uuid,
+        name: form.name,
+        description: form.description,
+        is_dynamic: Some(true),
+        filter_criteria: Some(serde_json::Value::Array(rules)),
+    };
+
+    match MarketingService::create_segment(&state.pool, dto).await {
+        Ok(_) => Redirect::to("/campaigns?tab=segments&message=Segmento+creado+con+%C3%A9xito").into_response(),
+        Err(e) => {
+            let err_text = format!("Error al crear segmento: {}", e);
+            let err_msg = urlencoding::encode(&err_text);
+            Redirect::to(&format!("/campaigns?tab=segments&error={}", err_msg)).into_response()
+        }
+    }
+}
+
+async fn handle_create_marketing_template(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Form(form): Form<CreateEmailTemplateWebForm>,
+) -> Response {
+    let claims = match extract_claims_from_cookie(&headers, &state.config.jwt_secret) {
+        Some(c) => c,
+        None => return Redirect::to("/login").into_response(),
+    };
+
+    let entity_uuid = Uuid::parse_str(&claims.entity_id).ok();
+
+    let dto = CreateEmailTemplateDto {
+        entity_id: entity_uuid,
+        name: form.name,
+        subject: form.subject,
+        body_html: form.body_html,
+        body_text: None,
+        from_name: form.from_name,
+        from_email: form.from_email,
+        reply_to: None,
+    };
+
+    match MarketingService::create_email_template(&state.pool, dto).await {
+        Ok(_) => Redirect::to("/campaigns?tab=templates&message=Plantilla+guardada+con+%C3%A9xito").into_response(),
+        Err(e) => {
+            let err_text = format!("Error al guardar plantilla: {}", e);
+            let err_msg = urlencoding::encode(&err_text);
+            Redirect::to(&format!("/campaigns?tab=templates&error={}", err_msg)).into_response()
+        }
+    }
+}
+
+// ----------------------------------------------------------------------------
+// Public Tracking Endpoints
+// ----------------------------------------------------------------------------
+
+const TRANSPARENT_1X1_PNG: &[u8] = &[
+    0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00, 0x00, 0x00, 0x0d, 0x49, 0x48, 0x44,
+    0x52, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x01, 0x08, 0x06, 0x00, 0x00, 0x00, 0x1f,
+    0x15, 0xc4, 0x89, 0x00, 0x00, 0x00, 0x0a, 0x49, 0x44, 0x41, 0x54, 0x78, 0x9c, 0x63, 0x00,
+    0x01, 0x00, 0x00, 0x05, 0x00, 0x01, 0x0d, 0x0a, 0x2d, 0xb4, 0x00, 0x00, 0x00, 0x00, 0x49,
+    0x45, 0x4e, 0x44, 0xae, 0x42, 0x60, 0x82,
+];
+
+async fn handle_tracking_pixel(
+    State(state): State<AppState>,
+    Path(token_png): Path<String>,
+) -> Response {
+    let clean_token = token_png.trim_end_matches(".png");
+    let _ = MarketingService::record_open(&state.pool, clean_token).await;
+
+    let mut headers = HeaderMap::new();
+    headers.insert(header::CONTENT_TYPE, "image/png".parse().unwrap());
+    headers.insert(header::CACHE_CONTROL, "no-cache, no-store, must-revalidate".parse().unwrap());
+
+    (headers, Bytes::from_static(TRANSPARENT_1X1_PNG)).into_response()
+}
+
+async fn handle_tracking_click(
+    State(state): State<AppState>,
+    Path(token): Path<String>,
+    Query(query): Query<TrackingClickQuery>,
+    headers: HeaderMap,
+) -> Response {
+    let ip = headers
+        .get("x-forwarded-for")
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("127.0.0.1");
+
+    let ua = headers
+        .get(header::USER_AGENT)
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("");
+
+    if let Some(target_url) = query.url {
+        let _ = MarketingService::record_click(&state.pool, &token, &target_url, ip, ua).await;
+        Redirect::to(&target_url).into_response()
+    } else {
+        Redirect::to("/").into_response()
+    }
+}
+
+async fn show_unsubscribe(
+    State(state): State<AppState>,
+    Path(token): Path<String>,
+) -> Response {
+    let delivery: Option<CampaignDelivery> = sqlx::query_as(
+        "SELECT * FROM marketing_campaign_deliveries WHERE tracking_token = $1",
+    )
+    .bind(&token)
+    .fetch_optional(&state.pool)
+    .await
+    .unwrap_or(None);
+
+    let contact_email = if let Some(del) = delivery {
+        let email: Option<(String,)> = sqlx::query_as(
+            "SELECT email FROM marketing_contacts WHERE id = $1",
+        )
+        .bind(del.contact_id)
+        .fetch_optional(&state.pool)
+        .await
+        .unwrap_or(None);
+        email.map(|(e,)| e)
+    } else {
+        None
+    };
+
+    HtmlTemplate(UnsubscribeTemplate {
+        contact_email,
+        is_success: false,
+        message: "¿Confirmas que deseas dejar de recibir nuestras comunicaciones por correo?".to_string(),
+    })
+    .into_response()
+}
+
+async fn handle_unsubscribe(
+    State(state): State<AppState>,
+    Path(token): Path<String>,
+) -> Response {
+    let contact = MarketingService::unsubscribe_by_token(&state.pool, &token).await.unwrap_or(None);
+
+    HtmlTemplate(UnsubscribeTemplate {
+        contact_email: contact.map(|c| c.email),
+        is_success: true,
+        message: "Tu suscripción ha sido cancelada exitosamente. No recibirás más comunicaciones masivas.".to_string(),
+    })
+    .into_response()
+}
+
 
 

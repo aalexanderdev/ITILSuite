@@ -112,13 +112,23 @@ GLPI is an industry standard for IT service and asset management across enterpri
 * **Standalone Public Responder (`/survey/public/:token`)**: Zero-login responsive questionnaire with mobile and desktop support.
 * **Ticket Lifecycle Automation**: Automatic token generation on ticket resolution, 1-click sharing (WhatsApp, Teams, Email), and customer responses logged as private timeline followups.
 
-### 10. Floating Dock Navigation & User Experience
-* **Interactive Floating Dock (`dock.html`)**: Bottom navigation bar providing one-click access and contextual flyout menus across all 11 system domains:
+### 10. Marketing & Campaign Automation (Mautic-Inspired)
+* **Audience Segmentation (`/campaigns?tab=segments`)**: Dynamic and static contact lists with configurable JSON criteria evaluating scoring thresholds (`points`), behavioral tags, company, and department.
+* **Email Campaign Orchestration (`/campaigns?tab=campaigns`, `tab=templates`)**: High-performance campaign dispatcher supporting HTML/text templates with dynamic token replacement (`{{contact.first_name}}`, `{{contact.last_name}}`, `{{contact.company}}`, `{{tracking_pixel}}`, `{{unsubscribe_url}}`).
+* **Transparent Open Tracking (`/m/pixel/:token.png`)**: In-memory and persisted 1x1 GIF/PNG pixel tracker generating `opened_at` timestamps and automatic lead point attribution (+2 pts).
+* **Click Redirection & CTR Measurement (`/m/click/:token?url=...`)**: Regex-based automated URL wrapper recording click logs (`marketing_link_clicks`), client IP, user agent, and scoring rewards (+5 pts).
+* **Public Unsubscribe Workflow (`GET/POST /m/unsubscribe/:token`)**: Privacy-compliant, zero-login opt-out handler honoring user preferences and updating contact status (`is_unsubscribed = true`).
+* **Campaign Background Tick Worker**: Tokio interval task evaluating drip intervals, trigger events (e.g. ticket resolution, asset lifecycle milestones), and automated next steps.
+* **Unified 6-Tab SSR Console (`/campaigns`)**: Integrated interface for Campañas, Segmentos, Contactos, Plantillas, Automatizaciones y Analítica.
+
+### 11. Floating Dock Navigation & User Experience
+* **Interactive Floating Dock (`dock.html`)**: Bottom navigation bar providing one-click access and contextual flyout menus across all 12 system domains:
   * Service Desk (`/tickets`, `/tickets/new`)
   * CMDB & Assets (`/assets`, `/computers`, `/network`)
   * HelpdeskChat (`/chat-analytics`)
   * Customer Surveys (`/surveys`)
   * Contracts & Licenses (`/contracts`)
+  * Marketing & Campañas (`/campaigns`)
   * Entities & Hierarchy (`/entities`)
   * Users & Directory (`/users`)
   * Rules & Automation (`/rules`)

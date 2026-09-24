@@ -5,3 +5,4 @@ pub mod receiver_service;
 pub mod rules;
 pub mod sla_service;
 pub mod survey_service;
+pub mod marketing_service;

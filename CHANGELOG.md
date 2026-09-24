@@ -43,6 +43,14 @@ All notable changes to this project will be documented in this file in accordanc
     * Outbound notification queue audit with manual flush and retry actions.
     * Contracts, warranties, and vendor agreement console (`/contracts`) linked to CMDB inventory.
     * 100% completion of all navigation links in the bottom Dock.
+  * **Marketing & Campaign Automation Subsystem (Mautic-Inspired)**:
+    * **Audience Segmentation Engine**: Dynamic and static contact lists with configurable JSON criteria evaluating scoring thresholds (`points`), behavioral tags, company, and department.
+    * **Email Campaign Orchestration**: High-performance campaign dispatcher supporting HTML/text templates with dynamic token replacement (`{{contact.first_name}}`, `{{contact.last_name}}`, `{{contact.company}}`, `{{tracking_pixel}}`, `{{unsubscribe_url}}`).
+    * **Transparent Open Tracking**: In-memory and persisted 1x1 GIF/PNG pixel tracker (`/m/pixel/:token.png`) generating `opened_at` timestamps and automatic lead point attribution (+2 pts).
+    * **Click Redirection & CTR Measurement**: Regex-based automated URL wrapper (`/m/click/:token?url=...`) recording click logs (`marketing_link_clicks`), client IP, user agent, and scoring rewards (+5 pts).
+    * **Public Unsubscribe Workflow**: Privacy-compliant, zero-login opt-out handler (`GET/POST /m/unsubscribe/:token`) honoring user preferences and updating contact status (`is_unsubscribed = true`).
+    * **Campaign Background Tick Worker**: Tokio interval task evaluating drip intervals, trigger events (e.g. ticket resolution, asset lifecycle milestones), and automated next steps.
+    * **Unified 6-Tab SSR Console**: Integrated `/campaigns` interface (Campañas, Segmentos, Contactos, Plantillas, Automatizaciones, Analítica) with floating Dock access.
     * Formal retirement and complete removal of the legacy React prototype (`frontend/`).
 * **Native Survey & Customer Satisfaction Subsystem (CSAT & NPS)**:
   * Complete native port and architecture replacing external PHP plugins with high-performance Rust Axum, PostgreSQL, Askama templates, and HTMX.

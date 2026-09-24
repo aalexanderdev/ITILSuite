@@ -80,6 +80,18 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
     });
 
+    // 6. Start Background Marketing & Campaign Automation Worker
+    let campaign_worker_pool = app_state.pool.clone();
+    tokio::spawn(async move {
+        let mut interval = tokio::time::interval(tokio::time::Duration::from_secs(30));
+        loop {
+            interval.tick().await;
+            if let Err(e) = services::marketing_service::MarketingService::process_campaign_tick(&campaign_worker_pool).await {
+                tracing::warn!("Error evaluating marketing campaign tick: {}", e);
+            }
+        }
+    });
+
     let listener = tokio::net::TcpListener::bind(&socket_addr).await?;
     info!("✅ Server listening on: http://{}", socket_addr);
     info!("📖 Swagger UI Documentation: http://{}/swagger-ui", socket_addr);

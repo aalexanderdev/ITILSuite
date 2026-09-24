@@ -243,6 +243,87 @@
       </div>
     </div>
 
+    <!-- 4.5 Marketing & Automatización de Campañas (Inspirado en Mautic) -->
+    <div class="dock-item-wrapper">
+      <button
+        type="button"
+        id="dock-btn-marketing"
+        onclick="toggleDockMenu('marketing')"
+        class="dock-item {% if active_nav == "campaigns" %}active{% endif %}"
+        title="Marketing, Difusión de Comunicados y Automatización de Campañas"
+      >
+        <span>📢</span>
+        <span>Marketing</span>
+        <span class="dock-item-chevron">▲</span>
+      </button>
+
+      <div id="dropup-marketing" class="dock-dropup" role="menu">
+        <div class="dock-dropup-header">
+          <div class="dock-dropup-header-left">
+            <span>📢</span>
+            <span>Marketing & Campañas</span>
+          </div>
+          <span class="dock-dropup-badge">Mautic</span>
+        </div>
+        <div class="dock-dropup-items">
+          <a href="/campaigns?tab=campaigns" class="dock-dropup-item {% if active_nav == "campaigns" %}active{% endif %}">
+            <div class="dock-dropup-item-icon">📣</div>
+            <div class="dock-dropup-item-content">
+              <div class="dock-dropup-item-title-row">
+                <span class="dock-dropup-item-title">Campañas & Difusiones</span>
+              </div>
+              <span class="dock-dropup-item-desc">Boletines de servicio, avisos y seguimiento de aperturas</span>
+            </div>
+          </a>
+          <a href="/campaigns?tab=segments" class="dock-dropup-item">
+            <div class="dock-dropup-item-icon">🎯</div>
+            <div class="dock-dropup-item-content">
+              <div class="dock-dropup-item-title-row">
+                <span class="dock-dropup-item-title">Segmentación de Audiencia</span>
+              </div>
+              <span class="dock-dropup-item-desc">Listas dinámicas por comportamiento, scoring y roles</span>
+            </div>
+          </a>
+          <a href="/campaigns?tab=contacts" class="dock-dropup-item">
+            <div class="dock-dropup-item-icon">👥</div>
+            <div class="dock-dropup-item-content">
+              <div class="dock-dropup-item-title-row">
+                <span class="dock-dropup-item-title">Directorio de Contactos & Leads</span>
+              </div>
+              <span class="dock-dropup-item-desc">Gestión de contactos con lead scoring y tags</span>
+            </div>
+          </a>
+          <a href="/campaigns?tab=templates" class="dock-dropup-item">
+            <div class="dock-dropup-item-icon">📝</div>
+            <div class="dock-dropup-item-content">
+              <div class="dock-dropup-item-title-row">
+                <span class="dock-dropup-item-title">Plantillas de Email</span>
+              </div>
+              <span class="dock-dropup-item-desc">Editor de correo con tokens de personalización y tracking</span>
+            </div>
+          </a>
+          <a href="/campaigns?tab=automations" class="dock-dropup-item">
+            <div class="dock-dropup-item-icon">⚡</div>
+            <div class="dock-dropup-item-content">
+              <div class="dock-dropup-item-title-row">
+                <span class="dock-dropup-item-title">Automatizaciones (Workflows)</span>
+              </div>
+              <span class="dock-dropup-item-desc">Flujos con disparadores, esperas, condiciones y acciones</span>
+            </div>
+          </a>
+          <a href="/campaigns?tab=analytics" class="dock-dropup-item">
+            <div class="dock-dropup-item-icon">📊</div>
+            <div class="dock-dropup-item-content">
+              <div class="dock-dropup-item-title-row">
+                <span class="dock-dropup-item-title">Métricas & Rendimiento</span>
+              </div>
+              <span class="dock-dropup-item-desc">Open Rate, CTR y embudo de conversión</span>
+            </div>
+          </a>
+        </div>
+      </div>
+    </div>
+
     <!-- 5. Administración (Entidades, Usuarios, Reglas, Correo) -->
     <div class="dock-item-wrapper">
       <button

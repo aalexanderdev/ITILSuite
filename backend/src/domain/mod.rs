@@ -11,3 +11,4 @@ pub mod template;
 pub mod ticket;
 pub mod survey;
 pub mod user;
+pub mod marketing;
