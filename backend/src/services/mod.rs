@@ -6,3 +6,5 @@ pub mod rules;
 pub mod sla_service;
 pub mod survey_service;
 pub mod marketing_service;
+pub mod problem_service;
+pub mod change_service;

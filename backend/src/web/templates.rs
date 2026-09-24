@@ -25,6 +25,12 @@ use crate::domain::user::UserSummaryDto;
 use crate::domain::marketing::{
     MarketingCampaign, MarketingContact, MarketingEmail, MarketingMetricsSummary, MarketingSegment,
 };
+use crate::domain::problem::{
+    KedbArticleSummaryDto, ProblemDetailDto, ProblemSummaryDto,
+};
+use crate::domain::change::{
+    ChangeDetailDto, ChangeSummaryDto,
+};
 
 pub struct HtmlTemplate<T>(pub T);
 
@@ -692,6 +698,149 @@ pub struct UnsubscribeTemplate {
     pub contact_email: Option<String>,
     pub is_success: bool,
     pub message: String,
+}
+
+// ----------------------------------------------------------------------------
+// ITIL Problems & KEDB Templates
+// ----------------------------------------------------------------------------
+
+#[derive(Template)]
+#[template(path = "pages/problems.html")]
+pub struct ProblemsTemplate {
+    pub current_username: String,
+    pub current_display_name: String,
+    pub current_profile_name: String,
+    pub user_initials: String,
+    pub active_entity_name: String,
+    pub active_nav: String,
+    pub active_tab: String,
+    pub problems: Vec<ProblemSummaryDto>,
+    pub kedb_articles: Vec<KedbArticleSummaryDto>,
+    pub users: Vec<UserSelectItem>,
+    pub groups: Vec<GroupSelectItem>,
+    pub entities: Vec<EntitySelectItem>,
+    pub selected_status: Option<String>,
+    pub search_query: Option<String>,
+    pub message: Option<String>,
+    pub error_message: Option<String>,
+}
+
+impl ProblemsTemplate {
+    pub fn format_opt_dt(&self, dt: &Option<DateTime<Utc>>) -> String {
+        match dt {
+            Some(d) => d.format("%Y-%m-%d %H:%M").to_string(),
+            None => "-".to_string(),
+        }
+    }
+
+    pub fn format_dt(&self, dt: &DateTime<Utc>) -> String {
+        dt.format("%Y-%m-%d %H:%M").to_string()
+    }
+}
+
+#[derive(Template)]
+#[template(path = "pages/problem_detail.html")]
+pub struct ProblemDetailTemplate {
+    pub current_username: String,
+    pub current_display_name: String,
+    pub current_profile_name: String,
+    pub user_initials: String,
+    pub active_entity_name: String,
+    pub active_nav: String,
+    pub problem: ProblemDetailDto,
+    pub users: Vec<UserSelectItem>,
+    pub groups: Vec<GroupSelectItem>,
+    pub message: Option<String>,
+    pub error_message: Option<String>,
+}
+
+impl ProblemDetailTemplate {
+    pub fn format_opt_dt(&self, dt: &Option<DateTime<Utc>>) -> String {
+        match dt {
+            Some(d) => d.format("%Y-%m-%d %H:%M").to_string(),
+            None => "-".to_string(),
+        }
+    }
+
+    pub fn format_dt(&self, dt: &DateTime<Utc>) -> String {
+        dt.format("%Y-%m-%d %H:%M").to_string()
+    }
+
+    pub fn is_assigned_technician(&self, user_id: &Uuid) -> bool {
+        self.problem.summary.assigned_technician_id.as_ref() == Some(user_id)
+    }
+}
+
+// ----------------------------------------------------------------------------
+// ITIL Change Enablement (RFC & CAB) Templates
+// ----------------------------------------------------------------------------
+
+#[derive(Template)]
+#[template(path = "pages/changes.html")]
+pub struct ChangesTemplate {
+    pub current_username: String,
+    pub current_display_name: String,
+    pub current_profile_name: String,
+    pub user_initials: String,
+    pub active_entity_name: String,
+    pub active_nav: String,
+    pub active_tab: String,
+    pub changes: Vec<ChangeSummaryDto>,
+    pub users: Vec<UserSelectItem>,
+    pub groups: Vec<GroupSelectItem>,
+    pub entities: Vec<EntitySelectItem>,
+    pub selected_status: Option<String>,
+    pub selected_type: Option<String>,
+    pub search_query: Option<String>,
+    pub message: Option<String>,
+    pub error_message: Option<String>,
+}
+
+impl ChangesTemplate {
+    pub fn format_opt_dt(&self, dt: &Option<DateTime<Utc>>) -> String {
+        match dt {
+            Some(d) => d.format("%Y-%m-%d %H:%M").to_string(),
+            None => "-".to_string(),
+        }
+    }
+
+    pub fn format_dt(&self, dt: &DateTime<Utc>) -> String {
+        dt.format("%Y-%m-%d %H:%M").to_string()
+    }
+}
+
+#[derive(Template)]
+#[template(path = "pages/change_detail.html")]
+pub struct ChangeDetailTemplate {
+    pub current_username: String,
+    pub current_display_name: String,
+    pub current_profile_name: String,
+    pub user_initials: String,
+    pub active_entity_name: String,
+    pub active_nav: String,
+    pub change: ChangeDetailDto,
+    pub users: Vec<UserSelectItem>,
+    pub groups: Vec<GroupSelectItem>,
+    pub current_user_id: Uuid,
+    pub message: Option<String>,
+    pub error_message: Option<String>,
+}
+
+impl ChangeDetailTemplate {
+    pub fn format_opt_dt(&self, dt: &Option<DateTime<Utc>>) -> String {
+        match dt {
+            Some(d) => d.format("%Y-%m-%d %H:%M").to_string(),
+            None => "-".to_string(),
+        }
+    }
+
+    pub fn format_dt(&self, dt: &DateTime<Utc>) -> String {
+        dt.format("%Y-%m-%d %H:%M").to_string()
+    }
+
+    pub fn is_assigned_technician(&self, user_id: &Uuid) -> bool {
+        self.change.summary.assigned_technician_id.as_ref() == Some(user_id)
+    }
 }
 
 

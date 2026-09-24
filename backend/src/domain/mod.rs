@@ -12,3 +12,5 @@ pub mod ticket;
 pub mod survey;
 pub mod user;
 pub mod marketing;
+pub mod problem;
+pub mod change;

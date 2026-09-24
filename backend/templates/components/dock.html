@@ -70,12 +70,12 @@
         type="button"
         id="dock-btn-servicedesk"
         onclick="toggleDockMenu('servicedesk')"
-        class="dock-item {% if active_nav == "tickets" || active_nav == "slas" || active_nav == "surveys" || active_nav == "chat" %}active{% endif %}"
-        title="Mesa de Servicio ITIL: Tickets, SLAs y Satisfacción"
+        class="dock-item {% if active_nav == "tickets" || active_nav == "slas" || active_nav == "surveys" || active_nav == "chat" || active_nav == "problems" || active_nav == "changes" %}active{% endif %}"
+        title="Mesa de Servicio ITIL: Tickets, SLAs, Problemas y Cambios"
       >
         <span>🎧</span>
         <span>Service Desk</span>
-        <span class="dock-badge">12</span>
+        <span class="dock-badge">ITIL</span>
         <span class="dock-item-chevron">▲</span>
       </button>
 
@@ -83,9 +83,9 @@
         <div class="dock-dropup-header">
           <div class="dock-dropup-header-left">
             <span>🎧</span>
-            <span>ITIL Service Desk</span>
+            <span>ITIL Service Management</span>
           </div>
-          <span class="dock-dropup-badge">Core</span>
+          <span class="dock-dropup-badge">v0.0.9</span>
         </div>
         <div class="dock-dropup-items">
           <a href="/tickets" class="dock-dropup-item {% if active_nav == "tickets" %}active{% endif %}">
@@ -93,9 +93,29 @@
             <div class="dock-dropup-item-content">
               <div class="dock-dropup-item-title-row">
                 <span class="dock-dropup-item-title">Mesa de Tickets</span>
-                <span class="dock-dropup-badge">12</span>
+                <span class="dock-dropup-badge">Core</span>
               </div>
               <span class="dock-dropup-item-desc">Gestión de incidentes, solicitudes y catálogo de servicios</span>
+            </div>
+          </a>
+          <a href="/problems" class="dock-dropup-item {% if active_nav == "problems" %}active{% endif %}">
+            <div class="dock-dropup-item-icon">🔍</div>
+            <div class="dock-dropup-item-content">
+              <div class="dock-dropup-item-title-row">
+                <span class="dock-dropup-item-title">Problemas & RCA</span>
+                <span class="dock-dropup-badge">v0.0.9</span>
+              </div>
+              <span class="dock-dropup-item-desc">Análisis de causa raíz y base de errores conocidos (KEDB)</span>
+            </div>
+          </a>
+          <a href="/changes" class="dock-dropup-item {% if active_nav == "changes" %}active{% endif %}">
+            <div class="dock-dropup-item-icon">🔄</div>
+            <div class="dock-dropup-item-content">
+              <div class="dock-dropup-item-title-row">
+                <span class="dock-dropup-item-title">Gestión de Cambios (RFC)</span>
+                <span class="dock-dropup-badge">CAB</span>
+              </div>
+              <span class="dock-dropup-item-desc">Control de cambios, votación CAB y planes de rollback</span>
             </div>
           </a>
           <a href="/slas" class="dock-dropup-item {% if active_nav == "slas" %}active{% endif %}">
@@ -113,7 +133,7 @@
             <div class="dock-dropup-item-content">
               <div class="dock-dropup-item-title-row">
                 <span class="dock-dropup-item-title">Encuestas & CSAT</span>
-                <span class="dock-dropup-badge">v0.0.8</span>
+                <span class="dock-dropup-badge">NPS</span>
               </div>
               <span class="dock-dropup-item-desc">Satisfacción del usuario, encuestas dinámicas y métricas NPS</span>
             </div>
@@ -139,7 +159,7 @@
         id="dock-btn-create"
         onclick="toggleDockMenu('create')"
         class="dock-item-create"
-        title="Crear nuevo ticket, encuesta, activo o regla"
+        title="Crear nuevo ticket, problema, cambio, activo o regla"
       >
         <span>➕</span>
         <span>Crear</span>
@@ -159,6 +179,20 @@
             <div class="dock-dropup-item-content">
               <span class="dock-dropup-item-title">Nuevo Incidente / Ticket</span>
               <span class="dock-dropup-item-desc">Abrir formulario con selección de plantilla ITIL y prioridad</span>
+            </div>
+          </a>
+          <a href="/problems" class="dock-dropup-item">
+            <div class="dock-dropup-item-icon">🔍</div>
+            <div class="dock-dropup-item-content">
+              <span class="dock-dropup-item-title">Registrar Problema / RCA</span>
+              <span class="dock-dropup-item-desc">Iniciar investigación de causa raíz para incidencias repetitivas</span>
+            </div>
+          </a>
+          <a href="/changes" class="dock-dropup-item">
+            <div class="dock-dropup-item-icon">🔄</div>
+            <div class="dock-dropup-item-content">
+              <span class="dock-dropup-item-title">Nueva Solicitud de Cambio (RFC)</span>
+              <span class="dock-dropup-item-desc">Planificar cambio en producción con evaluación de riesgo y CAB</span>
             </div>
           </a>
           <a href="/surveys/new" class="dock-dropup-item">

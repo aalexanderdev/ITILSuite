@@ -1,0 +1,336 @@
+{% extends "layouts/base.html" %}
+
+{% block title %}Gestión de Cambios & CAB (RFC) - ITILSuite{% endblock %}
+
+{% block content %}
+<div class="tickets-page-container" style="display: flex; flex-direction: column; gap: 1.25rem;">
+  <!-- Header & Actions -->
+  <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 1rem;">
+    <div>
+      <div style="display: flex; align-items: center; gap: 0.5rem; font-size: 0.8rem; color: var(--text-muted); margin-bottom: 0.25rem;">
+        <span>Operaciones ITIL</span>
+        <span>/</span>
+        <span style="color: var(--text-primary); font-weight: 500;">Change Enablement</span>
+      </div>
+      <h1 style="margin: 0; font-size: 1.5rem; font-weight: 700; color: var(--text-primary); display: flex; align-items: center; gap: 0.6rem;">
+        <span>🔄</span>
+        <span>Habilitación del Cambio & Comité Asesor (RFC & CAB)</span>
+      </h1>
+      <p style="margin: 0.25rem 0 0; font-size: 0.85rem; color: var(--text-secondary);">
+        Control de cambios en producción, evaluación de impacto, planes de rollback y votación formal del CAB.
+      </p>
+    </div>
+
+    <div style="display: flex; align-items: center; gap: 0.75rem;">
+      <a href="/changes" class="btn btn-secondary" title="Actualizar lista">
+        <span>🔄</span>
+        <span>Refrescar</span>
+      </a>
+      <button type="button" class="btn btn-primary" onclick="openModal('modal-create-change')">
+        <span>➕</span>
+        <span>Nueva Solicitud de Cambio (RFC)</span>
+      </button>
+    </div>
+  </div>
+
+  {% if let Some(msg) = message %}
+  <div class="alert alert-success" style="padding: 0.75rem 1rem; border-radius: 8px; background: rgba(16, 185, 129, 0.15); border: 1px solid rgba(16, 185, 129, 0.3); color: #10b981; font-size: 0.88rem;">
+    ✅ {{ msg }}
+  </div>
+  {% endif %}
+
+  {% if let Some(err) = error_message %}
+  <div class="alert alert-error" style="padding: 0.75rem 1rem; border-radius: 8px; background: rgba(239, 68, 68, 0.15); border: 1px solid rgba(239, 68, 68, 0.3); color: #ef4444; font-size: 0.88rem;">
+    ⚠️ {{ err }}
+  </div>
+  {% endif %}
+
+  <!-- KPI Cards -->
+  <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 1rem;">
+    <div class="dashboard-kpi-card">
+      <div style="font-size: 0.72rem; color: var(--text-muted); font-weight: 600; text-transform: uppercase;">Cambios Totales (RFC)</div>
+      <div style="font-size: 1.6rem; font-weight: 800; color: var(--text-primary); margin-top: 0.25rem;">
+        {{ changes.len() }}
+      </div>
+      <div style="font-size: 0.75rem; color: var(--text-secondary); margin-top: 0.2rem;">Control de producción</div>
+    </div>
+
+    <div class="dashboard-kpi-card">
+      <div style="font-size: 0.72rem; color: var(--text-muted); font-weight: 600; text-transform: uppercase;">Disciplina ITIL</div>
+      <div style="font-size: 1.3rem; font-weight: 700; color: #8b5cf6; margin-top: 0.25rem;">
+        Change Enablement
+      </div>
+      <div style="font-size: 0.75rem; color: #8b5cf6; margin-top: 0.2rem;">🏛️ Change Advisory Board</div>
+    </div>
+
+    <div class="dashboard-kpi-card">
+      <div style="font-size: 0.72rem; color: var(--text-muted); font-weight: 600; text-transform: uppercase;">Tipos Soportados</div>
+      <div style="font-size: 1.1rem; font-weight: 700; color: var(--text-primary); margin-top: 0.25rem;">
+        Estándar • Normal • ECAB
+      </div>
+      <div style="font-size: 0.75rem; color: var(--text-secondary); margin-top: 0.2rem;">Matriz de gobernanza</div>
+    </div>
+
+    <div class="dashboard-kpi-card">
+      <div style="font-size: 0.72rem; color: var(--text-muted); font-weight: 600; text-transform: uppercase;">Garantía Operativa</div>
+      <div style="font-size: 1.3rem; font-weight: 700; color: #10b981; margin-top: 0.25rem;">
+        Rollback Plan
+      </div>
+      <div style="font-size: 0.75rem; color: #10b981; margin-top: 0.2rem;">Plan de marcha atrás auditado</div>
+    </div>
+  </div>
+
+  <!-- Changes List Card -->
+  <div class="card" style="display: flex; flex-direction: column; gap: 1rem;">
+    <!-- Filter bar -->
+    <form method="GET" action="/changes" style="display: flex; gap: 0.75rem; flex-wrap: wrap; align-items: center; margin: 0;">
+      <div style="flex: 1; min-width: 220px;">
+        <input 
+          type="text" 
+          name="search" 
+          class="form-control" 
+          placeholder="Buscar por RFC, título, categoría o plan..." 
+          value="{% if let Some(q) = search_query %}{{ q }}{% endif %}"
+        >
+      </div>
+
+      <div style="width: 170px;">
+        <select name="change_type" class="form-control" onchange="this.form.submit()">
+          <option value="all">Todos los tipos</option>
+          <option value="standard" {% if selected_type.as_deref() == Some("standard") %}selected{% endif %}>Estándar (Preaprobado)</option>
+          <option value="normal" {% if selected_type.as_deref() == Some("normal") %}selected{% endif %}>Normal (Requiere CAB)</option>
+          <option value="emergency" {% if selected_type.as_deref() == Some("emergency") %}selected{% endif %}>Emergencia (ECAB)</option>
+        </select>
+      </div>
+
+      <div style="width: 170px;">
+        <select name="status" class="form-control" onchange="this.form.submit()">
+          <option value="all">Todos los estados</option>
+          <option value="draft" {% if selected_status.as_deref() == Some("draft") %}selected{% endif %}>Borrador</option>
+          <option value="evaluation" {% if selected_status.as_deref() == Some("evaluation") %}selected{% endif %}>En Evaluación</option>
+          <option value="cab_review" {% if selected_status.as_deref() == Some("cab_review") %}selected{% endif %}>Revisión del CAB</option>
+          <option value="scheduled" {% if selected_status.as_deref() == Some("scheduled") %}selected{% endif %}>Programado</option>
+          <option value="implementing" {% if selected_status.as_deref() == Some("implementing") %}selected{% endif %}>En Ejecución</option>
+          <option value="review" {% if selected_status.as_deref() == Some("review") %}selected{% endif %}>PIR (Post-Cambio)</option>
+          <option value="closed" {% if selected_status.as_deref() == Some("closed") %}selected{% endif %}>Cerrado</option>
+          <option value="rejected" {% if selected_status.as_deref() == Some("rejected") %}selected{% endif %}>Rechazado</option>
+        </select>
+      </div>
+
+      <button type="submit" class="btn btn-secondary">
+        <span>🔍</span>
+        <span>Filtrar</span>
+      </button>
+    </form>
+
+    <!-- Table -->
+    <div style="overflow-x: auto;">
+      <table class="tickets-table">
+        <thead>
+          <tr>
+            <th>Código RFC</th>
+            <th>Título del Cambio</th>
+            <th>Tipo</th>
+            <th>Estado</th>
+            <th>Riesgo</th>
+            <th>Prioridad</th>
+            <th>Votación CAB</th>
+            <th>Técnico Asignado</th>
+            <th>Ventana de Ejecución</th>
+            <th style="text-align: right;">Acciones</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% if changes.is_empty() %}
+          <tr>
+            <td colspan="10" style="text-align: center; padding: 2rem; color: var(--text-muted);">
+              No se encontraron solicitudes de cambio bajo los criterios seleccionados.
+            </td>
+          </tr>
+          {% else %}
+          {% for c in changes %}
+          <tr>
+            <td style="font-family: var(--font-mono, monospace); font-weight: 700; color: #8b5cf6;">
+              <a href="/changes/{{ c.id }}" style="color: inherit; text-decoration: none;">
+                {{ c.change_number }}
+              </a>
+            </td>
+            <td>
+              <a href="/changes/{{ c.id }}" style="font-weight: 600; color: var(--text-primary); text-decoration: none;">
+                {{ c.name }}
+              </a>
+              {% if let Some(cat) = c.category.as_ref() %}
+              <div style="font-size: 0.72rem; color: var(--text-muted); margin-top: 0.15rem;">📁 {{ cat }}</div>
+              {% endif %}
+            </td>
+            <td>
+              <span class="status-pill {{ c.type_badge() }}" style="font-size: 0.72rem; padding: 0.2rem 0.55rem; border-radius: 9999px;">
+                {{ c.type_label() }}
+              </span>
+            </td>
+            <td>
+              <span class="status-pill {{ c.status_badge() }}" style="font-size: 0.72rem; padding: 0.2rem 0.55rem; border-radius: 9999px;">
+                {{ c.status_label() }}
+              </span>
+            </td>
+            <td>
+              <span style="font-size: 0.8rem; font-weight: 600; {% if c.risk_level == "critical" || c.risk_level == "high" %}color: #ef4444;{% else if c.risk_level == "medium" %}color: #f59e0b;{% else %}color: #10b981;{% endif %}">
+                {{ c.risk_level }}
+              </span>
+            </td>
+            <td>
+              <span style="font-weight: 700; font-size: 0.8rem;">P{{ c.priority }}</span>
+            </td>
+            <td>
+              {% if c.cab_total_approvers > 0 %}
+              <span class="badge" style="background: rgba(139, 92, 246, 0.15); color: #8b5cf6; font-size: 0.75rem; padding: 0.2rem 0.5rem; border-radius: 4px;">
+                🏛️ {{ c.cab_approved_count }}/{{ c.cab_total_approvers }} Aprobados
+              </span>
+              {% else %}
+              <span style="font-size: 0.72rem; color: var(--text-muted); font-style: italic;">Sin miembros CAB</span>
+              {% endif %}
+            </td>
+            <td>
+              {% if let Some(tech) = c.assigned_technician_name.as_ref() %}
+              <span style="font-size: 0.85rem; color: var(--text-primary);">👤 {{ tech }}</span>
+              {% else %}
+              <span style="font-size: 0.75rem; color: var(--text-muted); font-style: italic;">Sin asignar</span>
+              {% endif %}
+            </td>
+            <td style="font-size: 0.75rem; color: var(--text-muted);">
+              {{ self.format_opt_dt(c.scheduled_start) }}
+            </td>
+            <td style="text-align: right;">
+              <a href="/changes/{{ c.id }}" class="btn btn-secondary" style="padding: 0.3rem 0.65rem; font-size: 0.75rem;">
+                <span>Ver Dossier RFC</span>
+              </a>
+            </td>
+          </tr>
+          {% endfor %}
+          {% endif %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Crear RFC -->
+<div id="modal-create-change" class="modal-backdrop" style="display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 9999; align-items: center; justify-content: center; padding: 1rem;">
+  <div class="card" style="width: 100%; max-width: 680px; max-height: 90vh; overflow-y: auto; display: flex; flex-direction: column; gap: 1rem; position: relative;">
+    <div style="display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--border-subtle); padding-bottom: 0.75rem;">
+      <h3 style="margin: 0; font-size: 1.15rem; font-weight: 700; color: var(--text-primary); display: flex; align-items: center; gap: 0.5rem;">
+        <span>🔄</span>
+        <span>Solicitud de Cambio ITIL (RFC)</span>
+      </h3>
+      <button type="button" class="btn btn-secondary" style="padding: 0.25rem 0.5rem;" onclick="closeModal('modal-create-change')">✕</button>
+    </div>
+
+    <form method="POST" action="/changes" style="display: flex; flex-direction: column; gap: 1rem; margin: 0;">
+      <div>
+        <label class="form-label">Entidad Organizacional</label>
+        <select name="entity_id" class="form-control">
+          {% for ent in entities %}
+          <option value="{{ ent.id }}">{{ ent.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div>
+        <label class="form-label">Título del Cambio <span style="color: #ef4444;">*</span></label>
+        <input type="text" name="name" class="form-control" placeholder="Ej: Migración de cluster PostgreSQL a nueva versión..." required>
+      </div>
+
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+        <div>
+          <label class="form-label">Tipo de Cambio</label>
+          <select name="change_type" class="form-control">
+            <option value="standard">Estándar (Procedimiento Habitual Preaprobado)</option>
+            <option value="normal" selected>Normal (Requiere Evaluación y Votación CAB)</option>
+            <option value="emergency">Emergencia (Incidente Mayor - Comité ECAB)</option>
+          </select>
+        </div>
+        <div>
+          <label class="form-label">Nivel de Riesgo Evaluado</label>
+          <select name="risk_level" class="form-control">
+            <option value="very_low">Muy Bajo</option>
+            <option value="low">Bajo</option>
+            <option value="medium" selected>Medio</option>
+            <option value="high">Alto</option>
+            <option value="critical">Crítico</option>
+          </select>
+        </div>
+      </div>
+
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+        <div>
+          <label class="form-label">Urgencia (1..5)</label>
+          <select name="urgency" class="form-control">
+            <option value="1">1 - Muy Baja</option>
+            <option value="2">2 - Baja</option>
+            <option value="3" selected>3 - Media</option>
+            <option value="4">4 - Alta</option>
+            <option value="5">5 - Crítica</option>
+          </select>
+        </div>
+        <div>
+          <label class="form-label">Impacto (1..5)</label>
+          <select name="impact" class="form-control">
+            <option value="1">1 - Muy Bajo</option>
+            <option value="2">2 - Bajo</option>
+            <option value="3" selected>3 - Medio</option>
+            <option value="4">4 - Alto</option>
+            <option value="5">5 - Mayor / General</option>
+          </select>
+        </div>
+      </div>
+
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+        <div>
+          <label class="form-label">Líder Técnico de Ejecución</label>
+          <select name="assigned_technician_id" class="form-control">
+            <option value="">-- Sin Asignar --</option>
+            {% for u in users %}
+            <option value="{{ u.id }}">{{ u.name }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div>
+          <label class="form-label">Categoría</label>
+          <input type="text" name="category" class="form-control" placeholder="Ej: Base de Datos / Servidores / Redes">
+        </div>
+      </div>
+
+      <div>
+        <label class="form-label">Objetivo y Justificación del Cambio <span style="color: #ef4444;">*</span></label>
+        <textarea name="content" class="form-control" rows="2" placeholder="Por qué se realiza este cambio y qué beneficios operativos aporta..." required></textarea>
+      </div>
+
+      <div>
+        <label class="form-label">Plan de Implementación Paso a Paso</label>
+        <textarea name="implementation_plan" class="form-control" rows="2" placeholder="1. Respaldar datos. 2. Instalar binario. 3. Validar puertos..."></textarea>
+      </div>
+
+      <div>
+        <label class="form-label">Plan de Marcha Atrás (Rollback / Backout Plan) <span style="color: #ef4444;">*</span></label>
+        <textarea name="rollback_plan" class="form-control" rows="2" placeholder="Procedimiento exacto para revertir a estado anterior en caso de fallo..." required></textarea>
+      </div>
+
+      <div style="display: flex; justify-content: flex-end; gap: 0.75rem; border-top: 1px solid var(--border-subtle); padding-top: 0.75rem;">
+        <button type="button" class="btn btn-secondary" onclick="closeModal('modal-create-change')">Cancelar</button>
+        <button type="submit" class="btn btn-primary">Registrar RFC</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+  function openModal(id) {
+    const m = document.getElementById(id);
+    if (m) m.style.display = 'flex';
+  }
+  function closeModal(id) {
+    const m = document.getElementById(id);
+    if (m) m.style.display = 'none';
+  }
+</script>
+{% endblock %}

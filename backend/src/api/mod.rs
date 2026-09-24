@@ -15,6 +15,8 @@ pub mod templates;
 pub mod tickets;
 pub mod users;
 pub mod version;
+pub mod problems;
+pub mod changes;
 
 use axum::{
     routing::{delete, get, post},
@@ -125,6 +127,20 @@ impl Modify for SecurityAddon {
         public_surveys::get_public_survey,
         public_surveys::save_public_draft,
         public_surveys::submit_public_survey,
+        problems::list_problems,
+        problems::get_problem,
+        problems::create_problem,
+        problems::update_problem,
+        problems::add_problem_followup,
+        problems::list_kedb,
+        problems::get_kedb,
+        problems::create_kedb,
+        problems::update_kedb,
+        changes::list_changes,
+        changes::get_change,
+        changes::create_change,
+        changes::update_change,
+        changes::submit_cab_vote,
     ),
     components(
         schemas(
@@ -232,6 +248,26 @@ impl Modify for SecurityAddon {
             crate::domain::survey::SurveyDashboardMetricsDto,
             crate::domain::survey::PresetQuestionDef,
             crate::domain::survey::SurveyPresetDef,
+            crate::domain::problem::ProblemSummaryDto,
+            crate::domain::problem::ProblemDetailDto,
+            crate::domain::problem::ProblemFollowupDto,
+            crate::domain::problem::CreateProblemDto,
+            crate::domain::problem::UpdateProblemDto,
+            crate::domain::problem::CreateProblemFollowupDto,
+            crate::domain::problem::LinkedTicketDto,
+            crate::domain::problem::LinkedAssetDto,
+            crate::domain::problem::LinkedChangeDto,
+            crate::domain::problem::KedbArticleSummaryDto,
+            crate::domain::problem::CreateKedbArticleDto,
+            crate::domain::problem::UpdateKedbArticleDto,
+            crate::domain::change::ChangeSummaryDto,
+            crate::domain::change::ChangeDetailDto,
+            crate::domain::change::ChangeApprovalDto,
+            crate::domain::change::ChangeFollowupDto,
+            crate::domain::change::CreateChangeDto,
+            crate::domain::change::UpdateChangeDto,
+            crate::domain::change::SubmitCabVoteDto,
+            crate::domain::change::CreateChangeFollowupDto,
             crate::error::ErrorDetail,
             crate::error::ErrorResponse,
         )
@@ -249,12 +285,15 @@ impl Modify for SecurityAddon {
         (name = "Templates", description = "ITIL Ticket Templates inspired by GLPI"),
         (name = "Assets", description = "ITAM / CMDB Hardware and Software Asset Inventory inspired by GLPI"),
         (name = "GLPI Agent Inventory", description = "Automated Hardware & Software Ingestion compatible with GLPI-Agent"),
+        (name = "Problems & RCA", description = "ITIL Problem Management, Root Cause Analysis, and Workarounds"),
+        (name = "Known Error Database (KEDB)", description = "Documented Workarounds and Known Error Articles"),
+        (name = "Change Enablement (RFC & CAB)", description = "Requests for Change (RFC), CAB Approvals, and Deployment Plans"),
         (name = "Health", description = "Service monitoring and status endpoints"),
         (name = "Version", description = "Application and environment version metadata")
     ),
     info(
         title = "ITILSuite REST API",
-        version = "0.0.8",
+        version = "0.0.9",
         description = "High-performance Rust REST API for ITSM, ITAM, and CMDB.",
         license(name = "GPL-3.0-or-later", url = "https://www.gnu.org/licenses/gpl-3.0.html")
     )
@@ -318,7 +357,9 @@ pub fn create_router(state: AppState) -> Router {
         .merge(receivers::router())
         .merge(rules::router())
         .merge(slas::router())
-        .merge(surveys::router());
+        .merge(surveys::router())
+        .merge(problems::router())
+        .merge(changes::router());
 
     let static_dir = if std::path::Path::new("backend/static").exists() {
         "backend/static"

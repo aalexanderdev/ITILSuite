@@ -37,12 +37,21 @@ use crate::services::marketing_service::MarketingService;
 use crate::services::receiver_service::ReceiverService;
 use crate::services::sla_service::SlaService;
 use crate::services::survey_service::SurveyService;
+use crate::services::problem_service::ProblemService;
+use crate::services::change_service::ChangeService;
+use crate::domain::problem::{
+    CreateKedbArticleDto, CreateProblemDto, CreateProblemFollowupDto, UpdateProblemDto,
+};
+use crate::domain::change::{
+    CreateChangeDto, CreateChangeFollowupDto, SubmitCabVoteDto, UpdateChangeDto,
+};
 use crate::state::AppState;
 use crate::web::templates::{
     AssetDetailTemplate, AssetNewTemplate, AssetsTablePartialTemplate, AssetsTemplate,
-    CampaignsTemplate, ChatAnalyticsTemplate, CollectResultPartialTemplate, ContractsTemplate,
-    DashboardTemplate, EntitiesTemplate, EntitySelectItem, FollowupPartialTemplate,
-    GroupSelectItem, HtmlTemplate, LoginTemplate, MailConfigTemplate, ProfileSelectItem,
+    CampaignsTemplate, ChangeDetailTemplate, ChangesTemplate, ChatAnalyticsTemplate,
+    CollectResultPartialTemplate, ContractsTemplate, DashboardTemplate, EntitiesTemplate,
+    EntitySelectItem, FollowupPartialTemplate, GroupSelectItem, HtmlTemplate, LoginTemplate,
+    MailConfigTemplate, ProblemDetailTemplate, ProblemsTemplate, ProfileSelectItem,
     RuleNewTemplate, RulesTemplate, SlasTemplate, SmtpTestResultPartialTemplate,
     SurveyPublicTemplate, SurveysAdminTemplate, TicketDetailTemplate, TicketNewTemplate,
     TicketTemplateRow, TicketsTablePartialTemplate, TicketsTemplate, UnsubscribeTemplate,
@@ -118,6 +127,23 @@ pub fn router() -> Router<AppState> {
         .route("/m/pixel/:token_png", get(handle_tracking_pixel))
         .route("/m/click/:token", get(handle_tracking_click))
         .route("/m/unsubscribe/:token", get(show_unsubscribe).post(handle_unsubscribe))
+        // Phase 6: ITIL Problem & Change Management (Problems, KEDB, Changes/RFC & CAB)
+        .route("/problems", get(show_problems).post(handle_create_problem))
+        .route("/problems/new", get(show_new_problem))
+        .route("/problems/kedb", post(handle_create_kedb))
+        .route("/problems/:id", get(show_problem_detail))
+        .route("/problems/:id/update", post(handle_update_problem))
+        .route("/problems/:id/followups", post(handle_add_problem_followup))
+        .route("/problems/:id/link-ticket", post(handle_link_problem_ticket))
+        .route("/problems/:id/unlink-ticket/:ticket_id", post(handle_unlink_problem_ticket))
+        .route("/problems/:id/export-kedb", post(handle_export_problem_to_kedb))
+        .route("/changes", get(show_changes).post(handle_create_change))
+        .route("/changes/new", get(show_new_change))
+        .route("/changes/:id", get(show_change_detail))
+        .route("/changes/:id/update", post(handle_update_change))
+        .route("/changes/:id/vote", post(handle_submit_cab_vote))
+        .route("/changes/:id/approvers", post(handle_add_cab_approver))
+        .route("/changes/:id/followups", post(handle_add_change_followup))
 }
 
 // --- Form & Query Models ---
@@ -133,6 +159,114 @@ pub struct CampaignsQuery {
     pub tab: Option<String>,
     pub message: Option<String>,
     pub error: Option<String>,
+}
+
+#[derive(Deserialize, Default)]
+pub struct ProblemsQuery {
+    pub tab: Option<String>,
+    pub status: Option<String>,
+    pub search: Option<String>,
+    pub message: Option<String>,
+    pub error: Option<String>,
+}
+
+#[derive(Deserialize, Default)]
+pub struct ChangesQuery {
+    pub tab: Option<String>,
+    pub status: Option<String>,
+    pub change_type: Option<String>,
+    pub search: Option<String>,
+    pub message: Option<String>,
+    pub error: Option<String>,
+}
+
+#[derive(Deserialize)]
+pub struct CreateProblemWebForm {
+    pub entity_id: Option<Uuid>,
+    pub name: String,
+    pub content: String,
+    pub urgency: Option<i32>,
+    pub impact: Option<i32>,
+    pub assigned_technician_id: Option<Uuid>,
+    pub category: Option<String>,
+    pub symptoms: Option<String>,
+}
+
+#[derive(Deserialize)]
+pub struct UpdateProblemWebForm {
+    pub status: Option<String>,
+    pub urgency: Option<i32>,
+    pub impact: Option<i32>,
+    pub assigned_technician_id: Option<Uuid>,
+    pub category: Option<String>,
+    pub root_cause: Option<String>,
+    pub workaround: Option<String>,
+    pub permanent_solution: Option<String>,
+}
+
+#[derive(Deserialize)]
+pub struct CreateProblemFollowupWebForm {
+    pub content: String,
+    pub item_type: Option<String>,
+}
+
+#[derive(Deserialize)]
+pub struct CreateKedbWebForm {
+    pub problem_id: Option<Uuid>,
+    pub title: String,
+    pub error_symptoms: String,
+    pub root_cause: String,
+    pub workaround: String,
+    pub permanent_solution: Option<String>,
+}
+
+#[derive(Deserialize)]
+pub struct LinkTicketWebForm {
+    pub ticket_id: String,
+}
+
+#[derive(Deserialize)]
+pub struct CreateChangeWebForm {
+    pub entity_id: Option<Uuid>,
+    pub name: String,
+    pub content: String,
+    pub change_type: Option<String>,
+    pub risk_level: Option<String>,
+    pub urgency: Option<i32>,
+    pub impact: Option<i32>,
+    pub assigned_technician_id: Option<Uuid>,
+    pub category: Option<String>,
+    pub implementation_plan: Option<String>,
+    pub rollback_plan: Option<String>,
+}
+
+#[derive(Deserialize)]
+pub struct UpdateChangeWebForm {
+    pub status: Option<String>,
+    pub change_type: Option<String>,
+    pub risk_level: Option<String>,
+    pub urgency: Option<i32>,
+    pub impact: Option<i32>,
+    pub assigned_technician_id: Option<Uuid>,
+    pub category: Option<String>,
+    pub pir_notes: Option<String>,
+}
+
+#[derive(Deserialize)]
+pub struct SubmitCabVoteWebForm {
+    pub approval_status: String,
+    pub comments: Option<String>,
+}
+
+#[derive(Deserialize)]
+pub struct AddCabApproverWebForm {
+    pub approver_id: Uuid,
+}
+
+#[derive(Deserialize)]
+pub struct CreateChangeFollowupWebForm {
+    pub content: String,
+    pub item_type: Option<String>,
 }
 
 #[derive(Deserialize)]
@@ -3529,6 +3663,609 @@ async fn handle_unsubscribe(
         message: "Tu suscripción ha sido cancelada exitosamente. No recibirás más comunicaciones masivas.".to_string(),
     })
     .into_response()
+}
+
+// ============================================================================
+// Phase 6: ITIL Problem & Change Management Web Handlers
+// ============================================================================
+
+async fn show_problems(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Query(query): Query<ProblemsQuery>,
+) -> Response {
+    let claims = match extract_claims_from_cookie(&headers, &state.config.jwt_secret) {
+        Some(c) => c,
+        None => return Redirect::to("/login").into_response(),
+    };
+
+    let user_initials = claims.display_name.chars().take(2).collect::<String>().to_uppercase();
+    let active_entity_name = get_entity_name(&state.pool, &claims.entity_id).await;
+    let active_tab = query.tab.unwrap_or_else(|| "problems".to_string());
+    let entity_uuid = Uuid::parse_str(&claims.entity_id).ok();
+
+    let problems = ProblemService::list_problems(
+        &state.pool,
+        entity_uuid,
+        query.status.as_deref(),
+        query.search.as_deref(),
+        100,
+        0,
+    )
+    .await
+    .unwrap_or_default();
+
+    let kedb_articles = ProblemService::list_kedb_articles(
+        &state.pool,
+        entity_uuid,
+        None,
+        query.search.as_deref(),
+        100,
+        0,
+    )
+    .await
+    .unwrap_or_default();
+
+    let users: Vec<UserSelectItem> = sqlx::query_as(
+        "SELECT id, realname AS name FROM users WHERE is_active = true ORDER BY realname ASC",
+    )
+    .fetch_all(&state.pool)
+    .await
+    .unwrap_or_default();
+
+    let groups: Vec<GroupSelectItem> = sqlx::query_as(
+        "SELECT id, name FROM groups ORDER BY name ASC",
+    )
+    .fetch_all(&state.pool)
+    .await
+    .unwrap_or_default();
+
+    let entities: Vec<EntitySelectItem> = sqlx::query_as(
+        "SELECT id, name, completeness, level FROM entities ORDER BY completeness ASC",
+    )
+    .fetch_all(&state.pool)
+    .await
+    .unwrap_or_default();
+
+    HtmlTemplate(ProblemsTemplate {
+        current_username: claims.username,
+        current_display_name: claims.display_name,
+        current_profile_name: claims.profile_name,
+        user_initials,
+        active_entity_name,
+        active_nav: "problems".into(),
+        active_tab,
+        problems,
+        kedb_articles,
+        users,
+        groups,
+        entities,
+        selected_status: query.status,
+        search_query: query.search,
+        message: query.message,
+        error_message: query.error,
+    })
+    .into_response()
+}
+
+async fn show_new_problem(
+    headers: HeaderMap,
+    State(state): State<AppState>,
+) -> Response {
+    if extract_claims_from_cookie(&headers, &state.config.jwt_secret).is_none() {
+        return Redirect::to("/login").into_response();
+    }
+    Redirect::to("/problems?tab=problems&open=new").into_response()
+}
+
+async fn handle_create_problem(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Form(form): Form<CreateProblemWebForm>,
+) -> Response {
+    let claims = match extract_claims_from_cookie(&headers, &state.config.jwt_secret) {
+        Some(c) => c,
+        None => return Redirect::to("/login").into_response(),
+    };
+
+    let requester_id = Uuid::parse_str(&claims.sub).ok();
+
+    let dto = CreateProblemDto {
+        entity_id: form.entity_id.or_else(|| Uuid::parse_str(&claims.entity_id).ok()),
+        name: form.name,
+        content: form.content,
+        urgency: form.urgency,
+        impact: form.impact,
+        assigned_technician_id: form.assigned_technician_id,
+        assigned_group_id: None,
+        category: form.category,
+        symptoms: form.symptoms,
+        root_cause: None,
+        workaround: None,
+        permanent_solution: None,
+        ticket_ids: None,
+        asset_ids: None,
+    };
+
+    match ProblemService::create_problem(&state.pool, dto, requester_id).await {
+        Ok(p) => Redirect::to(&format!("/problems/{}?message=Problema+creado+exitosamente", p.id)).into_response(),
+        Err(e) => Redirect::to(&format!("/problems?error={}", urlencoding::encode(&e.to_string()))).into_response(),
+    }
+}
+
+async fn show_problem_detail(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Path(id): Path<Uuid>,
+    Query(query): Query<ProblemsQuery>,
+) -> Response {
+    let claims = match extract_claims_from_cookie(&headers, &state.config.jwt_secret) {
+        Some(c) => c,
+        None => return Redirect::to("/login").into_response(),
+    };
+
+    let user_initials = claims.display_name.chars().take(2).collect::<String>().to_uppercase();
+    let active_entity_name = get_entity_name(&state.pool, &claims.entity_id).await;
+
+    let problem = match ProblemService::get_problem_by_id(&state.pool, id).await {
+        Ok(Some(p)) => p,
+        _ => return Redirect::to("/problems?error=Problema+no+encontrado").into_response(),
+    };
+
+    let users: Vec<UserSelectItem> = sqlx::query_as(
+        "SELECT id, realname AS name FROM users WHERE is_active = true ORDER BY realname ASC",
+    )
+    .fetch_all(&state.pool)
+    .await
+    .unwrap_or_default();
+
+    let groups: Vec<GroupSelectItem> = sqlx::query_as(
+        "SELECT id, name FROM groups ORDER BY name ASC",
+    )
+    .fetch_all(&state.pool)
+    .await
+    .unwrap_or_default();
+
+    HtmlTemplate(ProblemDetailTemplate {
+        current_username: claims.username,
+        current_display_name: claims.display_name,
+        current_profile_name: claims.profile_name,
+        user_initials,
+        active_entity_name,
+        active_nav: "problems".into(),
+        problem,
+        users,
+        groups,
+        message: query.message,
+        error_message: query.error,
+    })
+    .into_response()
+}
+
+async fn handle_update_problem(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Path(id): Path<Uuid>,
+    Form(form): Form<UpdateProblemWebForm>,
+) -> Response {
+    if extract_claims_from_cookie(&headers, &state.config.jwt_secret).is_none() {
+        return Redirect::to("/login").into_response();
+    }
+
+    let dto = UpdateProblemDto {
+        name: None,
+        content: None,
+        status: form.status,
+        urgency: form.urgency,
+        impact: form.impact,
+        assigned_technician_id: form.assigned_technician_id,
+        assigned_group_id: None,
+        category: form.category,
+        symptoms: None,
+        root_cause: form.root_cause,
+        workaround: form.workaround,
+        permanent_solution: form.permanent_solution,
+    };
+
+    match ProblemService::update_problem(&state.pool, id, dto).await {
+        Ok(_) => Redirect::to(&format!("/problems/{}?message=Ficha+RCA+actualizada+correctamente", id)).into_response(),
+        Err(e) => Redirect::to(&format!("/problems/{}?error={}", id, urlencoding::encode(&e.to_string()))).into_response(),
+    }
+}
+
+async fn handle_add_problem_followup(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Path(id): Path<Uuid>,
+    Form(form): Form<CreateProblemFollowupWebForm>,
+) -> Response {
+    let claims = match extract_claims_from_cookie(&headers, &state.config.jwt_secret) {
+        Some(c) => c,
+        None => return Redirect::to("/login").into_response(),
+    };
+
+    let author_id = Uuid::parse_str(&claims.sub).ok();
+
+    let dto = CreateProblemFollowupDto {
+        content: form.content,
+        item_type: form.item_type,
+        is_private: Some(false),
+    };
+
+    let _ = ProblemService::add_followup(&state.pool, id, author_id, dto).await;
+    Redirect::to(&format!("/problems/{}?message=Nota+añadida+a+la+bitácora", id)).into_response()
+}
+
+async fn handle_link_problem_ticket(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Path(id): Path<Uuid>,
+    Form(form): Form<LinkTicketWebForm>,
+) -> Response {
+    if extract_claims_from_cookie(&headers, &state.config.jwt_secret).is_none() {
+        return Redirect::to("/login").into_response();
+    }
+
+    let raw = form.ticket_id.trim();
+    let ticket_uuid = if let Ok(u) = Uuid::parse_str(raw) {
+        Some(u)
+    } else {
+        // Try looking up by ticket_number
+        let row: Option<(Uuid,)> = sqlx::query_as("SELECT id FROM tickets WHERE ticket_number = $1")
+            .bind(raw)
+            .fetch_optional(&state.pool)
+            .await
+            .unwrap_or(None);
+        row.map(|r| r.0)
+    };
+
+    if let Some(tid) = ticket_uuid {
+        let _ = ProblemService::link_ticket(&state.pool, id, tid).await;
+        Redirect::to(&format!("/problems/{}?message=Incidente+vinculado+exitosamente", id)).into_response()
+    } else {
+        Redirect::to(&format!("/problems/{}?error=No+se+encontró+ticket+con+ese+código+o+ID", id)).into_response()
+    }
+}
+
+async fn handle_unlink_problem_ticket(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Path((id, ticket_id)): Path<(Uuid, Uuid)>,
+) -> Response {
+    if extract_claims_from_cookie(&headers, &state.config.jwt_secret).is_none() {
+        return Redirect::to("/login").into_response();
+    }
+
+    let _ = ProblemService::unlink_ticket(&state.pool, id, ticket_id).await;
+    Redirect::to(&format!("/problems/{}?message=Ticket+desvinculado", id)).into_response()
+}
+
+async fn handle_create_kedb(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Form(form): Form<CreateKedbWebForm>,
+) -> Response {
+    let claims = match extract_claims_from_cookie(&headers, &state.config.jwt_secret) {
+        Some(c) => c,
+        None => return Redirect::to("/login").into_response(),
+    };
+
+    let author_id = Uuid::parse_str(&claims.sub).ok();
+    let entity_id = Uuid::parse_str(&claims.entity_id).ok();
+
+    let dto = CreateKedbArticleDto {
+        entity_id,
+        problem_id: form.problem_id,
+        title: form.title,
+        category: Some("General / Helpdesk".into()),
+        error_symptoms: form.error_symptoms,
+        root_cause: form.root_cause,
+        workaround: form.workaround,
+        permanent_solution: form.permanent_solution,
+        is_public_kb: Some(true),
+    };
+
+    match ProblemService::create_kedb_article(&state.pool, dto, author_id).await {
+        Ok(_) => Redirect::to("/problems?tab=kedb&message=Artículo+KEDB+publicado+exitosamente").into_response(),
+        Err(e) => Redirect::to(&format!("/problems?tab=kedb&error={}", urlencoding::encode(&e.to_string()))).into_response(),
+    }
+}
+
+async fn handle_export_problem_to_kedb(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Path(id): Path<Uuid>,
+) -> Response {
+    let claims = match extract_claims_from_cookie(&headers, &state.config.jwt_secret) {
+        Some(c) => c,
+        None => return Redirect::to("/login").into_response(),
+    };
+
+    let author_id = Uuid::parse_str(&claims.sub).ok();
+
+    match ProblemService::create_kedb_from_problem(&state.pool, id, author_id, None).await {
+        Ok(k) => Redirect::to(&format!("/problems/{}?message=Publicado+en+KEDB+como+{}", id, k.kedb_number)).into_response(),
+        Err(e) => Redirect::to(&format!("/problems/{}?error={}", id, urlencoding::encode(&e.to_string()))).into_response(),
+    }
+}
+
+// ----------------------------------------------------------------------------
+// Change Enablement (RFC & CAB) Handlers
+// ----------------------------------------------------------------------------
+
+async fn show_changes(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Query(query): Query<ChangesQuery>,
+) -> Response {
+    let claims = match extract_claims_from_cookie(&headers, &state.config.jwt_secret) {
+        Some(c) => c,
+        None => return Redirect::to("/login").into_response(),
+    };
+
+    let user_initials = claims.display_name.chars().take(2).collect::<String>().to_uppercase();
+    let active_entity_name = get_entity_name(&state.pool, &claims.entity_id).await;
+    let active_tab = query.tab.unwrap_or_else(|| "changes".to_string());
+    let entity_uuid = Uuid::parse_str(&claims.entity_id).ok();
+
+    let changes = ChangeService::list_changes(
+        &state.pool,
+        entity_uuid,
+        query.status.as_deref(),
+        query.change_type.as_deref(),
+        query.search.as_deref(),
+        100,
+        0,
+    )
+    .await
+    .unwrap_or_default();
+
+    let users: Vec<UserSelectItem> = sqlx::query_as(
+        "SELECT id, realname AS name FROM users WHERE is_active = true ORDER BY realname ASC",
+    )
+    .fetch_all(&state.pool)
+    .await
+    .unwrap_or_default();
+
+    let groups: Vec<GroupSelectItem> = sqlx::query_as(
+        "SELECT id, name FROM groups ORDER BY name ASC",
+    )
+    .fetch_all(&state.pool)
+    .await
+    .unwrap_or_default();
+
+    let entities: Vec<EntitySelectItem> = sqlx::query_as(
+        "SELECT id, name, completeness, level FROM entities ORDER BY completeness ASC",
+    )
+    .fetch_all(&state.pool)
+    .await
+    .unwrap_or_default();
+
+    HtmlTemplate(ChangesTemplate {
+        current_username: claims.username,
+        current_display_name: claims.display_name,
+        current_profile_name: claims.profile_name,
+        user_initials,
+        active_entity_name,
+        active_nav: "changes".into(),
+        active_tab,
+        changes,
+        users,
+        groups,
+        entities,
+        selected_status: query.status,
+        selected_type: query.change_type,
+        search_query: query.search,
+        message: query.message,
+        error_message: query.error,
+    })
+    .into_response()
+}
+
+async fn show_new_change(
+    headers: HeaderMap,
+    State(state): State<AppState>,
+) -> Response {
+    if extract_claims_from_cookie(&headers, &state.config.jwt_secret).is_none() {
+        return Redirect::to("/login").into_response();
+    }
+    Redirect::to("/changes?open=new").into_response()
+}
+
+async fn handle_create_change(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Form(form): Form<CreateChangeWebForm>,
+) -> Response {
+    let claims = match extract_claims_from_cookie(&headers, &state.config.jwt_secret) {
+        Some(c) => c,
+        None => return Redirect::to("/login").into_response(),
+    };
+
+    let requester_id = Uuid::parse_str(&claims.sub).ok();
+
+    let dto = CreateChangeDto {
+        entity_id: form.entity_id.or_else(|| Uuid::parse_str(&claims.entity_id).ok()),
+        name: form.name,
+        content: form.content,
+        change_type: form.change_type,
+        urgency: form.urgency,
+        impact: form.impact,
+        risk_level: form.risk_level,
+        assigned_technician_id: form.assigned_technician_id,
+        assigned_group_id: None,
+        category: form.category,
+        impact_assessment: None,
+        implementation_plan: form.implementation_plan,
+        test_plan: None,
+        rollback_plan: form.rollback_plan,
+        scheduled_start: None,
+        scheduled_end: None,
+        cab_approver_ids: None,
+        problem_ids: None,
+        ticket_ids: None,
+        asset_ids: None,
+    };
+
+    match ChangeService::create_change(&state.pool, dto, requester_id).await {
+        Ok(c) => Redirect::to(&format!("/changes/{}?message=Solicitud+RFC+creada+exitosamente", c.id)).into_response(),
+        Err(e) => Redirect::to(&format!("/changes?error={}", urlencoding::encode(&e.to_string()))).into_response(),
+    }
+}
+
+async fn show_change_detail(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Path(id): Path<Uuid>,
+    Query(query): Query<ChangesQuery>,
+) -> Response {
+    let claims = match extract_claims_from_cookie(&headers, &state.config.jwt_secret) {
+        Some(c) => c,
+        None => return Redirect::to("/login").into_response(),
+    };
+
+    let user_initials = claims.display_name.chars().take(2).collect::<String>().to_uppercase();
+    let active_entity_name = get_entity_name(&state.pool, &claims.entity_id).await;
+    let current_user_id = Uuid::parse_str(&claims.sub).unwrap_or(Uuid::nil());
+
+    let change = match ChangeService::get_change_by_id(&state.pool, id).await {
+        Ok(Some(c)) => c,
+        _ => return Redirect::to("/changes?error=Cambio+no+encontrado").into_response(),
+    };
+
+    let users: Vec<UserSelectItem> = sqlx::query_as(
+        "SELECT id, realname AS name FROM users WHERE is_active = true ORDER BY realname ASC",
+    )
+    .fetch_all(&state.pool)
+    .await
+    .unwrap_or_default();
+
+    let groups: Vec<GroupSelectItem> = sqlx::query_as(
+        "SELECT id, name FROM groups ORDER BY name ASC",
+    )
+    .fetch_all(&state.pool)
+    .await
+    .unwrap_or_default();
+
+    HtmlTemplate(ChangeDetailTemplate {
+        current_username: claims.username,
+        current_display_name: claims.display_name,
+        current_profile_name: claims.profile_name,
+        user_initials,
+        active_entity_name,
+        active_nav: "changes".into(),
+        change,
+        users,
+        groups,
+        current_user_id,
+        message: query.message,
+        error_message: query.error,
+    })
+    .into_response()
+}
+
+async fn handle_update_change(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Path(id): Path<Uuid>,
+    Form(form): Form<UpdateChangeWebForm>,
+) -> Response {
+    if extract_claims_from_cookie(&headers, &state.config.jwt_secret).is_none() {
+        return Redirect::to("/login").into_response();
+    }
+
+    let dto = UpdateChangeDto {
+        name: None,
+        content: None,
+        change_type: form.change_type,
+        status: form.status,
+        urgency: form.urgency,
+        impact: form.impact,
+        risk_level: form.risk_level,
+        assigned_technician_id: form.assigned_technician_id,
+        assigned_group_id: None,
+        category: form.category,
+        impact_assessment: None,
+        implementation_plan: None,
+        test_plan: None,
+        rollback_plan: None,
+        scheduled_start: None,
+        scheduled_end: None,
+        actual_start: None,
+        actual_end: None,
+        pir_notes: form.pir_notes,
+    };
+
+    match ChangeService::update_change(&state.pool, id, dto).await {
+        Ok(_) => Redirect::to(&format!("/changes/{}?message=Dossier+RFC+actualizado+correctamente", id)).into_response(),
+        Err(e) => Redirect::to(&format!("/changes/{}?error={}", id, urlencoding::encode(&e.to_string()))).into_response(),
+    }
+}
+
+async fn handle_submit_cab_vote(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Path(id): Path<Uuid>,
+    Form(form): Form<SubmitCabVoteWebForm>,
+) -> Response {
+    let claims = match extract_claims_from_cookie(&headers, &state.config.jwt_secret) {
+        Some(c) => c,
+        None => return Redirect::to("/login").into_response(),
+    };
+
+    let approver_id = match Uuid::parse_str(&claims.sub) {
+        Ok(u) => u,
+        Err(_) => return Redirect::to(&format!("/changes/{}?error=Sesión+inválida", id)).into_response(),
+    };
+
+    let dto = SubmitCabVoteDto {
+        approval_status: form.approval_status,
+        comments: form.comments,
+    };
+
+    match ChangeService::submit_cab_vote(&state.pool, id, approver_id, dto).await {
+        Ok(_) => Redirect::to(&format!("/changes/{}?message=Voto+CAB+registrado+exitosamente", id)).into_response(),
+        Err(e) => Redirect::to(&format!("/changes/{}?error={}", id, urlencoding::encode(&e.to_string()))).into_response(),
+    }
+}
+
+async fn handle_add_cab_approver(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Path(id): Path<Uuid>,
+    Form(form): Form<AddCabApproverWebForm>,
+) -> Response {
+    if extract_claims_from_cookie(&headers, &state.config.jwt_secret).is_none() {
+        return Redirect::to("/login").into_response();
+    }
+
+    match ChangeService::add_cab_approver(&state.pool, id, form.approver_id).await {
+        Ok(_) => Redirect::to(&format!("/changes/{}?message=Revisor+agregado+al+CAB", id)).into_response(),
+        Err(e) => Redirect::to(&format!("/changes/{}?error={}", id, urlencoding::encode(&e.to_string()))).into_response(),
+    }
+}
+
+async fn handle_add_change_followup(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Path(id): Path<Uuid>,
+    Form(form): Form<CreateChangeFollowupWebForm>,
+) -> Response {
+    let claims = match extract_claims_from_cookie(&headers, &state.config.jwt_secret) {
+        Some(c) => c,
+        None => return Redirect::to("/login").into_response(),
+    };
+
+    let author_id = Uuid::parse_str(&claims.sub).ok();
+
+    let dto = CreateChangeFollowupDto {
+        content: form.content,
+        item_type: form.item_type,
+        is_private: Some(false),
+    };
+
+    let _ = ChangeService::add_followup(&state.pool, id, author_id, dto).await;
+    Redirect::to(&format!("/changes/{}?message=Entrada+registrada+en+la+bitácora", id)).into_response()
 }
 
 

@@ -1,0 +1,450 @@
+{% extends "layouts/base.html" %}
+
+{% block title %}Gestión de Problemas & KEDB - ITILSuite{% endblock %}
+
+{% block content %}
+<div class="tickets-page-container" style="display: flex; flex-direction: column; gap: 1.25rem;">
+  <!-- Header & Actions -->
+  <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 1rem;">
+    <div>
+      <div style="display: flex; align-items: center; gap: 0.5rem; font-size: 0.8rem; color: var(--text-muted); margin-bottom: 0.25rem;">
+        <span>Operaciones ITIL</span>
+        <span>/</span>
+        <span style="color: var(--text-primary); font-weight: 500;">Problem & Knowledge</span>
+      </div>
+      <h1 style="margin: 0; font-size: 1.5rem; font-weight: 700; color: var(--text-primary); display: flex; align-items: center; gap: 0.6rem;">
+        <span>🔍</span>
+        <span>Gestión de Problemas & Base de Errores Conocidos (KEDB)</span>
+      </h1>
+      <p style="margin: 0.25rem 0 0; font-size: 0.85rem; color: var(--text-secondary);">
+        Análisis de causa raíz (RCA), prevención de incidentes recurrentes y repositorio de soluciones temporales (Workarounds).
+      </p>
+    </div>
+
+    <div style="display: flex; align-items: center; gap: 0.75rem;">
+      <a href="/problems?tab={{ active_tab }}" class="btn btn-secondary" title="Actualizar datos">
+        <span>🔄</span>
+        <span>Refrescar</span>
+      </a>
+      <button type="button" class="btn btn-primary" onclick="openModal('modal-create-problem')">
+        <span>➕</span>
+        <span>Registrar Problema / RCA</span>
+      </button>
+    </div>
+  </div>
+
+  {% if let Some(msg) = message %}
+  <div class="alert alert-success" style="padding: 0.75rem 1rem; border-radius: 8px; background: rgba(16, 185, 129, 0.15); border: 1px solid rgba(16, 185, 129, 0.3); color: #10b981; font-size: 0.88rem;">
+    ✅ {{ msg }}
+  </div>
+  {% endif %}
+
+  {% if let Some(err) = error_message %}
+  <div class="alert alert-error" style="padding: 0.75rem 1rem; border-radius: 8px; background: rgba(239, 68, 68, 0.15); border: 1px solid rgba(239, 68, 68, 0.3); color: #ef4444; font-size: 0.88rem;">
+    ⚠️ {{ err }}
+  </div>
+  {% endif %}
+
+  <!-- KPI Cards -->
+  <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 1rem;">
+    <div class="dashboard-kpi-card">
+      <div style="font-size: 0.72rem; color: var(--text-muted); font-weight: 600; text-transform: uppercase;">Problemas Totales</div>
+      <div style="font-size: 1.6rem; font-weight: 800; color: var(--text-primary); margin-top: 0.25rem;">
+        {{ problems.len() }}
+      </div>
+      <div style="font-size: 0.75rem; color: var(--text-secondary); margin-top: 0.2rem;">En seguimiento activo</div>
+    </div>
+
+    <div class="dashboard-kpi-card">
+      <div style="font-size: 0.72rem; color: var(--text-muted); font-weight: 600; text-transform: uppercase;">Artículos en KEDB</div>
+      <div style="font-size: 1.6rem; font-weight: 800; color: #3b82f6; margin-top: 0.25rem;">
+        {{ kedb_articles.len() }}
+      </div>
+      <div style="font-size: 0.75rem; color: #3b82f6; margin-top: 0.2rem;">📚 Workarounds documentados</div>
+    </div>
+
+    <div class="dashboard-kpi-card">
+      <div style="font-size: 0.72rem; color: var(--text-muted); font-weight: 600; text-transform: uppercase;">Módulo ITIL</div>
+      <div style="font-size: 1.3rem; font-weight: 700; color: #10b981; margin-top: 0.25rem;">
+        Problem Mgmt
+      </div>
+      <div style="font-size: 0.75rem; color: #10b981; margin-top: 0.2rem;">Estabilidad de Infraestructura</div>
+    </div>
+
+    <div class="dashboard-kpi-card">
+      <div style="font-size: 0.72rem; color: var(--text-muted); font-weight: 600; text-transform: uppercase;">Siguiente Etapa</div>
+      <div style="font-size: 1.3rem; font-weight: 700; color: #8b5cf6; margin-top: 0.25rem;">
+        RFC & CAB
+      </div>
+      <div style="font-size: 0.75rem; color: var(--text-secondary); margin-top: 0.2rem;">Solución Definitiva</div>
+    </div>
+  </div>
+
+  <!-- Navigation Tabs: Problemas vs KEDB -->
+  <div style="display: flex; gap: 0.5rem; border-bottom: 1px solid var(--border-subtle); padding-bottom: 0.5rem;">
+    <a href="/problems?tab=problems" class="btn {% if active_tab == "problems" %}btn-primary{% else %}btn-secondary{% endif %}" style="font-size: 0.85rem;">
+      <span>🔍</span>
+      <span>Problemas & Análisis RCA ({{ problems.len() }})</span>
+    </a>
+    <a href="/problems?tab=kedb" class="btn {% if active_tab == "kedb" %}btn-primary{% else %}btn-secondary{% endif %}" style="font-size: 0.85rem;">
+      <span>📚</span>
+      <span>Base de Errores Conocidos - KEDB ({{ kedb_articles.len() }})</span>
+    </a>
+  </div>
+
+  {% if active_tab == "problems" %}
+  <!-- Tab 1: Problems List -->
+  <div class="card" style="display: flex; flex-direction: column; gap: 1rem;">
+    <!-- Filter bar -->
+    <form method="GET" action="/problems" style="display: flex; gap: 0.75rem; flex-wrap: wrap; align-items: center; margin: 0;">
+      <input type="hidden" name="tab" value="problems">
+      <div style="flex: 1; min-width: 220px;">
+        <input 
+          type="text" 
+          name="search" 
+          class="form-control" 
+          placeholder="Buscar por código, título, síntomas o causa raíz..." 
+          value="{% if let Some(q) = search_query %}{{ q }}{% endif %}"
+        >
+      </div>
+
+      <div style="width: 180px;">
+        <select name="status" class="form-control" onchange="this.form.submit()">
+          <option value="all">Todos los estados</option>
+          <option value="new" {% if selected_status.as_deref() == Some("new") %}selected{% endif %}>Nuevo</option>
+          <option value="investigation" {% if selected_status.as_deref() == Some("investigation") %}selected{% endif %}>En Investigación</option>
+          <option value="workaround_found" {% if selected_status.as_deref() == Some("workaround_found") %}selected{% endif %}>Solución Temporal</option>
+          <option value="known_error" {% if selected_status.as_deref() == Some("known_error") %}selected{% endif %}>Error Conocido</option>
+          <option value="resolved" {% if selected_status.as_deref() == Some("resolved") %}selected{% endif %}>Resuelto</option>
+          <option value="closed" {% if selected_status.as_deref() == Some("closed") %}selected{% endif %}>Cerrado</option>
+        </select>
+      </div>
+
+      <button type="submit" class="btn btn-secondary">
+        <span>🔍</span>
+        <span>Filtrar</span>
+      </button>
+    </form>
+
+    <!-- Table -->
+    <div style="overflow-x: auto;">
+      <table class="tickets-table">
+        <thead>
+          <tr>
+            <th>Código</th>
+            <th>Título del Problema</th>
+            <th>Estado ITIL</th>
+            <th>Prioridad</th>
+            <th>Impacto</th>
+            <th>Técnico Asignado</th>
+            <th>Tickets Afectados</th>
+            <th>Activos CMDB</th>
+            <th>Cambios RFC</th>
+            <th>Fecha Creación</th>
+            <th style="text-align: right;">Acciones</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% if problems.is_empty() %}
+          <tr>
+            <td colspan="11" style="text-align: center; padding: 2rem; color: var(--text-muted);">
+              No se encontraron registros de problemas bajo los criterios seleccionados.
+            </td>
+          </tr>
+          {% else %}
+          {% for p in problems %}
+          <tr>
+            <td style="font-family: var(--font-mono, monospace); font-weight: 700; color: var(--text-accent, #3b82f6);">
+              <a href="/problems/{{ p.id }}" style="color: inherit; text-decoration: none;">
+                {{ p.problem_number }}
+              </a>
+            </td>
+            <td>
+              <a href="/problems/{{ p.id }}" style="font-weight: 600; color: var(--text-primary); text-decoration: none;">
+                {{ p.name }}
+              </a>
+              {% if let Some(cat) = p.category.as_ref() %}
+              <div style="font-size: 0.72rem; color: var(--text-muted); margin-top: 0.15rem;">📁 {{ cat }}</div>
+              {% endif %}
+            </td>
+            <td>
+              <span class="status-pill {{ p.status_badge() }}" style="font-size: 0.72rem; padding: 0.2rem 0.55rem; border-radius: 9999px;">
+                {{ p.status_label() }}
+              </span>
+            </td>
+            <td>
+              <span style="font-weight: 700; font-size: 0.8rem; {% if p.priority >= 4 %}color: #ef4444;{% else if p.priority == 3 %}color: #f59e0b;{% else %}color: #10b981;{% endif %}">
+                P{{ p.priority }}
+              </span>
+            </td>
+            <td>
+              <span style="font-size: 0.8rem; color: var(--text-secondary);">
+                I{{ p.impact }} / U{{ p.urgency }}
+              </span>
+            </td>
+            <td>
+              {% if let Some(tech) = p.assigned_technician_name.as_ref() %}
+              <span style="font-size: 0.85rem; color: var(--text-primary);">👤 {{ tech }}</span>
+              {% else %}
+              <span style="font-size: 0.75rem; color: var(--text-muted); font-style: italic;">Sin asignar</span>
+              {% endif %}
+            </td>
+            <td style="text-align: center;">
+              <span class="badge" style="background: rgba(59, 130, 246, 0.15); color: #3b82f6; font-size: 0.75rem; padding: 0.2rem 0.5rem; border-radius: 4px;">
+                🎫 {{ p.linked_ticket_count }}
+              </span>
+            </td>
+            <td style="text-align: center;">
+              <span class="badge" style="background: rgba(16, 185, 129, 0.15); color: #10b981; font-size: 0.75rem; padding: 0.2rem 0.5rem; border-radius: 4px;">
+                🖥️ {{ p.linked_asset_count }}
+              </span>
+            </td>
+            <td style="text-align: center;">
+              <span class="badge" style="background: rgba(139, 92, 246, 0.15); color: #8b5cf6; font-size: 0.75rem; padding: 0.2rem 0.5rem; border-radius: 4px;">
+                🔄 {{ p.linked_change_count }}
+              </span>
+            </td>
+            <td style="font-size: 0.75rem; color: var(--text-muted);">
+              {{ p.created_at.format("%d/%m/%Y %H:%M") }}
+            </td>
+            <td style="text-align: right;">
+              <a href="/problems/{{ p.id }}" class="btn btn-secondary" style="padding: 0.3rem 0.65rem; font-size: 0.75rem;">
+                <span>Ver Ficha RCA</span>
+              </a>
+            </td>
+          </tr>
+          {% endfor %}
+          {% endif %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  {% else %}
+  <!-- Tab 2: KEDB Articles Catalog -->
+  <div class="card" style="display: flex; flex-direction: column; gap: 1rem;">
+    <div style="display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--border-subtle); padding-bottom: 0.75rem; flex-wrap: wrap; gap: 0.5rem;">
+      <div>
+        <h3 style="margin: 0; font-size: 1.05rem; font-weight: 700; color: var(--text-primary); display: flex; align-items: center; gap: 0.5rem;">
+          <span>📚</span>
+          <span>Base de Datos de Errores Conocidos (KEDB)</span>
+        </h3>
+        <span style="font-size: 0.8rem; color: var(--text-muted);">Repositorio oficial para técnicos de Helpdesk con soluciones de contingencia validadas</span>
+      </div>
+      <button type="button" class="btn btn-primary" onclick="openModal('modal-create-kedb')">
+        <span>➕</span>
+        <span>Publicar Artículo KEDB</span>
+      </button>
+    </div>
+
+    <!-- KEDB search bar -->
+    <form method="GET" action="/problems" style="display: flex; gap: 0.75rem; flex-wrap: wrap; align-items: center; margin: 0;">
+      <input type="hidden" name="tab" value="kedb">
+      <div style="flex: 1; min-width: 250px;">
+        <input 
+          type="text" 
+          name="search" 
+          class="form-control" 
+          placeholder="Buscar solución por síntomas, error o workaround..." 
+          value="{% if let Some(q) = search_query %}{{ q }}{% endif %}"
+        >
+      </div>
+      <button type="submit" class="btn btn-secondary">
+        <span>🔍</span>
+        <span>Buscar en KEDB</span>
+      </button>
+    </form>
+
+    <!-- Articles Grid -->
+    <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 1rem;">
+      {% if kedb_articles.is_empty() %}
+      <div style="grid-column: 1 / -1; text-align: center; padding: 2rem; color: var(--text-muted);">
+        No hay artículos registrados en la KEDB con los filtros aplicados.
+      </div>
+      {% else %}
+      {% for a in kedb_articles %}
+      <div class="card" style="border: 1px solid var(--border-subtle); border-radius: 8px; padding: 1rem; display: flex; flex-direction: column; gap: 0.75rem; background: var(--bg-surface-elevated, var(--bg-surface));">
+        <div style="display: flex; align-items: center; justify-content: space-between;">
+          <span style="font-family: var(--font-mono, monospace); font-weight: 700; color: #3b82f6; font-size: 0.82rem;">
+            {{ a.kedb_number }}
+          </span>
+          <span class="badge" style="background: rgba(16, 185, 129, 0.15); color: #10b981; font-size: 0.7rem; padding: 0.2rem 0.5rem; border-radius: 4px;">
+            👁️ {{ a.view_count }} consultas
+          </span>
+        </div>
+
+        <h4 style="margin: 0; font-size: 0.98rem; font-weight: 700; color: var(--text-primary); line-height: 1.3;">
+          {{ a.title }}
+        </h4>
+
+        {% if let Some(prb) = a.problem_number.as_ref() %}
+        <div style="font-size: 0.75rem; color: var(--text-muted);">
+          Vinculado a: <strong style="color: var(--text-primary);">{{ prb }}</strong>
+        </div>
+        {% endif %}
+
+        <div style="background: rgba(245, 158, 11, 0.08); border-left: 3px solid #f59e0b; padding: 0.5rem 0.75rem; border-radius: 4px;">
+          <div style="font-size: 0.7rem; font-weight: 700; color: #f59e0b; text-transform: uppercase;">Solución Temporal (Workaround):</div>
+          <div style="font-size: 0.82rem; color: var(--text-primary); margin-top: 0.25rem; white-space: pre-wrap; font-family: var(--font-mono, monospace);">{{ a.workaround }}</div>
+        </div>
+
+        <div style="display: flex; justify-content: space-between; align-items: center; font-size: 0.72rem; color: var(--text-muted); margin-top: auto; border-top: 1px solid var(--border-subtle); padding-top: 0.5rem;">
+          <span>Por: {{ a.author_name.as_deref().unwrap_or("Técnico Especialista") }}</span>
+          <span>{{ a.created_at.format("%d/%m/%Y %H:%M") }}</span>
+        </div>
+      </div>
+      {% endfor %}
+      {% endif %}
+    </div>
+  </div>
+  {% endif %}
+</div>
+
+<!-- Modal: Crear Problema -->
+<div id="modal-create-problem" class="modal-backdrop" style="display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 9999; align-items: center; justify-content: center; padding: 1rem;">
+  <div class="card" style="width: 100%; max-width: 650px; max-height: 90vh; overflow-y: auto; display: flex; flex-direction: column; gap: 1rem; position: relative;">
+    <div style="display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--border-subtle); padding-bottom: 0.75rem;">
+      <h3 style="margin: 0; font-size: 1.15rem; font-weight: 700; color: var(--text-primary); display: flex; align-items: center; gap: 0.5rem;">
+        <span>🔍</span>
+        <span>Registrar Nuevo Problema / Investigación RCA</span>
+      </h3>
+      <button type="button" class="btn btn-secondary" style="padding: 0.25rem 0.5rem;" onclick="closeModal('modal-create-problem')">✕</button>
+    </div>
+
+    <form method="POST" action="/problems" style="display: flex; flex-direction: column; gap: 1rem; margin: 0;">
+      <div>
+        <label class="form-label">Entidad Organizacional</label>
+        <select name="entity_id" class="form-control">
+          {% for ent in entities %}
+          <option value="{{ ent.id }}">{{ ent.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div>
+        <label class="form-label">Título del Problema <span style="color: #ef4444;">*</span></label>
+        <input type="text" name="name" class="form-control" placeholder="Ej: Degradación intermitente de base de datos..." required>
+      </div>
+
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+        <div>
+          <label class="form-label">Urgencia ITIL (1..5)</label>
+          <select name="urgency" class="form-control">
+            <option value="1">1 - Muy Baja</option>
+            <option value="2">2 - Baja</option>
+            <option value="3" selected>3 - Media</option>
+            <option value="4">4 - Alta</option>
+            <option value="5">5 - Crítica</option>
+          </select>
+        </div>
+        <div>
+          <label class="form-label">Impacto ITIL (1..5)</label>
+          <select name="impact" class="form-control">
+            <option value="1">1 - Muy Bajo</option>
+            <option value="2">2 - Bajo</option>
+            <option value="3" selected>3 - Medio</option>
+            <option value="4">4 - Alto</option>
+            <option value="5">5 - Mayor / General</option>
+          </select>
+        </div>
+      </div>
+
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+        <div>
+          <label class="form-label">Técnico Asignado</label>
+          <select name="assigned_technician_id" class="form-control">
+            <option value="">-- Sin Asignar --</option>
+            {% for u in users %}
+            <option value="{{ u.id }}">{{ u.name }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div>
+          <label class="form-label">Categoría</label>
+          <input type="text" name="category" class="form-control" placeholder="Ej: Infraestructura / Redes / BD">
+        </div>
+      </div>
+
+      <div>
+        <label class="form-label">Descripción General del Problema <span style="color: #ef4444;">*</span></label>
+        <textarea name="content" class="form-control" rows="3" placeholder="Contexto operativo y comportamiento anómalo recurrente..." required></textarea>
+      </div>
+
+      <div>
+        <label class="form-label">Síntomas Observados</label>
+        <textarea name="symptoms" class="form-control" rows="2" placeholder="Errores en logs, métricas alteradas, mensajes de error..."></textarea>
+      </div>
+
+      <div style="display: flex; justify-content: flex-end; gap: 0.75rem; border-top: 1px solid var(--border-subtle); padding-top: 0.75rem;">
+        <button type="button" class="btn btn-secondary" onclick="closeModal('modal-create-problem')">Cancelar</button>
+        <button type="submit" class="btn btn-primary">Registrar e Iniciar RCA</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Modal: Crear Artículo KEDB -->
+<div id="modal-create-kedb" class="modal-backdrop" style="display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 9999; align-items: center; justify-content: center; padding: 1rem;">
+  <div class="card" style="width: 100%; max-width: 650px; max-height: 90vh; overflow-y: auto; display: flex; flex-direction: column; gap: 1rem; position: relative;">
+    <div style="display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--border-subtle); padding-bottom: 0.75rem;">
+      <h3 style="margin: 0; font-size: 1.15rem; font-weight: 700; color: var(--text-primary); display: flex; align-items: center; gap: 0.5rem;">
+        <span>📚</span>
+        <span>Publicar Artículo en KEDB</span>
+      </h3>
+      <button type="button" class="btn btn-secondary" style="padding: 0.25rem 0.5rem;" onclick="closeModal('modal-create-kedb')">✕</button>
+    </div>
+
+    <form method="POST" action="/problems/kedb" style="display: flex; flex-direction: column; gap: 1rem; margin: 0;">
+      <div>
+        <label class="form-label">Título del Artículo <span style="color: #ef4444;">*</span></label>
+        <input type="text" name="title" class="form-control" placeholder="Ej: Mitigación ante caída de servicio X..." required>
+      </div>
+
+      <div>
+        <label class="form-label">Problema Raíz Asociado (Opcional)</label>
+        <select name="problem_id" class="form-control">
+          <option value="">-- No vincular a problema específico --</option>
+          {% for p in problems %}
+          <option value="{{ p.id }}">{{ p.problem_number }} - {{ p.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div>
+        <label class="form-label">Síntomas del Error <span style="color: #ef4444;">*</span></label>
+        <textarea name="error_symptoms" class="form-control" rows="2" placeholder="Qué experimenta el usuario o qué mensaje aparece en pantalla..." required></textarea>
+      </div>
+
+      <div>
+        <label class="form-label">Causa Raíz Confirmada <span style="color: #ef4444;">*</span></label>
+        <textarea name="root_cause" class="form-control" rows="2" placeholder="Motivo técnico comprobado de la falla..." required></textarea>
+      </div>
+
+      <div>
+        <label class="form-label">Solución Temporal (Workaround) <span style="color: #ef4444;">*</span></label>
+        <textarea name="workaround" class="form-control" rows="3" placeholder="Instrucciones paso a paso para sortear el fallo de inmediato..." required></textarea>
+      </div>
+
+      <div>
+        <label class="form-label">Solución Definitiva Propuesta (Opcional)</label>
+        <textarea name="permanent_solution" class="form-control" rows="2" placeholder="Cambio permanente o parche programado..."></textarea>
+      </div>
+
+      <div style="display: flex; justify-content: flex-end; gap: 0.75rem; border-top: 1px solid var(--border-subtle); padding-top: 0.75rem;">
+        <button type="button" class="btn btn-secondary" onclick="closeModal('modal-create-kedb')">Cancelar</button>
+        <button type="submit" class="btn btn-primary">Publicar en KEDB</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+  function openModal(id) {
+    const m = document.getElementById(id);
+    if (m) m.style.display = 'flex';
+  }
+  function closeModal(id) {
+    const m = document.getElementById(id);
+    if (m) m.style.display = 'none';
+  }
+</script>
+{% endblock %}
