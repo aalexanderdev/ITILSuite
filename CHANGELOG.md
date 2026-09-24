@@ -8,6 +8,42 @@ All notable changes to this project will be documented in this file in accordanc
 
 ---
 
+## [0.0.9] - 2026-09-24
+
+### Added
+* **ITIL Problem Management & Root Cause Analysis (RCA)**:
+  * Complete Problem lifecycle state machine (`new`, `investigation`, `workaround_found`, `known_error`, `resolved`, `closed`).
+  * 4-Box Technical Dossier for RCA investigation: Symptoms, Root Cause, Workaround, and Permanent Solution.
+  * Relational links connecting Problems to Service Desk Tickets (`problem_tickets`), CMDB Assets (`problem_assets`), and Changes (`change_problems`).
+  * Timeline followups with support for private technician notes and formal solution proposals (`problem_followups`).
+  * Interactive SSR management console at `/problems` with real-time KPI metric cards (Active Problems, In Investigation, KEDB Articles, Solved Rate) and HTMX-driven filtering.
+  * Detailed Problem Dossier page at `/problems/:id` with quick KEDB article generation and status transitions.
+* **Known Error Database (KEDB)**:
+  * Dedicated KEDB subsystem (`kedb_articles`) for documenting proven workarounds and standard temporary remediations.
+  * 1-click publishing workflow from existing Problem technical dossiers or manual creation.
+  * Article lifecycle states (`draft`, `published`, `deprecated`) and public/private knowledge base toggling (`is_public_kb`).
+  * Dual-tab integration on `/problems?tab=kedb` with instant search and view counters.
+  * REST API endpoints under `/api/v1/kedb` with OpenAPI 3.0 / Swagger documentation.
+* **ITIL Change Enablement & Requests for Change (RFC)**:
+  * Request for Change (RFC) lifecycle (`draft`, `evaluation`, `cab_review`, `approved`, `scheduled`, `in_progress`, `review_pir`, `closed`, `rejected`, `canceled`).
+  * Standardized Change Types (`standard`, `normal`, `emergency`) with automated ITIL Risk Assessment matrix (`low`, `medium`, `high`, `critical`).
+  * 4-Plan Change Dossier: Impact Assessment, Implementation Plan, Verification / Test Plan, and Fallback / Rollback Plan.
+  * Post-Implementation Review (PIR) logging and execution scheduling with planned vs actual maintenance window tracking.
+  * SSR management console at `/changes` and detail dossier at `/changes/:id`.
+* **Change Advisory Board (CAB) & Multi-Party Approval Workflow**:
+  * Formal CAB voting workflow with dynamic approver assignment (`change_approvals`).
+  * Granular approval decisions (`pending`, `approved`, `rejected`, `more_info_needed`) with technical justifications and timestamps.
+  * Real-time CAB approval tally (`X/Y Aprobados`) and interactive in-dossier voting forms for authorized reviewers.
+  * Timeline tracking of all RFC amendments and CAB comments (`change_followups`).
+* **Floating Dock & Navigation Integration**:
+  * Updated bottom floating Dock (`dock.html`) with direct links and status indicators for Problems (`/problems`), KEDB (`/problems?tab=kedb`), and Changes (`/changes`).
+  * Contextual dropup quick-actions for "Nuevo Problema" and "Nueva Solicitud de Cambio (RFC)".
+* **REST API & OpenAPI Specification**:
+  * High-performance endpoints for `/api/v1/problems`, `/api/v1/problems/:id`, `/api/v1/kedb`, `/api/v1/changes`, `/api/v1/changes/:id`, and `/api/v1/changes/:id/approvals`.
+  * Comprehensive OpenAPI schemas and Swagger UI tags for Problems, KEDB, and Change Enablement.
+
+---
+
 ## [0.0.8] - 2026-09-23
 
 ### Added

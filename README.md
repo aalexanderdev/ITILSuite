@@ -8,7 +8,7 @@
 <div align="center">
 
 [![License: GPL-3.0-or-later](https://img.shields.io/badge/License-GPL--3.0--or--later-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
-[![Version](https://img.shields.io/badge/version-0.0.8-informational.svg)](https://github.com/aalexanderdev/ITILSuite/releases)
+[![Version](https://img.shields.io/badge/version-0.0.9-informational.svg)](https://github.com/aalexanderdev/ITILSuite/releases)
 [![Downloads](https://img.shields.io/github/downloads/aalexanderdev/ITILSuite/total.svg?color=blue)](https://github.com/aalexanderdev/ITILSuite/releases)
 [![Mastodon](https://img.shields.io/badge/Mastodon-@aalexander-6364FF.svg?logo=mastodon&logoColor=white)](https://mastodon.social/@aalexander)
 [![Rust](https://img.shields.io/badge/rust-1.75%2B-orange.svg)](https://www.rust-lang.org/)
@@ -31,7 +31,7 @@ GLPI is an industry standard for IT service and asset management across enterpri
 
 ---
 
-## Key Features (v0.0.8)
+## Key Features (v0.0.9)
 
 ### 1. Multi-Tenant Entity Hierarchy & RBAC
 * Recursive entity tree (`/entities`) with full hierarchical path calculation (`Root Entity > Regional > Dept`).
@@ -121,9 +121,25 @@ GLPI is an industry standard for IT service and asset management across enterpri
 * **Campaign Background Tick Worker**: Tokio interval task evaluating drip intervals, trigger events (e.g. ticket resolution, asset lifecycle milestones), and automated next steps.
 * **Unified 6-Tab SSR Console (`/campaigns`)**: Integrated interface for Campañas, Segmentos, Contactos, Plantillas, Automatizaciones y Analítica.
 
-### 11. Floating Dock Navigation & User Experience
-* **Interactive Floating Dock (`dock.html`)**: Bottom navigation bar providing one-click access and contextual flyout menus across all 12 system domains:
+### 11. ITIL Problem Management & Known Error Database (KEDB)
+* **Comprehensive Problem Lifecycles (`/problems`)**: Full ITIL problem state transitions (`New`, `Investigation`, `Workaround Found`, `Known Error (KEDB)`, `Resolved`, `Closed`) with urgency x impact matrix calculation.
+* **4-Box Root Cause Analysis (RCA) Technical Dossier**: Structured capture of Symptoms, Root Cause, Temporary Workaround, and Permanent Solution (`/problems/:id`).
+* **Cross-Cutting Relational Topology**: Many-to-many bidirectional linking connecting Problems to Incident Tickets (`problem_tickets`), CMDB Assets (`problem_assets`), and RFC Changes (`change_problems`).
+* **Known Error Database Subsystem (`kedb_articles`)**: Instant 1-click publishing of vetted workarounds from Problems directly into the organizational KEDB. Public vs internal knowledge base flags, category taxonomy, and real-time view tracking.
+* **REST & OpenAPI Endpoints (`/api/v1/problems`, `/api/v1/kedb`)**: High-performance RESTful management with Swagger UI interactive documentation.
+
+### 12. ITIL Change Enablement & Change Advisory Board (CAB)
+* **Request for Change (RFC) Governance (`/changes`)**: Complete change lifecycle (`Draft`, `Evaluation`, `CAB Review`, `Approved`, `Scheduled`, `In Progress`, `PIR Review`, `Closed`, `Rejected`, `Canceled`).
+* **Standardized Change Types & Risk Assessment**: Classification for Standard, Normal, and Emergency changes with automated Risk Level grading (`Low`, `Medium`, `High`, `Critical`).
+* **4-Plan Technical Dossier (`/changes/:id`)**: Formalization of Impact Assessment, Implementation Plan, Test & Verification Plan, and Fallback / Rollback Plan.
+* **Change Advisory Board (CAB) Multi-Party Voting Engine**: Dynamic approver rosters (`change_approvals`), granular voting (`Approved`, `Rejected`, `More Info Needed`) with technical justifications, and live approval progress meters (`X/Y Aprobados`).
+* **Timeline Followups & PIR Execution**: Change execution audit logging, planned vs actual maintenance windows, and Post-Implementation Review (PIR) capture.
+
+### 13. Floating Dock Navigation & User Experience
+* **Interactive Floating Dock (`dock.html`)**: Bottom navigation bar providing one-click access and contextual flyout menus across all 14 system domains:
   * Service Desk (`/tickets`, `/tickets/new`)
+  * Problem Management (`/problems`, `/problems?tab=kedb`)
+  * Change Enablement & CAB (`/changes`)
   * CMDB & Assets (`/assets`, `/computers`, `/network`)
   * HelpdeskChat (`/chat-analytics`)
   * Customer Surveys (`/surveys`)
